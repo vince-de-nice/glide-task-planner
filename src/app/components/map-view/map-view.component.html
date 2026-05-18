@@ -1,0 +1,9 @@
+<div class="map-panel" [class.compact]="compact()">
+  <div class="map-toolbar">
+    <button type="button" class="vav-btn vav-btn--secondary vav-btn--sm" (click)="centerOnTask()">Centrer tâche</button>
+    <button type="button" class="vav-btn vav-btn--secondary vav-btn--sm" (click)="centerOnAll()">Tous les points</button>
+    <button type="button" class="vav-btn vav-btn--ghost vav-btn--sm" (click)="clearSelection()">Effacer</button>
+  </div>
+  <div id="declaration-map" class="map-container"></div>
+  <p class="map-hint">Marqueur : ajouter une occurrence · Carte vide : nouveau point personnalisé</p>
+</div>

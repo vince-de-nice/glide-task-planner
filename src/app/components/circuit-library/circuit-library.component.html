@@ -1,0 +1,105 @@
+<section class="circuit-library">
+  <header class="lib-header">
+    <h3>Bibliothèque de circuits</h3>
+    <p class="lib-desc">Enregistrement local avec profil FLARM. Exportez le JSON pour un autre poste ou pilote.</p>
+  </header>
+
+  @if (importMessage()) {
+    <p class="vav-alert vav-alert--success import-msg">{{ importMessage() }}</p>
+  }
+
+  <div class="quick-load">
+    <label class="vav-label" for="quickCircuit">Chargement rapide</label>
+    <select id="quickCircuit" class="vav-select" (change)="onQuickSelect($event)" [disabled]="circuits().length === 0">
+      <option value="">— Choisir un circuit —</option>
+      @for (c of circuits(); track c.id) {
+        <option [value]="c.id">
+          {{ c.label }} ({{ c.waypoints.length }} pts)@if (c.profile.pilotName) { — {{ c.profile.pilotName }} }
+        </option>
+      }
+    </select>
+  </div>
+
+  <div class="save-panel">
+    <h4>{{ editingId() ? 'Mettre à jour' : 'Enregistrer le circuit actuel' }}</h4>
+    <div class="save-fields">
+      <input
+        type="text"
+        class="vav-input"
+        placeholder="Nom du circuit (ex. 500 km Vinon)"
+        [ngModel]="saveLabel()"
+        (ngModelChange)="saveLabel.set($event)"
+      />
+      <input
+        type="text"
+        class="vav-input"
+        placeholder="Note (pilote, machine…)"
+        [ngModel]="saveNotes()"
+        (ngModelChange)="saveNotes.set($event)"
+      />
+    </div>
+    <div class="save-actions">
+      <button
+        type="button"
+        class="vav-btn vav-btn--success"
+        (click)="requestSave()"
+        [disabled]="!canSave() || (!saveLabel().trim() && !editingId())"
+      >
+        {{ editingId() ? 'Mettre à jour' : 'Enregistrer' }}
+      </button>
+      @if (editingId()) {
+        <button type="button" class="vav-btn vav-btn--ghost" (click)="cancelUpdate()">Annuler</button>
+      }
+    </div>
+    @if (!canSave()) {
+      <p class="hint">Au moins 2 points requis dans la tâche.</p>
+    }
+  </div>
+
+  <div class="lib-toolbar">
+    <input
+      type="search"
+      class="vav-input filter-input"
+      placeholder="Filtrer…"
+      [ngModel]="filterQuery()"
+      (ngModelChange)="filterQuery.set($event)"
+    />
+    <button type="button" class="vav-btn vav-btn--secondary vav-btn--sm" (click)="exportAll()" [disabled]="circuits().length === 0">
+      Exporter
+    </button>
+    <label class="vav-btn vav-btn--secondary vav-btn--sm file-btn">
+      Importer
+      <input type="file" accept=".json,application/json" (change)="onImportFile($event)" hidden />
+    </label>
+  </div>
+
+  <ul class="circuit-list vav-scroll">
+    @for (c of filteredCircuits(); track c.id) {
+      <li [class.active]="isActive(c.id)">
+        <button type="button" class="circuit-main" (click)="loadCircuit(c.id)">
+          <span class="circuit-title">{{ c.label }}</span>
+          <span class="circuit-meta">{{ c.waypoints.length }} pts · {{ c.taskName }} · {{ circuitSummary(c) }}</span>
+          <span class="circuit-date">{{ c.updatedAt | date: 'short' }}</span>
+          @if (c.notes) {
+            <span class="circuit-notes">{{ c.notes }}</span>
+          }
+        </button>
+        <div class="circuit-actions">
+          <button type="button" class="vav-btn vav-btn--ghost vav-btn--icon" title="Charger" (click)="loadCircuit(c.id)">↵</button>
+          <button type="button" class="vav-btn vav-btn--ghost vav-btn--icon" title="Mettre à jour" (click)="startUpdate(c, $event)">✎</button>
+          <button type="button" class="vav-btn vav-btn--ghost vav-btn--icon" title="Dupliquer" (click)="duplicateCircuit(c.id, $event)">⧉</button>
+          <button type="button" class="vav-btn vav-btn--ghost vav-btn--icon" title="Renommer" (click)="startRename(c, $event)">Aa</button>
+          <button type="button" class="vav-btn vav-btn--ghost vav-btn--icon danger" title="Supprimer" (click)="deleteCircuit(c.id, $event)">×</button>
+        </div>
+      </li>
+    } @empty {
+      <li class="empty">
+        @if (circuits().length === 0) {
+          Aucun circuit — enregistrez la tâche courante ci-dessus.
+        } @else {
+          Aucun résultat pour ce filtre.
+        }
+      </li>
+    }
+  </ul>
+</section>

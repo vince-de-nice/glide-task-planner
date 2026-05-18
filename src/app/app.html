@@ -1,0 +1,31 @@
+<div class="app-container">
+  <header class="app-header">
+    <div class="header-content">
+      <div class="logo">
+        <h1>VAV</h1>
+        <p class="tagline">Déclaration de vol FLARM</p>
+      </div>
+      <nav class="main-nav">
+        <a routerLink="/declaration" routerLinkActive="active" class="nav-link">
+          Déclaration
+        </a>
+        <a routerLink="/waypoints" routerLinkActive="active" class="nav-link">
+          Waypoints
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <router-outlet />
+  </main>
+
+  <footer class="app-footer">
+    <p>&copy; {{ currentYear }} VAV — Génération de flarmcfg.txt pour planeur</p>
+    <p class="footer-links">
+      <a href="https://sourceforge.net/projects/vav/" target="_blank" rel="noopener">
+        Projet VAV d'origine
+      </a>
+    </p>
+  </footer>
+</div>

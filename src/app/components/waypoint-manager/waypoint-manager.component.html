@@ -1,0 +1,114 @@
+<div class="waypoint-manager">
+  <header class="wp-header">
+    <div class="wp-header__text">
+      <h2>Gestion des waypoints</h2>
+      <p class="wp-header__hint">
+        Pour composer une tâche FLARM, utilisez la page
+        <a routerLink="/declaration">Déclaration</a>.
+      </p>
+    </div>
+    <div class="wp-header__actions">
+      <button type="button" class="vav-btn vav-btn--secondary vav-btn--sm" (click)="exportJson()">Exporter JSON</button>
+      <label class="vav-btn vav-btn--secondary vav-btn--sm file-btn">
+        Importer JSON
+        <input type="file" accept=".json,application/json" (change)="onImportJson($event)" hidden />
+      </label>
+      <button
+        type="button"
+        class="vav-btn vav-btn--ghost vav-btn--sm wp-btn-danger"
+        (click)="clearAll()"
+        [disabled]="waypoints().length === 0"
+      >
+        Tout effacer
+      </button>
+      <button type="button" class="vav-btn vav-btn--primary vav-btn--sm" (click)="toggleAddForm()">
+        {{ showAddForm() ? 'Fermer' : 'Ajouter' }}
+      </button>
+    </div>
+  </header>
+
+  @if (importMessage()) {
+    <p class="vav-alert vav-alert--success">{{ importMessage() }}</p>
+  }
+
+  @if (showAddForm()) {
+    <section class="wp-form vav-card">
+      <h3>{{ editingWaypoint() ? 'Modifier le waypoint' : 'Nouveau waypoint' }}</h3>
+      <form (ngSubmit)="saveWaypoint()">
+        <div class="wp-form__grid">
+          <label class="wp-field">
+            <span class="vav-label">Nom *</span>
+            <input class="vav-input" type="text" [(ngModel)]="newWaypoint().name" name="name" required />
+          </label>
+          <label class="wp-field">
+            <span class="vav-label">Type</span>
+            <select class="vav-select" [(ngModel)]="newWaypoint().type" name="type">
+              @for (t of waypointTypes; track t.value) {
+                <option [value]="t.value">{{ t.label }}</option>
+              }
+            </select>
+          </label>
+          <label class="wp-field">
+            <span class="vav-label">Latitude *</span>
+            <input class="vav-input" type="number" step="any" [(ngModel)]="newWaypoint().latitude" name="latitude" required />
+          </label>
+          <label class="wp-field">
+            <span class="vav-label">Longitude *</span>
+            <input class="vav-input" type="number" step="any" [(ngModel)]="newWaypoint().longitude" name="longitude" required />
+          </label>
+          <label class="wp-field">
+            <span class="vav-label">Altitude (m)</span>
+            <input class="vav-input" type="number" [(ngModel)]="newWaypoint().elevation" name="elevation" />
+          </label>
+        </div>
+        <label class="wp-field wp-field--full">
+          <span class="vav-label">Description</span>
+          <textarea class="vav-textarea" [(ngModel)]="newWaypoint().description" name="description" rows="3"></textarea>
+        </label>
+        <div class="wp-form__actions">
+          <button type="submit" class="vav-btn vav-btn--success">
+            {{ editingWaypoint() ? 'Mettre à jour' : 'Ajouter' }}
+          </button>
+          <button type="button" class="vav-btn vav-btn--ghost" (click)="cancelEdit()">Annuler</button>
+        </div>
+      </form>
+    </section>
+  }
+
+  @if (waypoints().length > 0) {
+    <div class="wp-table-wrap vav-card">
+      <table class="wp-table">
+        <thead>
+          <tr>
+            <th>Nom</th>
+            <th>Type</th>
+            <th class="wp-hide-sm">Latitude</th>
+            <th class="wp-hide-sm">Longitude</th>
+            <th class="wp-hide-sm">Alt.</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (waypoint of waypoints(); track waypoint.id) {
+            <tr>
+              <td>
+                <strong>{{ waypoint.name }}</strong>
+                <span class="wp-coords wp-show-sm">{{ waypoint.latitude.toFixed(4) }}, {{ waypoint.longitude.toFixed(4) }}</span>
+              </td>
+              <td><span class="wp-badge">{{ typeLabel(waypoint.type) }}</span></td>
+              <td class="wp-hide-sm">{{ waypoint.latitude.toFixed(6) }}</td>
+              <td class="wp-hide-sm">{{ waypoint.longitude.toFixed(6) }}</td>
+              <td class="wp-hide-sm">{{ waypoint.elevation || '—' }}</td>
+              <td class="wp-actions">
+                <button type="button" class="vav-btn vav-btn--ghost vav-btn--sm" (click)="editWaypoint(waypoint)">Modifier</button>
+                <button type="button" class="vav-btn vav-btn--ghost vav-btn--sm wp-btn-danger" (click)="deleteWaypoint(waypoint.id)">Suppr.</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else {
+    <p class="wp-empty vav-card">Aucun waypoint. Chargez une base sur la page Déclaration ou ajoutez-en manuellement.</p>
+  }
+</div>

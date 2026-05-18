@@ -1,0 +1,85 @@
+@import 'leaflet/dist/leaflet.css';
+
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.map-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+.map-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+  flex-shrink: 0;
+
+  .vav-btn {
+    flex: 1 1 auto;
+    min-width: fit-content;
+  }
+}
+
+.map-container {
+  flex: 1;
+  min-height: 200px;
+  border-radius: var(--vav-radius-sm);
+  border: 1px solid var(--vav-border-strong);
+  z-index: 0;
+  overflow: hidden;
+}
+
+.map-hint {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--vav-text-muted);
+  margin: 0.4rem 0 0;
+  line-height: 1.35;
+}
+
+:host ::ng-deep .vav-marker {
+  background: transparent;
+  border: none;
+}
+
+:host ::ng-deep .poi-popup {
+  min-width: 200px;
+
+  input {
+    width: 100%;
+    margin: 0.5rem 0;
+    padding: 0.5rem;
+    border: 1px solid var(--vav-border);
+    border-radius: var(--vav-radius-sm);
+    box-sizing: border-box;
+  }
+
+  .poi-coords {
+    font-size: 0.8rem;
+    color: var(--vav-text-muted);
+    margin: 0.25rem 0;
+  }
+
+  .poi-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+
+    button {
+      min-height: 36px;
+      padding: 0.35rem 0.75rem;
+      border-radius: var(--vav-radius-sm);
+      border: 1px solid var(--vav-border);
+      background: var(--vav-surface);
+      cursor: pointer;
+    }
+  }
+}
