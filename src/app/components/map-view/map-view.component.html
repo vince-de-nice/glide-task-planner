@@ -4,6 +4,16 @@
     <button type="button" class="vav-btn vav-btn--secondary vav-btn--sm" (click)="centerOnAll()">Tous les points</button>
     <button type="button" class="vav-btn vav-btn--ghost vav-btn--sm" (click)="clearSelection()">Effacer</button>
   </div>
-  <div id="declaration-map" class="map-container"></div>
-  <p class="map-hint">Marqueur : ajouter une occurrence · Carte vide : nouveau point personnalisé</p>
+  <div
+    class="map-container"
+    leaflet
+    [leafletOptions]="mapOptions"
+    (leafletMapReady)="onMapReady($event)"
+    (leafletClick)="onMapClick($event)"
+    (leafletMapMoveEnd)="onMapViewChanged()"
+    (leafletMapZoomEnd)="onMapViewChanged()"
+  ></div>
+  <p class="map-hint">
+    Fond satellite Esri · zoomez pour le catalogue (max. 350 pts) · clic : ajouter au circuit
+  </p>
 </div>

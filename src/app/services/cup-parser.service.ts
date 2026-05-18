@@ -131,21 +131,34 @@ export class CupParserService {
   }
 
   private parseCoordinate(coord: string): number {
-    // CUP format: DDMM.MMMN or DDMM.MMMS (degrees, minutes, decimal minutes)
-    // Example: 5147.809N = 51° 47.809' N
+    // SeeYou CUP : latitude DDMM.MMMH, longitude DDDMM.MMMH (H = N/S/E/W)
+    // Ex. 4344.167N → 43° 44.167', 00547.000E → 5° 47.000'
     const cleaned = coord.trim().toUpperCase();
     const direction = cleaned.slice(-1);
+    if (!['N', 'S', 'E', 'W'].includes(direction)) {
+      throw new Error(`Hémisphère invalide : ${coord}`);
+    }
+
     const numericPart = cleaned.slice(0, -1);
-    
-    const degrees = parseInt(numericPart.slice(0, -5));
-    const minutes = parseFloat(numericPart.slice(-5));
-    
-    let decimal = degrees + (minutes / 60);
-    
+    const degreeDigits = direction === 'E' || direction === 'W' ? 3 : 2;
+
+    if (numericPart.length <= degreeDigits) {
+      throw new Error(`Coordonnée CUP invalide : ${coord}`);
+    }
+
+    const degrees = parseInt(numericPart.slice(0, degreeDigits), 10);
+    const minutes = parseFloat(numericPart.slice(degreeDigits));
+
+    if (Number.isNaN(degrees) || Number.isNaN(minutes)) {
+      throw new Error(`Coordonnée CUP invalide : ${coord}`);
+    }
+
+    let decimal = degrees + minutes / 60;
+
     if (direction === 'S' || direction === 'W') {
       decimal = -decimal;
     }
-    
+
     return decimal;
   }
 

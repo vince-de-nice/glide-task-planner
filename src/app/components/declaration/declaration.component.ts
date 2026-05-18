@@ -27,7 +27,7 @@ import { FlarmDeclaration } from '../../models/flarm-profile.model';
 import { Waypoint, WaypointTypeFilter } from '../../models/waypoint.model';
 import { FlarmProfileService } from '../../services/flarm-profile.service';
 
-type MobileTab = 'list' | 'map' | 'task';
+type MobileTab = 'map' | 'task';
 
 @Component({
   selector: 'app-declaration',
@@ -61,12 +61,18 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   typeFilter = signal<WaypointTypeFilter>('all');
   currentPage = signal(1);
   pageSize = signal(40);
-  mobileTab = signal<MobileTab>('list');
+  mobileTab = signal<MobileTab>('map');
+  waypointDialogOpen = signal(false);
+  pilotDialogOpen = signal(false);
+  previewDialogOpen = signal(false);
+  circuitsDialogOpen = signal(false);
   distanceResult = signal<DistanceResult | null>(null);
   loadError = signal<string | null>(null);
   loading = signal(false);
   copyFeedback = signal(false);
   circuitMessage = signal<string | null>(null);
+  addToast = signal<string | null>(null);
+  private addToastTimer: ReturnType<typeof setTimeout> | null = null;
 
   selectedWaypoints = computed(() =>
     this.selectedWaypointIds()
@@ -177,6 +183,63 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     this.mapView?.invalidateSize();
   }
 
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    if (this.waypointDialogOpen()) {
+      this.closeWaypointDialog();
+    } else if (this.previewDialogOpen()) {
+      this.closePreviewDialog();
+    } else if (this.pilotDialogOpen()) {
+      this.closePilotDialog();
+    } else if (this.circuitsDialogOpen()) {
+      this.closeCircuitsDialog();
+    }
+  }
+
+  openWaypointDialog(): void {
+    if (this.waypoints().length === 0) return;
+    this.waypointDialogOpen.set(true);
+  }
+
+  closeWaypointDialog(): void {
+    this.waypointDialogOpen.set(false);
+    setTimeout(() => this.mapView?.invalidateSize(), 250);
+  }
+
+  openPilotDialog(): void {
+    this.pilotDialogOpen.set(true);
+  }
+
+  closePilotDialog(): void {
+    this.pilotDialogOpen.set(false);
+  }
+
+  openPreviewDialog(): void {
+    if (!this.flarmPreview()) return;
+    this.previewDialogOpen.set(true);
+  }
+
+  closePreviewDialog(): void {
+    this.previewDialogOpen.set(false);
+  }
+
+  openCircuitsDialog(): void {
+    this.circuitsDialogOpen.set(true);
+  }
+
+  closeCircuitsDialog(): void {
+    this.circuitsDialogOpen.set(false);
+  }
+
+  private showAddToast(message: string): void {
+    this.addToast.set(message);
+    if (this.addToastTimer) clearTimeout(this.addToastTimer);
+    this.addToastTimer = setTimeout(() => {
+      this.addToast.set(null);
+      this.addToastTimer = null;
+    }, 2200);
+  }
+
   private async initCatalog(): Promise<void> {
     try {
       const cat = await this.cupLoader.loadCatalog();
@@ -276,8 +339,9 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     this.goToPage(this.currentPage() + 1);
   }
 
-  onWaypointRowClick(id: string): void {
+  onWaypointRowClick(id: string, name: string): void {
     this.taskState.addWaypoint(id);
+    this.showAddToast(`« ${name} » ajouté au circuit`);
   }
 
   moveWaypoint(index: number, direction: 'up' | 'down'): void {
@@ -359,14 +423,17 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     this.flarmProfileService.updateProfile(applied.profile);
     this.taskState.loadTask(applied.waypointIds, applied.taskName);
     this.calculateDistance();
+    this.closeCircuitsDialog();
     this.setMobileTab('task');
     this.circuitMessage.set('Circuit chargé — vérifiez pilote / planeur puis exportez le FLARM.');
+    setTimeout(() => this.circuitMessage.set(null), 5000);
   }
 
   setMobileTab(tab: MobileTab): void {
     this.mobileTab.set(tab);
     if (tab === 'map') {
-      setTimeout(() => this.mapView?.invalidateSize(), 200);
+      setTimeout(() => this.mapView?.invalidateSize(), 50);
+      setTimeout(() => this.mapView?.invalidateSize(), 300);
     }
   }
 

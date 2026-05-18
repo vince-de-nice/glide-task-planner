@@ -1,17 +1,18 @@
-@import 'leaflet/dist/leaflet.css';
-
 :host {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .map-panel {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
+  width: 100%;
   height: 100%;
 }
 
@@ -28,13 +29,16 @@
   }
 }
 
+/* ngx-leaflet applique .leaflet-container sur cet élément */
 .map-container {
-  flex: 1;
-  min-height: 200px;
+  flex: 1 1 auto;
+  min-height: 220px;
+  width: 100%;
+  height: 100%;
   border-radius: var(--vav-radius-sm);
   border: 1px solid var(--vav-border-strong);
-  z-index: 0;
   overflow: hidden;
+  background: #1e293b;
 }
 
 .map-hint {

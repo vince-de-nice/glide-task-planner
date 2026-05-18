@@ -2,24 +2,54 @@ import {
   Component,
   inject,
   input,
-  OnDestroy,
-  AfterViewInit,
-  effect
+  OnInit,
+  effect,
+  ViewChild
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { LeafletDirective } from '@bluehalo/ngx-leaflet';
+import {
+  latLng,
+  tileLayer,
+  layerGroup,
+  marker,
+  polyline,
+  divIcon,
+  popup,
+  Map,
+  MapOptions,
+  LeafletMouseEvent,
+  LayerGroup,
+  Polyline
+} from 'leaflet';
 import { WaypointService } from '../../services/waypoint.service';
 import { TaskStateService } from '../../services/task-state.service';
 import { Waypoint, WaypointType } from '../../models/waypoint.model';
-import * as L from 'leaflet';
+
+const MAX_CATALOG_MARKERS_IN_VIEW = 350;
+const MIN_ZOOM_FOR_CATALOG_MARKERS = 9;
+
+const SATELLITE_TILES = {
+  url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  attribution:
+    'Imagerie &copy; <a href="https://www.esri.com/">Esri</a> — Esri, Maxar, Earthstar Geographics'
+};
+
+const SATELLITE_LABELS = {
+  url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+  maxZoom: 19
+};
 
 @Component({
   selector: 'app-map-view',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LeafletDirective],
   templateUrl: './map-view.component.html',
   styleUrls: ['./map-view.component.scss']
 })
-export class MapViewComponent implements OnDestroy, AfterViewInit {
+export class MapViewComponent implements OnInit {
+  @ViewChild(LeafletDirective) private leaflet?: LeafletDirective;
+
   private waypointService = inject(WaypointService);
   private taskState = inject(TaskStateService);
 
@@ -28,59 +58,161 @@ export class MapViewComponent implements OnDestroy, AfterViewInit {
   waypoints = this.waypointService.waypoints;
   selectedWaypointIds = this.taskState.selectedWaypointIds;
 
-  private map: L.Map | null = null;
-  private markersLayer: L.LayerGroup | null = null;
-  private polyline: L.Polyline | null = null;
-  private poiPopup: L.Popup | null = null;
+  mapOptions!: MapOptions;
 
-  private pendingPoi: { lat: number; lng: number } | null = null;
-  poiName = '';
+  private map: Map | null = null;
+  private markersLayer: LayerGroup | null = null;
+  private taskPolyline: Polyline | null = null;
+  private mapReady = false;
 
   constructor() {
     effect(() => {
-      const _wps = this.waypoints();
-      const _sel = this.selectedWaypointIds();
-      if (this.map && this.markersLayer) {
+      this.waypoints();
+      this.selectedWaypointIds();
+      if (this.mapReady && this.map && this.markersLayer) {
         this.refreshMarkers();
         this.updatePolyline();
       }
     });
   }
 
-  ngAfterViewInit(): void {
-    this.initializeMap();
-    this.refreshMarkers();
+  ngOnInit(): void {
+    const wps = this.waypointService.waypoints();
+    const center =
+      wps.length > 0 ? latLng(wps[0].latitude, wps[0].longitude) : latLng(46.5, 6.5);
+
+    this.mapOptions = {
+      layers: [
+        tileLayer(SATELLITE_TILES.url, {
+          attribution: SATELLITE_TILES.attribution,
+          maxZoom: 19
+        }),
+        tileLayer(SATELLITE_LABELS.url, {
+          maxZoom: SATELLITE_LABELS.maxZoom,
+          opacity: 0.85
+        })
+      ],
+      zoom: wps.length > 0 ? 9 : 6,
+      center,
+      zoomControl: true
+    };
   }
 
-  ngOnDestroy(): void {
-    if (this.map) {
-      this.map.remove();
+  onMapReady(map: Map): void {
+    this.map = map;
+    this.markersLayer = layerGroup().addTo(map);
+    this.mapReady = true;
+    this.refreshMarkers();
+    this.updatePolyline();
+    requestAnimationFrame(() => {
+      map.invalidateSize();
+      this.refreshMarkers();
+    });
+  }
+
+  onMapClick(event: LeafletMouseEvent): void {
+    if (!this.map) return;
+    const { lat, lng } = event.latlng;
+    const html = `
+      <div class="poi-popup">
+        <p><strong>Nouveau point</strong></p>
+        <p class="poi-coords">${lat.toFixed(5)}, ${lng.toFixed(5)}</p>
+        <input type="text" id="poi-name-input" placeholder="Nom du point" maxlength="32" />
+        <div class="poi-actions">
+          <button type="button" id="poi-cancel-btn">Annuler</button>
+          <button type="button" id="poi-add-btn">Ajouter</button>
+        </div>
+      </div>
+    `;
+
+    popup({ closeOnClick: true })
+      .setLatLng([lat, lng])
+      .setContent(html)
+      .openOn(this.map);
+
+    setTimeout(() => {
+      document.getElementById('poi-cancel-btn')?.addEventListener('click', () => {
+        this.map?.closePopup();
+      });
+      document.getElementById('poi-add-btn')?.addEventListener('click', () => {
+        const input = document.getElementById('poi-name-input') as HTMLInputElement | null;
+        const name = input?.value?.trim() || `Point ${lat.toFixed(3)}`;
+        const wp = this.waypointService.addWaypoint({
+          name,
+          latitude: lat,
+          longitude: lng,
+          type: 'custom'
+        });
+        this.taskState.addWaypoint(wp.id);
+        this.map?.closePopup();
+      });
+    }, 0);
+  }
+
+  onMapViewChanged(): void {
+    if (this.mapReady) {
+      this.refreshMarkers();
     }
   }
 
-  private initializeMap(): void {
-    const wps = this.waypoints();
-    const center: L.LatLngExpression =
-      wps.length > 0 ? [wps[0].latitude, wps[0].longitude] : [46.5, 6.5];
+  private waypointsToRender(): Waypoint[] {
+    if (!this.map) return [];
 
-    this.map = L.map('declaration-map', {
-      center,
-      zoom: wps.length > 0 ? 9 : 6,
-      zoomControl: true
-    });
+    const seen = new Set<string>();
+    const result: Waypoint[] = [];
 
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap',
-      maxZoom: 18
-    }).addTo(this.map);
+    for (const id of this.selectedWaypointIds()) {
+      const wp = this.waypointService.getWaypoint(id);
+      if (wp && !seen.has(wp.id)) {
+        seen.add(wp.id);
+        result.push(wp);
+      }
+    }
 
-    this.markersLayer = L.layerGroup().addTo(this.map);
+    const zoom = this.map.getZoom();
+    if (zoom < MIN_ZOOM_FOR_CATALOG_MARKERS) {
+      return result;
+    }
 
-    this.map.on('click', (e: L.LeafletMouseEvent) => {
-      this.showPoiPopup(e.latlng.lat, e.latlng.lng);
-    });
+    const bounds = this.map.getBounds();
+    let catalogCount = 0;
+    for (const wp of this.waypoints()) {
+      if (seen.has(wp.id)) continue;
+      if (!bounds.contains([wp.latitude, wp.longitude])) continue;
+      seen.add(wp.id);
+      result.push(wp);
+      if (++catalogCount >= MAX_CATALOG_MARKERS_IN_VIEW) break;
+    }
 
-    setTimeout(() => this.map?.invalidateSize(), 100);
+    return result;
+  }
+
+  private refreshMarkers(): void {
+    if (!this.map || !this.markersLayer) return;
+
+    this.markersLayer.clearLayers();
+
+    for (const wp of this.waypointsToRender()) {
+      const count = this.taskState.getOccurrenceCount(wp.id);
+      const selected = count > 0;
+      const color = this.markerColor(wp.type);
+      const label = selected ? (count > 1 ? `×${count}` : '✓') : '';
+
+      const icon = divIcon({
+        className: 'vav-marker',
+        html: `<div style="background:${color};color:#fff;border:2px solid ${selected ? '#fbbf24' : '#fff'};border-radius:50%;width:${selected ? 28 : 22}px;height:${selected ? 28 : 22}px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.35);">${label}</div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
+      });
+
+      marker([wp.latitude, wp.longitude], { icon })
+        .bindTooltip(wp.name, { direction: 'top', offset: [0, -12] })
+        .on('click', (ev: LeafletMouseEvent) => {
+          ev.originalEvent.stopPropagation();
+          this.taskState.addWaypoint(wp.id);
+        })
+        .addTo(this.markersLayer!);
+    }
   }
 
   private markerColor(type: WaypointType): string {
@@ -96,144 +228,66 @@ export class MapViewComponent implements OnDestroy, AfterViewInit {
     }
   }
 
-  private refreshMarkers(): void {
-    if (!this.map || !this.markersLayer) return;
-
-    this.markersLayer.clearLayers();
-
-    for (const wp of this.waypoints()) {
-      const count = this.taskState.getOccurrenceCount(wp.id);
-      const selected = count > 0;
-      const color = this.markerColor(wp.type);
-      const label = selected ? (count > 1 ? `×${count}` : '✓') : '';
-
-      const icon = L.divIcon({
-        className: 'vav-marker',
-        html: `<motion-div style="background:${color};color:#fff;border:2px solid ${selected ? '#fbbf24' : '#fff'};border-radius:50%;width:${selected ? 28 : 22}px;height:${selected ? 28 : 22}px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.35);">${label}</motion-div>`.replaceAll(
-          'motion-div',
-          'div'
-        ),
-        iconSize: [28, 28],
-        iconAnchor: [14, 14]
-      });
-
-      const marker = L.marker([wp.latitude, wp.longitude], { icon })
-        .bindTooltip(wp.name, { direction: 'top', offset: [0, -12] })
-        .on('click', (ev: L.LeafletMouseEvent) => {
-          L.DomEvent.stopPropagation(ev);
-          this.taskState.addWaypoint(wp.id);
-        });
-
-      this.markersLayer.addLayer(marker);
-    }
-  }
-
   private updatePolyline(): void {
     if (!this.map) return;
 
-    if (this.polyline) {
-      this.polyline.remove();
-      this.polyline = null;
+    if (this.taskPolyline) {
+      this.taskPolyline.remove();
+      this.taskPolyline = null;
     }
 
     const ids = this.selectedWaypointIds();
     if (ids.length < 2) return;
 
-    const path: L.LatLngExpression[] = ids
+    const path = ids
       .map(id => this.waypointService.getWaypoint(id))
       .filter((wp): wp is Waypoint => wp !== undefined)
-      .map(wp => [wp.latitude, wp.longitude]);
+      .map(wp => [wp.latitude, wp.longitude] as [number, number]);
 
     if (path.length >= 2) {
-      this.polyline = L.polyline(path, {
-        color: '#1d4ed8',
-        weight: 3,
-        opacity: 0.85,
-        dashArray: '6 4'
+      this.taskPolyline = polyline(path, {
+        color: '#fbbf24',
+        weight: 4,
+        opacity: 0.95
       }).addTo(this.map);
     }
   }
 
-  private showPoiPopup(lat: number, lng: number): void {
-    if (!this.map) return;
-    this.pendingPoi = { lat, lng };
-    this.poiName = '';
-
-    const html = `
-      <motion-div class="poi-popup">
-        <p><strong>Nouveau point</strong></p>
-        <p class="poi-coords">${lat.toFixed(5)}, ${lng.toFixed(5)}</p>
-        <input type="text" id="poi-name-input" placeholder="Nom du point" maxlength="32" />
-        <motion-div class="poi-actions">
-          <button type="button" id="poi-cancel-btn">Annuler</button>
-          <button type="button" id="poi-add-btn">Ajouter</button>
-        </motion-div>
-      </motion-div>
-    `.replaceAll('motion-div', 'div');
-
-    this.poiPopup = L.popup({ closeOnClick: true })
-      .setLatLng([lat, lng])
-      .setContent(html)
-      .openOn(this.map);
-
-    setTimeout(() => {
-      document.getElementById('poi-cancel-btn')?.addEventListener('click', () => {
-        this.map?.closePopup();
-        this.pendingPoi = null;
-      });
-      document.getElementById('poi-add-btn')?.addEventListener('click', () => {
-        const input = document.getElementById('poi-name-input') as HTMLInputElement | null;
-        const name = input?.value?.trim() || `Point ${lat.toFixed(3)}`;
-        if (this.pendingPoi) {
-          this.addCustomPoi(name, this.pendingPoi.lat, this.pendingPoi.lng);
-        }
-        this.map?.closePopup();
-        this.pendingPoi = null;
-      });
-    }, 0);
-  }
-
-  private addCustomPoi(name: string, lat: number, lng: number): void {
-    const wp = this.waypointService.addWaypoint({
-      name,
-      latitude: lat,
-      longitude: lng,
-      type: 'custom'
-    });
-    this.taskState.addWaypoint(wp.id);
-  }
-
   centerOnTask(): void {
-    if (!this.map) return;
-    const ids = this.selectedWaypointIds();
-    const points = ids
+    const map = this.getMap();
+    if (!map) return;
+
+    const points = this.selectedWaypointIds()
       .map(id => this.waypointService.getWaypoint(id))
       .filter((wp): wp is Waypoint => wp !== undefined);
 
-    if (points.length === 0) {
-      this.centerOnAll();
-      return;
-    }
+    if (points.length === 0) return;
 
     if (points.length === 1) {
-      this.map.setView([points[0].latitude, points[0].longitude], 11);
-      return;
+      map.setView([points[0].latitude, points[0].longitude], 11);
+    } else {
+      map.fitBounds(
+        points.map(wp => [wp.latitude, wp.longitude]),
+        { padding: [40, 40] }
+      );
     }
-
-    const bounds = L.latLngBounds(points.map(wp => [wp.latitude, wp.longitude]));
-    this.map.fitBounds(bounds, { padding: [40, 40] });
   }
 
   centerOnAll(): void {
-    if (!this.map) return;
+    const map = this.getMap();
+    if (!map) return;
+
     const wps = this.waypoints();
     if (wps.length === 0) return;
+
     if (wps.length === 1) {
-      this.map.setView([wps[0].latitude, wps[0].longitude], 11);
-      return;
+      map.setView([wps[0].latitude, wps[0].longitude], 11);
+    } else {
+      map.fitBounds(
+        wps.map(wp => [wp.latitude, wp.longitude]),
+        { padding: [40, 40], maxZoom: 10 }
+      );
     }
-    const bounds = L.latLngBounds(wps.map(wp => [wp.latitude, wp.longitude]));
-    this.map.fitBounds(bounds, { padding: [40, 40] });
   }
 
   clearSelection(): void {
@@ -241,6 +295,10 @@ export class MapViewComponent implements OnDestroy, AfterViewInit {
   }
 
   invalidateSize(): void {
-    setTimeout(() => this.map?.invalidateSize(), 150);
+    this.leaflet?.getMap()?.invalidateSize();
+  }
+
+  private getMap(): Map | null {
+    return this.map ?? this.leaflet?.getMap() ?? null;
   }
 }

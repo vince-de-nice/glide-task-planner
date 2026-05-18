@@ -2,7 +2,7 @@
   <header class="decl-hero">
     <div class="decl-hero__text">
       <h1>Déclaration FLARM</h1>
-      <p class="decl-hero__sub">Base CUP → tâche → <code>flarmcfg.txt</code></p>
+      <p class="decl-hero__sub">Base CUP → circuit → <code>flarmcfg.txt</code></p>
     </div>
   </header>
 
@@ -25,6 +25,14 @@
         .cup
         <input type="file" accept=".cup" (change)="onCupFileSelected($event)" hidden />
       </label>
+      <button
+        type="button"
+        class="vav-btn vav-btn--primary vav-btn--sm"
+        (click)="openWaypointDialog()"
+        [disabled]="waypoints().length === 0"
+      >
+        Choisir des points
+      </button>
       @if (loading()) {
         <span class="decl-db__pill">…</span>
       } @else if (waypoints().length > 0) {
@@ -45,18 +53,15 @@
     }
   </section>
 
+  @if (addToast()) {
+    <p class="decl-toast" role="status">{{ addToast() }}</p>
+  }
+
+  @if (circuitMessage()) {
+    <p class="vav-alert vav-alert--success decl-flash">{{ circuitMessage() }}</p>
+  }
+
   <nav class="decl-tabs" aria-label="Panneaux">
-    <button
-      type="button"
-      class="decl-tabs__btn"
-      [class.is-active]="mobileTab() === 'list'"
-      (click)="setMobileTab('list')"
-    >
-      Points
-      @if (waypoints().length > 0) {
-        <span class="decl-tabs__count">{{ waypoints().length }}</span>
-      }
-    </button>
     <button
       type="button"
       class="decl-tabs__btn"
@@ -71,7 +76,7 @@
       [class.is-active]="mobileTab() === 'task'"
       (click)="setMobileTab('task')"
     >
-      Tâche
+      Circuit
       @if (selectedWaypointIds().length > 0) {
         <span class="decl-tabs__count">{{ selectedWaypointIds().length }}</span>
       }
@@ -80,22 +85,130 @@
 
   <div
     class="decl-workspace"
-    [class.decl-workspace--list]="mobileTab() === 'list'"
     [class.decl-workspace--map]="mobileTab() === 'map'"
     [class.decl-workspace--task]="mobileTab() === 'task'"
   >
-    <section class="decl-panel decl-panel--list vav-card" aria-label="Liste des points">
-      <header class="decl-panel__head decl-panel__head--compact">
-        <h2 class="decl-section-title">2. Points</h2>
+    <section class="decl-panel decl-panel--map vav-card" aria-label="Carte">
+      <div class="decl-map-wrap">
+        <app-map-view />
+      </div>
+      <button
+        type="button"
+        class="decl-fab vav-btn vav-btn--primary"
+        (click)="openWaypointDialog()"
+        [disabled]="waypoints().length === 0"
+        aria-label="Choisir des points"
+      >
+        +
+      </button>
+    </section>
+
+    <section class="decl-panel decl-panel--circuit vav-card" aria-label="Circuit et export">
+      <header class="decl-circuit__head">
+        <div class="decl-circuit__title-row">
+          <h2 class="decl-section-title">Circuit</h2>
+          @if (distanceResult(); as d) {
+            <span class="decl-circuit__stats">{{ d.totalDistance.toFixed(1) }} km · {{ selectedWaypointIds().length }} pt(s)</span>
+          } @else if (selectedWaypointIds().length > 0) {
+            <span class="decl-circuit__stats">{{ selectedWaypointIds().length }} pt(s)</span>
+          }
+        </div>
+        <label class="decl-circuit__task-name">
+          <span class="vav-label">Nom de tâche (NEWTASK)</span>
+          <input
+            class="vav-input vav-input--sm"
+            [ngModel]="taskName()"
+            (ngModelChange)="onTaskNameChange($event)"
+            placeholder="Circuit_500K"
+            maxlength="50"
+          />
+        </label>
+        <p class="decl-circuit__hint">1<sup>er</sup> = décollage · dernier = atterrissage · doublons autorisés</p>
+      </header>
+
+      <ol class="decl-circuit__list vav-scroll">
+        @for (id of selectedWaypointIds(); track $index; let i = $index) {
+          @if (waypointService.getWaypoint(id); as wp) {
+            <li class="decl-task-item">
+              <span class="decl-task-item__num">{{ i + 1 }}</span>
+              <div class="decl-task-item__body">
+                <strong>{{ wp.name }}</strong>
+                @if (wp.code) {
+                  <small>{{ wp.code }}</small>
+                } @else {
+                  <small>{{ wp.latitude.toFixed(4) }}, {{ wp.longitude.toFixed(4) }}</small>
+                }
+              </div>
+              <div class="decl-task-item__actions">
+                <button type="button" class="vav-btn vav-btn--ghost vav-btn--icon" (click)="moveWaypoint(i, 'up')" [disabled]="i === 0" title="Monter">↑</button>
+                <button type="button" class="vav-btn vav-btn--ghost vav-btn--icon" (click)="moveWaypoint(i, 'down')" [disabled]="i === selectedWaypointIds().length - 1" title="Descendre">↓</button>
+                <button type="button" class="vav-btn vav-btn--ghost vav-btn--icon" (click)="duplicateWaypoint(i)" title="Dupliquer">⧉</button>
+                <button type="button" class="vav-btn vav-btn--ghost vav-btn--icon decl-task-item__remove" (click)="removeFromTask(i)" title="Retirer">×</button>
+              </div>
+            </li>
+          }
+        } @empty {
+          <li class="decl-empty">
+            Circuit vide — utilisez la carte, « Choisir des points » ou le bouton +.
+          </li>
+        }
+      </ol>
+
+      <footer class="decl-circuit__foot">
+        <button
+          type="button"
+          class="vav-btn vav-btn--primary decl-circuit__download"
+          (click)="downloadFlarm()"
+          [disabled]="selectedWaypointIds().length === 0"
+        >
+          Télécharger flarmcfg.txt
+        </button>
+        <div class="decl-circuit__actions">
+          <button
+            type="button"
+            class="vav-btn vav-btn--ghost vav-btn--sm"
+            (click)="clearTask()"
+            [disabled]="selectedWaypointIds().length === 0"
+          >
+            Vider
+          </button>
+          <button type="button" class="vav-btn vav-btn--secondary vav-btn--sm" (click)="openPilotDialog()">
+            Pilote & planeur
+          </button>
+          <button type="button" class="vav-btn vav-btn--secondary vav-btn--sm" (click)="openCircuitsDialog()">
+            Mes circuits
+          </button>
+          <button
+            type="button"
+            class="vav-btn vav-btn--ghost vav-btn--sm"
+            (click)="openPreviewDialog()"
+            [disabled]="!flarmPreview()"
+          >
+            Aperçu FLARM
+          </button>
+        </div>
+      </footer>
+    </section>
+  </div>
+</div>
+
+<!-- Dialog : choix des waypoints -->
+@if (waypointDialogOpen()) {
+  <div class="vav-modal" role="dialog" aria-modal="true" aria-labelledby="wp-dialog-title">
+    <button type="button" class="vav-modal__backdrop" aria-label="Fermer" (click)="closeWaypointDialog()"></button>
+    <div class="vav-modal__panel vav-modal__panel--lg">
+      <header class="vav-modal__head">
+        <h2 id="wp-dialog-title" class="vav-modal__title">Choisir des points</h2>
         @if (filteredCount() > 0) {
           <span class="decl-panel__meta">{{ filteredCount() }} résultat(s)</span>
         }
+        <button type="button" class="vav-modal__close" aria-label="Fermer" (click)="closeWaypointDialog()">×</button>
       </header>
       <div class="decl-list-tools">
         <input
           type="search"
           class="vav-input vav-input--sm"
-          placeholder="Rechercher…"
+          placeholder="Rechercher nom, code…"
           [ngModel]="searchQuery()"
           (ngModelChange)="onSearchChange($event)"
         />
@@ -113,68 +226,45 @@
         </div>
       </div>
       <div class="decl-list-body">
-      <ul class="decl-wp-list vav-scroll" aria-label="Page {{ currentPage() }}">
-        @for (wp of paginatedWaypoints(); track $index) {
-          <li>
-            <button
-              type="button"
-              class="decl-wp-row"
-              [class.is-in-task]="getOccurrenceCount(wp.id) > 0"
-              (click)="onWaypointRowClick(wp.id)"
-            >
-              @if (getOccurrenceCount(wp.id) > 0) {
-                <span class="decl-wp-row__badge">×{{ getOccurrenceCount(wp.id) }}</span>
-              } @else {
-                <span class="decl-wp-row__badge decl-wp-row__badge--add">+</span>
-              }
-              <span class="decl-wp-row__body">
-                <span class="decl-wp-row__name">{{ wp.name }}</span>
-                @if (wp.code) {
-                  <span class="decl-wp-row__code">{{ wp.code }}</span>
+        <ul class="decl-wp-list vav-scroll" aria-label="Page {{ currentPage() }}">
+          @for (wp of paginatedWaypoints(); track $index) {
+            <li>
+              <button
+                type="button"
+                class="decl-wp-row"
+                [class.is-in-task]="getOccurrenceCount(wp.id) > 0"
+                (click)="onWaypointRowClick(wp.id, wp.name)"
+              >
+                @if (getOccurrenceCount(wp.id) > 0) {
+                  <span class="decl-wp-row__badge">×{{ getOccurrenceCount(wp.id) }}</span>
+                } @else {
+                  <span class="decl-wp-row__badge decl-wp-row__badge--add">+</span>
                 }
-              </span>
-              <span class="decl-wp-row__type">{{ typeLabel(wp.type) }}</span>
-            </button>
-          </li>
-        } @empty {
-          <li class="decl-empty">Aucun point ne correspond.</li>
-        }
-      </ul>
+                <span class="decl-wp-row__body">
+                  <span class="decl-wp-row__name">{{ wp.name }}</span>
+                  @if (wp.code) {
+                    <span class="decl-wp-row__code">{{ wp.code }}</span>
+                  }
+                </span>
+                <span class="decl-wp-row__type">{{ typeLabel(wp.type) }}</span>
+              </button>
+            </li>
+          } @empty {
+            <li class="decl-empty">Aucun point ne correspond.</li>
+          }
+        </ul>
       </div>
       @if (filteredCount() > 0) {
         <nav class="decl-pager" aria-label="Pagination des points">
-          <span class="decl-pager__info">
-            {{ pageRangeStart() }}–{{ pageRangeEnd() }} / {{ filteredCount() }}
-          </span>
+          <span class="decl-pager__info">{{ pageRangeStart() }}–{{ pageRangeEnd() }} / {{ filteredCount() }}</span>
           <div class="decl-pager__nav">
-            <button
-              type="button"
-              class="vav-btn vav-btn--ghost vav-btn--sm"
-              (click)="prevPage()"
-              [disabled]="currentPage() <= 1"
-              aria-label="Page précédente"
-            >
-              ‹
-            </button>
+            <button type="button" class="vav-btn vav-btn--ghost vav-btn--sm" (click)="prevPage()" [disabled]="currentPage() <= 1" aria-label="Page précédente">‹</button>
             <span class="decl-pager__page">{{ currentPage() }} / {{ totalPages() }}</span>
-            <button
-              type="button"
-              class="vav-btn vav-btn--ghost vav-btn--sm"
-              (click)="nextPage()"
-              [disabled]="currentPage() >= totalPages()"
-              aria-label="Page suivante"
-            >
-              ›
-            </button>
+            <button type="button" class="vav-btn vav-btn--ghost vav-btn--sm" (click)="nextPage()" [disabled]="currentPage() >= totalPages()" aria-label="Page suivante">›</button>
           </div>
           <label class="decl-pager__size">
             <span class="vav-label vav-label--invisible">Par page</span>
-            <select
-              class="vav-select vav-select--sm"
-              [ngModel]="pageSize()"
-              (ngModelChange)="setPageSize(+$event)"
-              aria-label="Points par page"
-            >
+            <select class="vav-select vav-select--sm" [ngModel]="pageSize()" (ngModelChange)="setPageSize(+$event)" aria-label="Points par page">
               @for (n of pageSizeOptions; track n) {
                 <option [value]="n">{{ n }}</option>
               }
@@ -182,144 +272,92 @@
           </label>
         </nav>
       }
-    </section>
+      <footer class="vav-modal__foot">
+        <button type="button" class="vav-btn vav-btn--primary" (click)="closeWaypointDialog()">Terminé</button>
+      </footer>
+    </div>
+  </div>
+}
 
-    <section class="decl-panel decl-panel--map vav-card" aria-label="Carte">
-      <header class="decl-panel__head">
-        <h2 class="decl-section-title">Carte</h2>
+<!-- Dialog : pilote & planeur -->
+@if (pilotDialogOpen()) {
+  <div class="vav-modal" role="dialog" aria-modal="true" aria-labelledby="pilot-dialog-title">
+    <button type="button" class="vav-modal__backdrop" aria-label="Fermer" (click)="closePilotDialog()"></button>
+    <div class="vav-modal__panel">
+      <header class="vav-modal__head">
+        <h2 id="pilot-dialog-title" class="vav-modal__title">Pilote & planeur</h2>
+        <button type="button" class="vav-modal__close" aria-label="Fermer" (click)="closePilotDialog()">×</button>
       </header>
-      <div class="decl-map-wrap">
-        <app-map-view />
+      <div class="vav-modal__body">
+        <div class="decl-form-grid">
+          <label class="decl-field">
+            <span class="vav-label">Pilote</span>
+            <input class="vav-input" [ngModel]="flarmProfile().pilotName" (ngModelChange)="flarmProfileService.setPilotName($event)" placeholder="Jean Dupont" maxlength="47" />
+          </label>
+          <label class="decl-field">
+            <span class="vav-label">Type planeur</span>
+            <input class="vav-input" [ngModel]="flarmProfile().gliderType" (ngModelChange)="flarmProfileService.setGliderType($event)" placeholder="JS1-C" maxlength="31" />
+          </label>
+          <label class="decl-field">
+            <span class="vav-label">Immatriculation</span>
+            <input class="vav-input" [ngModel]="flarmProfile().gliderId" (ngModelChange)="flarmProfileService.setGliderId($event)" placeholder="F-CINE" maxlength="15" />
+          </label>
+          <label class="decl-field">
+            <span class="vav-label">ID compétition</span>
+            <input class="vav-input" [ngModel]="flarmProfile().compId" (ngModelChange)="flarmProfileService.setCompId($event)" placeholder="ZX" maxlength="15" />
+          </label>
+          <label class="decl-field">
+            <span class="vav-label">Classe</span>
+            <input class="vav-input" [ngModel]="flarmProfile().compClass" (ngModelChange)="flarmProfileService.setCompClass($event)" placeholder="Standard" maxlength="15" />
+          </label>
+          <label class="decl-field">
+            <span class="vav-label">LOGINT (s)</span>
+            <input class="vav-input" type="number" min="1" max="8" [ngModel]="flarmProfile().logInterval" (ngModelChange)="flarmProfileService.setLogInterval(+$event)" />
+          </label>
+        </div>
       </div>
-    </section>
+      <footer class="vav-modal__foot">
+        <button type="button" class="vav-btn vav-btn--primary" (click)="closePilotDialog()">Enregistrer</button>
+      </footer>
+    </div>
+  </div>
+}
 
-    <section class="decl-panel decl-panel--task vav-card" aria-label="Tâche et export">
-      <header class="decl-panel__head">
-        <h2 class="decl-section-title">3. Tâche & export FLARM</h2>
-        @if (distanceResult(); as d) {
-          <p class="decl-panel__hint">{{ d.totalDistance.toFixed(1) }} km · {{ selectedWaypointIds().length }} point(s)</p>
-        }
+<!-- Dialog : aperçu FLARM -->
+@if (previewDialogOpen()) {
+  <div class="vav-modal" role="dialog" aria-modal="true" aria-labelledby="preview-dialog-title">
+    <button type="button" class="vav-modal__backdrop" aria-label="Fermer" (click)="closePreviewDialog()"></button>
+    <div class="vav-modal__panel vav-modal__panel--md">
+      <header class="vav-modal__head">
+        <h2 id="preview-dialog-title" class="vav-modal__title">Aperçu flarmcfg.txt</h2>
+        <button type="button" class="vav-modal__close" aria-label="Fermer" (click)="closePreviewDialog()">×</button>
       </header>
+      <div class="vav-modal__body decl-preview">
+        <button type="button" class="vav-btn vav-btn--secondary vav-btn--sm" (click)="copyPreview()" [disabled]="!flarmPreview()">
+          {{ copyFeedback() ? 'Copié' : 'Copier' }}
+        </button>
+        <textarea class="vav-textarea" readonly [value]="flarmPreview()" rows="14"></textarea>
+      </div>
+      <footer class="vav-modal__foot">
+        <button type="button" class="vav-btn vav-btn--primary" (click)="downloadFlarm(); closePreviewDialog()" [disabled]="selectedWaypointIds().length === 0">
+          Télécharger
+        </button>
+        <button type="button" class="vav-btn vav-btn--ghost" (click)="closePreviewDialog()">Fermer</button>
+      </footer>
+    </div>
+  </div>
+}
 
-      <div class="decl-task-scroll vav-scroll">
-        <p class="vav-alert vav-alert--info">
-          1<sup>er</sup> point = décollage, dernier = atterrissage. Même point possible plusieurs fois.
-        </p>
-
-        <details class="decl-details" open>
-          <summary>Pilote & planeur</summary>
-          <div class="decl-form-grid">
-            <label class="decl-field">
-              <span class="vav-label">Pilote</span>
-              <input
-                class="vav-input"
-                [ngModel]="flarmProfile().pilotName"
-                (ngModelChange)="flarmProfileService.setPilotName($event)"
-                placeholder="Jean Dupont"
-                maxlength="47"
-              />
-            </label>
-            <label class="decl-field">
-              <span class="vav-label">Type planeur</span>
-              <input
-                class="vav-input"
-                [ngModel]="flarmProfile().gliderType"
-                (ngModelChange)="flarmProfileService.setGliderType($event)"
-                placeholder="JS1-C"
-                maxlength="31"
-              />
-            </label>
-            <label class="decl-field">
-              <span class="vav-label">Immatriculation</span>
-              <input
-                class="vav-input"
-                [ngModel]="flarmProfile().gliderId"
-                (ngModelChange)="flarmProfileService.setGliderId($event)"
-                placeholder="F-CINE"
-                maxlength="15"
-              />
-            </label>
-            <label class="decl-field">
-              <span class="vav-label">ID compétition</span>
-              <input
-                class="vav-input"
-                [ngModel]="flarmProfile().compId"
-                (ngModelChange)="flarmProfileService.setCompId($event)"
-                placeholder="ZX"
-                maxlength="15"
-              />
-            </label>
-            <label class="decl-field">
-              <span class="vav-label">Classe</span>
-              <input
-                class="vav-input"
-                [ngModel]="flarmProfile().compClass"
-                (ngModelChange)="flarmProfileService.setCompClass($event)"
-                placeholder="Standard"
-                maxlength="15"
-              />
-            </label>
-            <label class="decl-field">
-              <span class="vav-label">LOGINT (s)</span>
-              <input
-                class="vav-input"
-                type="number"
-                min="1"
-                max="8"
-                [ngModel]="flarmProfile().logInterval"
-                (ngModelChange)="flarmProfileService.setLogInterval(+$event)"
-              />
-            </label>
-          </div>
-        </details>
-
-        <label class="decl-field">
-          <span class="vav-label">Nom de tâche (NEWTASK)</span>
-          <input
-            class="vav-input"
-            [ngModel]="taskName()"
-            (ngModelChange)="onTaskNameChange($event)"
-            placeholder="Circuit_500K"
-            maxlength="50"
-          />
-        </label>
-
-        <ol class="decl-task-list">
-          @for (id of selectedWaypointIds(); track $index; let i = $index) {
-            @if (waypointService.getWaypoint(id); as wp) {
-              <li class="decl-task-item">
-                <span class="decl-task-item__num">{{ i + 1 }}</span>
-                <div class="decl-task-item__body">
-                  <strong>{{ wp.name }}</strong>
-                  <small>{{ wp.latitude.toFixed(4) }}, {{ wp.longitude.toFixed(4) }}</small>
-                </div>
-                <div class="decl-task-item__actions">
-                  <button type="button" class="vav-btn vav-btn--ghost vav-btn--icon" (click)="moveWaypoint(i, 'up')" [disabled]="i === 0" title="Monter">↑</button>
-                  <button type="button" class="vav-btn vav-btn--ghost vav-btn--icon" (click)="moveWaypoint(i, 'down')" [disabled]="i === selectedWaypointIds().length - 1" title="Descendre">↓</button>
-                  <button type="button" class="vav-btn vav-btn--ghost vav-btn--icon" (click)="duplicateWaypoint(i)" title="Dupliquer">⧉</button>
-                  <button type="button" class="vav-btn vav-btn--ghost vav-btn--icon decl-task-item__remove" (click)="removeFromTask(i)" title="Retirer">×</button>
-                </div>
-              </li>
-            }
-          } @empty {
-            <li class="decl-empty">Ajoutez des points depuis la liste ou la carte.</li>
-          }
-        </ol>
-
-        <details class="decl-details">
-          <summary>Aperçu flarmcfg.txt</summary>
-          <div class="decl-preview">
-            <button type="button" class="vav-btn vav-btn--secondary vav-btn--sm" (click)="copyPreview()" [disabled]="!flarmPreview()">
-              {{ copyFeedback() ? 'Copié' : 'Copier' }}
-            </button>
-            <textarea class="vav-textarea" readonly [value]="flarmPreview()" rows="10"></textarea>
-          </div>
-        </details>
-
-        @if (circuitMessage()) {
-          <p class="vav-alert vav-alert--success">{{ circuitMessage() }}</p>
-        }
-
+<!-- Dialog : bibliothèque de circuits -->
+@if (circuitsDialogOpen()) {
+  <div class="vav-modal" role="dialog" aria-modal="true" aria-labelledby="circuits-dialog-title">
+    <button type="button" class="vav-modal__backdrop" aria-label="Fermer" (click)="closeCircuitsDialog()"></button>
+    <div class="vav-modal__panel vav-modal__panel--md">
+      <header class="vav-modal__head">
+        <h2 id="circuits-dialog-title" class="vav-modal__title">Mes circuits</h2>
+        <button type="button" class="vav-modal__close" aria-label="Fermer" (click)="closeCircuitsDialog()">×</button>
+      </header>
+      <div class="vav-modal__body vav-modal__body--scroll">
         <app-circuit-library
           [canSave]="canSaveCircuit()"
           [selectedCircuitId]="activeCircuitId()"
@@ -327,25 +365,9 @@
           (circuitLoaded)="onCircuitLoaded($event)"
         />
       </div>
-
-      <footer class="decl-task-bar">
-        <button
-          type="button"
-          class="vav-btn vav-btn--primary decl-task-bar__primary"
-          (click)="downloadFlarm()"
-          [disabled]="selectedWaypointIds().length === 0"
-        >
-          Télécharger flarmcfg.txt
-        </button>
-        <button
-          type="button"
-          class="vav-btn vav-btn--ghost"
-          (click)="clearTask()"
-          [disabled]="selectedWaypointIds().length === 0"
-        >
-          Vider
-        </button>
+      <footer class="vav-modal__foot">
+        <button type="button" class="vav-btn vav-btn--primary" (click)="closeCircuitsDialog()">Fermer</button>
       </footer>
-    </section>
+    </div>
   </div>
-</div>
+}
