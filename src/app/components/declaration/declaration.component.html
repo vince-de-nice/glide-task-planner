@@ -90,7 +90,7 @@
   >
     <section class="decl-panel decl-panel--map vav-card" aria-label="Carte">
       <div class="decl-map-wrap">
-        <app-map-view />
+        <app-map-view (actionMessage)="showAddToast($event)" />
       </div>
       <button
         type="button"
@@ -108,7 +108,13 @@
         <div class="decl-circuit__title-row">
           <h2 class="decl-section-title">Circuit</h2>
           @if (distanceResult(); as d) {
-            <span class="decl-circuit__stats">{{ d.totalDistance.toFixed(1) }} km · {{ selectedWaypointIds().length }} pt(s)</span>
+            <span class="decl-circuit__stats" title="Hors branches décollage / atterrissage">
+              {{ d.taskDistance.toFixed(1) }} km
+              @if (d.totalDistance > d.taskDistance + 0.05) {
+                <span class="decl-circuit__stats-total"> / {{ d.totalDistance.toFixed(1) }} total</span>
+              }
+              · {{ selectedWaypointIds().length }} pt(s)
+            </span>
           } @else if (selectedWaypointIds().length > 0) {
             <span class="decl-circuit__stats">{{ selectedWaypointIds().length }} pt(s)</span>
           }
@@ -123,7 +129,9 @@
             maxlength="50"
           />
         </label>
-        <p class="decl-circuit__hint">1<sup>er</sup> = décollage · dernier = atterrissage · doublons autorisés</p>
+        <p class="decl-circuit__hint">
+          1<sup>er</sup> = décollage · dernier = atterrissage · distance hors branches déco/attero
+        </p>
       </header>
 
       <ol class="decl-circuit__list vav-scroll">
@@ -138,11 +146,21 @@
                 } @else {
                   <small>{{ wp.latitude.toFixed(4) }}, {{ wp.longitude.toFixed(4) }}</small>
                 }
+                @if (legFromIndex(i); as leg) {
+                  <small
+                    class="decl-task-item__leg"
+                    [class.decl-task-item__leg--excluded]="!leg.counted"
+                  >
+                    → {{ leg.distance.toFixed(1) }} km
+                    @if (!leg.counted) {
+                      <span class="decl-task-item__leg-tag">hors tâche</span>
+                    }
+                  </small>
+                }
               </div>
               <div class="decl-task-item__actions">
                 <button type="button" class="vav-btn vav-btn--ghost vav-btn--icon" (click)="moveWaypoint(i, 'up')" [disabled]="i === 0" title="Monter">↑</button>
                 <button type="button" class="vav-btn vav-btn--ghost vav-btn--icon" (click)="moveWaypoint(i, 'down')" [disabled]="i === selectedWaypointIds().length - 1" title="Descendre">↓</button>
-                <button type="button" class="vav-btn vav-btn--ghost vav-btn--icon" (click)="duplicateWaypoint(i)" title="Dupliquer">⧉</button>
                 <button type="button" class="vav-btn vav-btn--ghost vav-btn--icon decl-task-item__remove" (click)="removeFromTask(i)" title="Retirer">×</button>
               </div>
             </li>

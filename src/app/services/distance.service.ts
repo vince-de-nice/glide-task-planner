@@ -1,10 +1,26 @@
 import { Injectable } from '@angular/core';
 import { Waypoint } from '../models/waypoint.model';
 
+export type DistanceUnit = 'km' | 'nm' | 'mi';
+
+export type LegExclusionReason = 'departure' | 'arrival';
+
+export interface TaskLegDistance {
+  legIndex: number;
+  fromIndex: number;
+  toIndex: number;
+  distance: number;
+  counted: boolean;
+  exclusionReason?: LegExclusionReason;
+}
+
 export interface DistanceResult {
+  /** Distance de la tâche (segments comptés, hors branches déco/attero). */
+  taskDistance: number;
+  /** Distance sur tout le tracé du circuit. */
   totalDistance: number;
-  legDistances: number[];
-  unit: 'km' | 'nm' | 'mi';
+  legDistances: TaskLegDistance[];
+  unit: DistanceUnit;
 }
 
 @Injectable({
@@ -15,13 +31,25 @@ export class DistanceService {
   private readonly EARTH_RADIUS_NM = 3440.065;
   private readonly EARTH_RADIUS_MI = 3958.8;
 
-  calculateDistance(waypoints: Waypoint[], unit: 'km' | 'nm' | 'mi' = 'km'): DistanceResult {
+  /**
+   * Distance du circuit en km, sans les branches reliées au décollage (1er pt aérodrome)
+   * ni à l'atterrissage (dernier pt aérodrome).
+   */
+  calculateTaskDistance(
+    waypoints: Waypoint[],
+    unit: DistanceUnit = 'km'
+  ): DistanceResult {
     if (waypoints.length < 2) {
-      return { totalDistance: 0, legDistances: [], unit };
+      return { taskDistance: 0, totalDistance: 0, legDistances: [], unit };
     }
 
     const radius = this.getRadius(unit);
-    const legDistances: number[] = [];
+    const hasDeparture = waypoints[0].type === 'airfield';
+    const hasArrival = waypoints[waypoints.length - 1].type === 'airfield';
+
+    const legDistances: TaskLegDistance[] = [];
+    let taskDistance = 0;
+    let totalDistance = 0;
 
     for (let i = 0; i < waypoints.length - 1; i++) {
       const distance = this.haversine(
@@ -31,15 +59,39 @@ export class DistanceService {
         waypoints[i + 1].longitude,
         radius
       );
-      legDistances.push(distance);
+
+      const exclusionReason = this.getLegExclusionReason(
+        i,
+        waypoints.length,
+        hasDeparture,
+        hasArrival
+      );
+      const counted = exclusionReason === undefined;
+
+      legDistances.push({
+        legIndex: i,
+        fromIndex: i,
+        toIndex: i + 1,
+        distance,
+        counted,
+        exclusionReason
+      });
+
+      totalDistance += distance;
+      if (counted) {
+        taskDistance += distance;
+      }
     }
 
-    const totalDistance = legDistances.reduce((sum, dist) => sum + dist, 0);
+    return { taskDistance, totalDistance, legDistances, unit };
+  }
 
+  /** @deprecated Préférer calculateTaskDistance — conserve la compatibilité (distance totale). */
+  calculateDistance(waypoints: Waypoint[], unit: DistanceUnit = 'km'): DistanceResult {
+    const result = this.calculateTaskDistance(waypoints, unit);
     return {
-      totalDistance,
-      legDistances,
-      unit
+      ...result,
+      taskDistance: result.totalDistance
     };
   }
 
@@ -49,8 +101,8 @@ export class DistanceService {
     lat2: number,
     lon2: number
   ): number {
-    const toRad = (deg: number) => deg * Math.PI / 180;
-    const toDeg = (rad: number) => rad * 180 / Math.PI;
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
+    const toDeg = (rad: number) => (rad * 180) / Math.PI;
 
     const dLon = toRad(lon2 - lon1);
     const y = Math.sin(dLon) * Math.cos(toRad(lat2));
@@ -62,6 +114,21 @@ export class DistanceService {
     return (bearing + 360) % 360;
   }
 
+  private getLegExclusionReason(
+    legIndex: number,
+    waypointCount: number,
+    hasDeparture: boolean,
+    hasArrival: boolean
+  ): LegExclusionReason | undefined {
+    if (hasDeparture && legIndex === 0) {
+      return 'departure';
+    }
+    if (hasArrival && legIndex === waypointCount - 2) {
+      return 'arrival';
+    }
+    return undefined;
+  }
+
   private haversine(
     lat1: number,
     lon1: number,
@@ -69,7 +136,7 @@ export class DistanceService {
     lon2: number,
     radius: number
   ): number {
-    const toRad = (deg: number) => deg * Math.PI / 180;
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
 
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);
@@ -86,7 +153,7 @@ export class DistanceService {
     return radius * c;
   }
 
-  private getRadius(unit: 'km' | 'nm' | 'mi'): number {
+  private getRadius(unit: DistanceUnit): number {
     switch (unit) {
       case 'nm':
         return this.EARTH_RADIUS_NM;

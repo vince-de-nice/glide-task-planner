@@ -14,7 +14,11 @@ import { FormsModule } from '@angular/forms';
 import { WaypointService } from '../../services/waypoint.service';
 import { TaskStateService } from '../../services/task-state.service';
 import { CupLoaderService } from '../../services/cup-loader.service';
-import { DistanceService, DistanceResult } from '../../services/distance.service';
+import {
+  DistanceService,
+  DistanceResult,
+  TaskLegDistance
+} from '../../services/distance.service';
 import {
   FlarmConfigService,
   flarmCfgFilename
@@ -231,7 +235,7 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     this.circuitsDialogOpen.set(false);
   }
 
-  private showAddToast(message: string): void {
+  showAddToast(message: string): void {
     this.addToast.set(message);
     if (this.addToastTimer) clearTimeout(this.addToastTimer);
     this.addToastTimer = setTimeout(() => {
@@ -353,10 +357,6 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     this.taskState.removeWaypointAt(index);
   }
 
-  duplicateWaypoint(index: number): void {
-    this.taskState.duplicateWaypointAt(index);
-  }
-
   clearTask(): void {
     this.taskState.clearSelection();
     this.distanceResult.set(null);
@@ -365,10 +365,14 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   calculateDistance(): void {
     const wps = this.selectedWaypoints();
     if (wps.length >= 2) {
-      this.distanceResult.set(this.distanceService.calculateDistance(wps, 'km'));
+      this.distanceResult.set(this.distanceService.calculateTaskDistance(wps, 'km'));
     } else {
       this.distanceResult.set(null);
     }
+  }
+
+  legFromIndex(index: number): TaskLegDistance | undefined {
+    return this.distanceResult()?.legDistances.find(leg => leg.fromIndex === index);
   }
 
   onTaskNameChange(value: string): void {

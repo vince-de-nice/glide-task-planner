@@ -19,13 +19,75 @@
 .map-toolbar {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.4rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.35rem;
   flex-shrink: 0;
 
   .vav-btn {
     flex: 1 1 auto;
     min-width: fit-content;
+  }
+}
+
+.map-task-distance {
+  flex: 1 1 100%;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--vav-primary);
+  line-height: 1.2;
+
+  @media (min-width: 520px) {
+    flex: 0 1 auto;
+    order: -1;
+  }
+}
+
+.map-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.45rem;
+  flex-shrink: 0;
+}
+
+.map-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--vav-border);
+  background: var(--vav-surface);
+  color: var(--vav-text);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition:
+    opacity 0.15s,
+    border-color 0.15s;
+
+  &__dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    background: var(--chip-color, #ea580c);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+  }
+
+  &--off {
+    opacity: 0.45;
+    text-decoration: line-through;
+    background: var(--vav-bg);
+  }
+
+  &:not(&--off) {
+    border-color: color-mix(in srgb, var(--chip-color) 55%, var(--vav-border));
+  }
+
+  &:hover {
+    opacity: 1;
   }
 }
 
@@ -49,9 +111,132 @@
   line-height: 1.35;
 }
 
-:host ::ng-deep .vav-marker {
-  background: transparent;
+:host ::ng-deep .vav-map-marker-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+:host ::ng-deep .vav-map-label {
+  position: relative;
+  width: 6px;
+  height: 6px;
+  overflow: visible;
+  pointer-events: auto;
+}
+
+:host ::ng-deep .vav-map-label__dot {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--map-accent, #ea580c);
+}
+
+:host ::ng-deep .vav-map-label__text {
+  display: none;
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  font-family: var(--vav-font);
+  font-size: 0.65rem;
+  font-weight: 500;
+  line-height: 1.1;
+  color: #fff;
+  text-shadow:
+    -0.5px -0.5px 0 #000,
+    0.5px -0.5px 0 #000,
+    -0.5px 0.5px 0 #000,
+    0.5px 0.5px 0 #000,
+    0 -0.5px 0 #000,
+    0 0.5px 0 #000,
+    -0.5px 0 0 #000,
+    0.5px 0 0 #000;
+  background: none;
   border: none;
+  padding: 0;
+  pointer-events: none;
+}
+
+:host ::ng-deep .leaflet-container.vav-map-labels-visible .vav-map-label__text {
+  display: block;
+}
+
+:host ::ng-deep .vav-wp-context-leaflet .leaflet-popup-content-wrapper {
+  border-radius: var(--vav-radius-sm);
+  padding: 0;
+}
+
+:host ::ng-deep .vav-wp-context-leaflet .leaflet-popup-content {
+  margin: 0;
+  min-width: 220px;
+}
+
+:host ::ng-deep .vav-wp-ctx {
+  padding: 0.65rem 0.75rem 0.75rem;
+  font-family: var(--vav-font);
+  color: var(--vav-text);
+}
+
+:host ::ng-deep .vav-wp-ctx__title {
+  margin: 0 0 0.2rem;
+  font-size: 0.95rem;
+}
+
+:host ::ng-deep .vav-wp-ctx__meta {
+  margin: 0 0 0.15rem;
+  font-size: 0.78rem;
+  color: var(--vav-text-muted);
+}
+
+:host ::ng-deep .vav-wp-ctx__circuit {
+  margin: 0.35rem 0 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--vav-text);
+}
+
+:host ::ng-deep .vav-wp-ctx__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+:host ::ng-deep .vav-wp-ctx__btn {
+  width: 100%;
+  min-height: 36px;
+  padding: 0.4rem 0.65rem;
+  border-radius: var(--vav-radius-sm);
+  border: 1px solid var(--vav-border);
+  background: var(--vav-surface);
+  color: var(--vav-text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+:host ::ng-deep .vav-wp-ctx__btn--primary {
+  background: var(--vav-primary);
+  border-color: var(--vav-primary);
+  color: #fff;
+}
+
+:host ::ng-deep .vav-wp-ctx__btn--ghost {
+  background: transparent;
+  color: var(--vav-text-muted);
+}
+
+:host ::ng-deep .vav-wp-ctx__btn--danger {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+:host ::ng-deep .vav-wp-ctx__btn:hover {
+  filter: brightness(0.97);
 }
 
 :host ::ng-deep .poi-popup {
