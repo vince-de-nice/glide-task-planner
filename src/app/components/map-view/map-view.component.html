@@ -7,6 +7,36 @@
     <button type="button" class="vav-btn vav-btn--secondary vav-btn--sm" (click)="centerOnAll()">Tous les points</button>
     <button type="button" class="vav-btn vav-btn--ghost vav-btn--sm" (click)="clearSelection()">Effacer</button>
   </div>
+  <div class="map-airspace-bar">
+    <button
+      type="button"
+      class="vav-btn vav-btn--sm"
+      [class.vav-btn--primary]="airspaceVisible()"
+      [class.vav-btn--secondary]="!airspaceVisible()"
+      [disabled]="airspaceLoading() || !mapReady()"
+      (click)="toggleAirspaceLayer()"
+    >
+      {{ airspaceLoading() ? 'Chargement…' : airspaceVisible() ? 'Masquer espaces aériens' : 'Espaces aériens' }}
+    </button>
+    @if (airspaceConfigReady() && !airspaceLayerService.hasOpenAipKey()) {
+      <label class="map-airspace-bar__region">
+        <span class="sr-only">Région POAFF</span>
+        <select
+          class="vav-select vav-select--sm"
+          [value]="airspaceRegionId()"
+          [disabled]="airspaceLoading()"
+          (change)="onAirspaceRegionChange($any($event.target).value)"
+        >
+          @for (region of poaffRegions; track region.id) {
+            <option [value]="region.id">{{ region.label }}</option>
+          }
+        </select>
+      </label>
+    }
+    @if (airspaceStatus(); as status) {
+      <span class="map-airspace-bar__status">{{ status }}</span>
+    }
+  </div>
   <div class="map-filters" role="group" aria-label="Afficher sur la carte">
     @for (filter of typeFilterOptions; track filter.type) {
       <button
@@ -31,6 +61,6 @@
     (leafletMapZoomEnd)="onMapZoomEnd()"
   ></div>
   <p class="map-hint">
-    Pastilles toujours visibles · noms au zoom ≥ 10 · clic : actions · double-clic : nouveau point
+    Espaces aériens : POAFF/SIA (France) ou OpenAIP avec clé · pastilles · noms au zoom ≥ 11 · double-clic : nouveau point
   </p>
 </div>

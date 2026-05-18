@@ -1,10 +1,22 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import {
+  canWaypointBeArrival,
+  canWaypointBeDeparture,
+  CircuitLeg,
+  CircuitLegRole,
+  circuitRoleLabel,
+  circuitRoleMapToken
+} from '../models/circuit.model';
+import { Waypoint } from '../models/waypoint.model';
+import { WaypointService } from './waypoint.service';
 import { defaultTaskName } from './flarm-config.service';
 
 const STORAGE_KEY = 'vav_task_state';
 
 interface PersistedTaskState {
-  selectedWaypointIds: string[];
+  circuitLegs?: CircuitLeg[];
+  /** @deprecated migré vers circuitLegs */
+  selectedWaypointIds?: string[];
   taskName: string;
   activeDatabaseId: string | null;
 }
@@ -13,11 +25,14 @@ interface PersistedTaskState {
   providedIn: 'root'
 })
 export class TaskStateService {
-  selectedWaypointIds = signal<string[]>([]);
+  private waypointService = inject(WaypointService);
+
+  circuitLegs = signal<CircuitLeg[]>([]);
+  selectedWaypointIds = computed(() => this.circuitLegs().map(leg => leg.waypointId));
   taskName = signal<string>(defaultTaskName());
   activeDatabaseId = signal<string | null>(null);
 
-  selectedCount = computed(() => this.selectedWaypointIds().length);
+  selectedCount = computed(() => this.circuitLegs().length);
 
   constructor() {
     this.loadFromStorage();
@@ -28,7 +43,11 @@ export class TaskStateService {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return;
       const data = JSON.parse(raw) as PersistedTaskState;
-      this.selectedWaypointIds.set(data.selectedWaypointIds ?? []);
+      if (data.circuitLegs?.length) {
+        this.circuitLegs.set(this.sanitizeLegs(data.circuitLegs));
+      } else if (data.selectedWaypointIds?.length) {
+        this.circuitLegs.set(this.inferLegsFromLegacyIds(data.selectedWaypointIds));
+      }
       this.taskName.set(data.taskName ?? defaultTaskName());
       this.activeDatabaseId.set(data.activeDatabaseId ?? null);
     } catch {
@@ -38,11 +57,62 @@ export class TaskStateService {
 
   private saveToStorage(): void {
     const data: PersistedTaskState = {
-      selectedWaypointIds: this.selectedWaypointIds(),
+      circuitLegs: this.circuitLegs(),
       taskName: this.taskName(),
       activeDatabaseId: this.activeDatabaseId()
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  }
+
+  private setLegs(legs: CircuitLeg[]): void {
+    this.circuitLegs.set(this.sanitizeLegs(legs));
+    this.saveToStorage();
+  }
+
+  /** Décollage = 1er point aérodrome ; atterrissage = dernier point aérodrome. */
+  private sanitizeLegs(legs: CircuitLeg[]): CircuitLeg[] {
+    const last = legs.length - 1;
+    return legs.map((leg, index) => {
+      const wp = this.waypointService.getWaypoint(leg.waypointId);
+      if (leg.role === 'departure') {
+        if (index === 0 && canWaypointBeDeparture(wp)) return leg;
+        return { ...leg, role: 'turnpoint' as const };
+      }
+      if (leg.role === 'arrival') {
+        if (index === last && last > 0 && canWaypointBeArrival(wp)) return leg;
+        return { ...leg, role: 'turnpoint' as const };
+      }
+      return leg;
+    });
+  }
+
+  canSetDeparture(waypointId: string): boolean {
+    return canWaypointBeDeparture(this.waypointService.getWaypoint(waypointId));
+  }
+
+  canSetArrival(waypointId: string): boolean {
+    return canWaypointBeArrival(this.waypointService.getWaypoint(waypointId));
+  }
+
+  /** Migration : 1er = décollage si aérodrome, dernier = atterrissage si aérodrome, sinon virage. */
+  private inferLegsFromLegacyIds(ids: string[]): CircuitLeg[] {
+    return ids.map((waypointId, index) => ({
+      waypointId,
+      role: this.inferLegacyRole(waypointId, index, ids.length)
+    }));
+  }
+
+  private inferLegacyRole(waypointId: string, index: number, count: number): CircuitLegRole {
+    const wp = this.waypointService.getWaypoint(waypointId);
+    const isAirfield = wp?.type === 'airfield';
+    if (index === 0 && isAirfield) return 'departure';
+    if (index === count - 1 && isAirfield && count > 1) return 'arrival';
+    if (count === 1 && isAirfield) return 'departure';
+    return 'turnpoint';
+  }
+
+  inferLegsFromWaypointIds(ids: string[]): CircuitLeg[] {
+    return this.inferLegsFromLegacyIds(ids);
   }
 
   setTaskName(name: string): void {
@@ -55,91 +125,149 @@ export class TaskStateService {
     this.saveToStorage();
   }
 
-  /** Nombre d'occurrences de ce waypoint dans la tâche (doublons inclus). */
   getOccurrenceCount(id: string): number {
-    return this.selectedWaypointIds().filter(wid => wid === id).length;
+    return this.circuitLegs().filter(leg => leg.waypointId === id).length;
   }
 
-  /** Positions 1-based dans le circuit (ex. [1, 4] si le point est parcouru deux fois). */
   getCircuitIndices(id: string): number[] {
     const indices: number[] = [];
-    this.selectedWaypointIds().forEach((wid, index) => {
-      if (wid === id) indices.push(index + 1);
+    this.circuitLegs().forEach((leg, index) => {
+      if (leg.waypointId === id) indices.push(index + 1);
     });
     return indices;
   }
 
-  /** Libellés décollage / atterrissage pour un aérodrome en tête ou en queue de circuit. */
+  getLegAt(index: number): CircuitLeg | undefined {
+    return this.circuitLegs()[index];
+  }
+
+  getCircuitRoles(): CircuitLegRole[] {
+    return this.circuitLegs().map(leg => leg.role);
+  }
+
+  /** Libellés français pour chaque occurrence du waypoint dans le circuit. */
+  getWaypointRoleLabels(waypointId: string): string[] {
+    return this.circuitLegs()
+      .filter(leg => leg.waypointId === waypointId)
+      .map(leg => circuitRoleLabel(leg.role));
+  }
+
+  /** Tokens affichés sur la carte (decollage, atterrissage, numéros de position). */
+  getWaypointMapRoleTokens(waypointId: string): string[] {
+    return this.circuitLegs()
+      .map((leg, index) => (leg.waypointId === waypointId ? circuitRoleMapToken(leg.role, index + 1) : null))
+      .filter((token): token is string => token !== null);
+  }
+
+  /** @deprecated Utiliser getWaypointRoleLabels */
   getAirfieldRoleLabels(waypointId: string): string[] {
-    const ids = this.selectedWaypointIds();
-    if (ids.length === 0) return [];
-
-    const labels: string[] = [];
-    if (ids[0] === waypointId) labels.push('Décollage');
-    if (ids[ids.length - 1] === waypointId) labels.push('Atterrissage');
-    return labels;
+    return this.getWaypointRoleLabels(waypointId);
   }
 
-  /** Ajoute une occurrence du waypoint en fin de tâche. */
+  setDeparture(waypointId: string): boolean {
+    if (!this.canSetDeparture(waypointId)) return false;
+    let legs = this.circuitLegs().filter(leg => leg.role !== 'departure');
+    legs = legs.filter(
+      leg => !(leg.waypointId === waypointId && leg.role === 'turnpoint')
+    );
+    legs.unshift({ waypointId, role: 'departure' });
+    this.setLegs(legs);
+    return true;
+  }
+
+  setArrival(waypointId: string): boolean {
+    if (!this.canSetArrival(waypointId)) return false;
+    let legs = this.circuitLegs().filter(leg => leg.role !== 'arrival');
+    legs = legs.filter(
+      leg => !(leg.waypointId === waypointId && leg.role === 'turnpoint')
+    );
+    legs.push({ waypointId, role: 'arrival' });
+    this.setLegs(legs);
+    return true;
+  }
+
+  addTurnpoint(waypointId: string): void {
+    const legs = [...this.circuitLegs()];
+    const arrivalIndex = legs.findIndex(leg => leg.role === 'arrival');
+    const leg: CircuitLeg = { waypointId, role: 'turnpoint' };
+    if (arrivalIndex >= 0) {
+      legs.splice(arrivalIndex, 0, leg);
+    } else {
+      legs.push(leg);
+    }
+    this.setLegs(legs);
+  }
+
+  /** @deprecated Préférer addTurnpoint */
   addWaypoint(id: string): void {
-    this.selectedWaypointIds.update(ids => [...ids, id]);
-    this.saveToStorage();
+    this.addTurnpoint(id);
   }
 
-  /** Index 0-based de la dernière occurrence de ce waypoint dans le circuit. */
   getLastOccurrenceIndex(waypointId: string): number {
-    const ids = this.selectedWaypointIds();
-    for (let i = ids.length - 1; i >= 0; i--) {
-      if (ids[i] === waypointId) return i;
+    const legs = this.circuitLegs();
+    for (let i = legs.length - 1; i >= 0; i--) {
+      if (legs[i].waypointId === waypointId) return i;
     }
     return -1;
   }
 
-  /** Retire la dernière occurrence de ce waypoint dans le circuit. */
   removeLastOccurrence(waypointId: string): void {
     const index = this.getLastOccurrenceIndex(waypointId);
     if (index >= 0) this.removeWaypointAt(index);
   }
 
-  /** Retire toutes les occurrences de ce waypoint du circuit. */
   removeAllOccurrences(waypointId: string): void {
-    const ids = this.selectedWaypointIds().filter(id => id !== waypointId);
-    if (ids.length === this.selectedWaypointIds().length) return;
-    this.selectedWaypointIds.set(ids);
-    this.saveToStorage();
+    const legs = this.circuitLegs().filter(leg => leg.waypointId !== waypointId);
+    if (legs.length === this.circuitLegs().length) return;
+    this.setLegs(legs);
   }
 
-  /** Retire une seule occurrence à l'index donné. */
   removeWaypointAt(index: number): void {
-    const ids = [...this.selectedWaypointIds()];
-    if (index < 0 || index >= ids.length) return;
-    ids.splice(index, 1);
-    this.selectedWaypointIds.set(ids);
-    this.saveToStorage();
+    const legs = [...this.circuitLegs()];
+    if (index < 0 || index >= legs.length) return;
+    legs.splice(index, 1);
+    this.setLegs(legs);
   }
 
   moveWaypoint(index: number, direction: 'up' | 'down'): void {
-    const ids = [...this.selectedWaypointIds()];
+    const legs = [...this.circuitLegs()];
     if (direction === 'up' && index > 0) {
-      [ids[index], ids[index - 1]] = [ids[index - 1], ids[index]];
-    } else if (direction === 'down' && index < ids.length - 1) {
-      [ids[index], ids[index + 1]] = [ids[index + 1], ids[index]];
+      [legs[index], legs[index - 1]] = [legs[index - 1], legs[index]];
+    } else if (direction === 'down' && index < legs.length - 1) {
+      [legs[index], legs[index + 1]] = [legs[index + 1], legs[index]];
     } else {
       return;
     }
-    this.selectedWaypointIds.set(ids);
-    this.saveToStorage();
+    this.normalizeDepartureArrivalPositions(legs);
+    this.setLegs(legs);
+  }
+
+  /** Après réordonnancement manuel, le décollage reste en tête et l'atterrissage en queue. */
+  private normalizeDepartureArrivalPositions(legs: CircuitLeg[]): void {
+    const departure = legs.find(leg => leg.role === 'departure');
+    const arrival = legs.find(leg => leg.role === 'arrival');
+    const middle = legs.filter(leg => leg.role === 'turnpoint');
+    const ordered: CircuitLeg[] = [];
+    if (departure) ordered.push(departure);
+    ordered.push(...middle);
+    if (arrival) ordered.push(arrival);
+    legs.splice(0, legs.length, ...ordered);
   }
 
   clearSelection(): void {
-    this.selectedWaypointIds.set([]);
+    this.circuitLegs.set([]);
     this.saveToStorage();
   }
 
-  loadTask(waypointIds: string[], name: string): void {
-    this.selectedWaypointIds.set([...waypointIds]);
+  loadTask(legs: CircuitLeg[], name: string): void {
+    this.circuitLegs.set(this.sanitizeLegs([...legs]));
     this.taskName.set(name);
     this.saveToStorage();
+  }
+
+  /** Charge une liste d'IDs sans rôles (circuits enregistrés anciens format). */
+  loadTaskFromWaypointIds(waypointIds: string[], name: string): void {
+    this.loadTask(this.inferLegsFromLegacyIds(waypointIds), name);
   }
 
   resetTaskNameToToday(): void {

@@ -49,9 +49,10 @@ export function buildMapMarkerHtml(model: MapMarkerViewModel): string {
   `;
 }
 
-/** Estime la taille du divIcon Leaflet pour un libellé texte. */
+/** Estime la taille du divIcon Leaflet (pastille + texte cliquable). */
 export function estimateMapLabelSize(name: string, suffix: string | null): [number, number] {
   const charCount = name.length + (suffix?.length ?? 0);
-  const width = Math.min(Math.max(48, charCount * 5.5 + 14), 220);
+  const textWidth = Math.min(Math.max(0, charCount * 5.5), 210);
+  const width = Math.max(6, 8 + textWidth);
   return [width, 14];
 }

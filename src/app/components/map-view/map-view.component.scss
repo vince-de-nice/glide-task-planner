@@ -43,6 +43,53 @@
   }
 }
 
+.map-airspace-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+  flex-shrink: 0;
+}
+
+.map-airspace-bar__region {
+  display: flex;
+  align-items: center;
+}
+
+.map-airspace-bar__status {
+  flex: 1 1 100%;
+  font-size: 0.68rem;
+  color: var(--vav-text-muted);
+  line-height: 1.3;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+:host ::ng-deep .vav-airspace-popup {
+  font-size: 0.8rem;
+  max-width: 260px;
+
+  p {
+    margin: 0.25rem 0 0;
+  }
+
+  &__desc {
+    color: var(--vav-text-muted);
+    font-size: 0.75rem;
+  }
+}
+
 .map-filters {
   display: flex;
   flex-wrap: wrap;
@@ -114,18 +161,21 @@
 :host ::ng-deep .vav-map-marker-icon {
   background: transparent !important;
   border: none !important;
+  cursor: pointer;
 }
 
 :host ::ng-deep .vav-map-label {
-  position: relative;
-  width: 6px;
-  height: 6px;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
   overflow: visible;
-  pointer-events: auto;
+  cursor: pointer;
 }
 
 :host ::ng-deep .vav-map-label__dot {
-  display: block;
+  flex-shrink: 0;
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -134,10 +184,9 @@
 
 :host ::ng-deep .vav-map-label__text {
   display: none;
-  position: absolute;
-  left: 8px;
-  top: 50%;
-  transform: translateY(-50%);
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: 2px;
   white-space: nowrap;
   font-family: var(--vav-font);
   font-size: 0.65rem;
@@ -156,7 +205,7 @@
   background: none;
   border: none;
   padding: 0;
-  pointer-events: none;
+  cursor: pointer;
 }
 
 :host ::ng-deep .leaflet-container.vav-map-labels-visible .vav-map-label__text {

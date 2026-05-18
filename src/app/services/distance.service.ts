@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { CircuitLegRole } from '../models/circuit.model';
 import { Waypoint } from '../models/waypoint.model';
 
 export type DistanceUnit = 'km' | 'nm' | 'mi';
@@ -32,20 +33,27 @@ export class DistanceService {
   private readonly EARTH_RADIUS_MI = 3958.8;
 
   /**
-   * Distance du circuit en km, sans les branches reliées au décollage (1er pt aérodrome)
-   * ni à l'atterrissage (dernier pt aérodrome).
+   * Distance du circuit, sans la branche après le décollage ni celle avant l'atterrissage.
+   * Les rôles explicites priment ; sinon repli sur aérodrome en tête / en queue.
    */
   calculateTaskDistance(
     waypoints: Waypoint[],
-    unit: DistanceUnit = 'km'
+    unit: DistanceUnit = 'km',
+    roles?: CircuitLegRole[]
   ): DistanceResult {
     if (waypoints.length < 2) {
       return { taskDistance: 0, totalDistance: 0, legDistances: [], unit };
     }
 
     const radius = this.getRadius(unit);
-    const hasDeparture = waypoints[0].type === 'airfield';
-    const hasArrival = waypoints[waypoints.length - 1].type === 'airfield';
+    const hasDeparture =
+      (roles?.[0] === 'departure' && waypoints[0]?.type === 'airfield') ||
+      (!roles?.length && waypoints[0].type === 'airfield');
+    const hasArrival =
+      (roles?.length &&
+        roles[roles.length - 1] === 'arrival' &&
+        waypoints[waypoints.length - 1]?.type === 'airfield') ||
+      (!roles?.length && waypoints[waypoints.length - 1].type === 'airfield');
 
     const legDistances: TaskLegDistance[] = [];
     let taskDistance = 0;

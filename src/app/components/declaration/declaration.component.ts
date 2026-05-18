@@ -28,6 +28,7 @@ import { CircuitLibraryComponent } from '../circuit-library/circuit-library.comp
 import { SavedCircuitService } from '../../services/saved-circuit.service';
 import { CupCatalogEntry } from '../../models/cup-catalog.model';
 import { FlarmDeclaration } from '../../models/flarm-profile.model';
+import { circuitRoleShortLabel } from '../../models/circuit.model';
 import { Waypoint, WaypointTypeFilter } from '../../models/waypoint.model';
 import { FlarmProfileService } from '../../services/flarm-profile.service';
 
@@ -55,6 +56,7 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   waypoints = this.waypointService.waypoints;
   activeCircuitId = this.savedCircuitService.activeCircuitId;
   selectedWaypointIds = this.taskState.selectedWaypointIds;
+  circuitLegs = this.taskState.circuitLegs;
   taskName = this.taskState.taskName;
   activeDatabaseId = this.taskState.activeDatabaseId;
   flarmProfile = this.flarmProfileService.profile;
@@ -79,8 +81,8 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   private addToastTimer: ReturnType<typeof setTimeout> | null = null;
 
   selectedWaypoints = computed(() =>
-    this.selectedWaypointIds()
-      .map(id => this.waypointService.getWaypoint(id))
+    this.circuitLegs()
+      .map(leg => this.waypointService.getWaypoint(leg.waypointId))
       .filter((wp): wp is Waypoint => wp !== undefined)
   );
 
@@ -134,7 +136,7 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
 
   constructor() {
     effect(() => {
-      this.selectedWaypointIds();
+      this.circuitLegs();
       this.calculateDistance();
     });
 
@@ -344,8 +346,8 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   }
 
   onWaypointRowClick(id: string, name: string): void {
-    this.taskState.addWaypoint(id);
-    this.showAddToast(`« ${name} » ajouté au circuit`);
+    this.taskState.addTurnpoint(id);
+    this.showAddToast(`« ${name} » ajouté comme point de virage`);
   }
 
   moveWaypoint(index: number, direction: 'up' | 'down'): void {
@@ -365,7 +367,9 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   calculateDistance(): void {
     const wps = this.selectedWaypoints();
     if (wps.length >= 2) {
-      this.distanceResult.set(this.distanceService.calculateTaskDistance(wps, 'km'));
+      this.distanceResult.set(
+        this.distanceService.calculateTaskDistance(wps, 'km', this.taskState.getCircuitRoles())
+      );
     } else {
       this.distanceResult.set(null);
     }
@@ -399,7 +403,7 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     }
   }
 
-  canSaveCircuit = computed(() => this.selectedWaypointIds().length >= 2);
+  canSaveCircuit = computed(() => this.circuitLegs().length >= 2);
 
   onCircuitSaveRequest(event: { label: string; notes: string; updateId: string | null }): void {
     try {
@@ -407,7 +411,7 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
         label: event.label || this.taskName(),
         taskName: this.taskName(),
         profile: this.flarmProfile(),
-        waypointIds: this.selectedWaypointIds(),
+        circuitLegs: this.circuitLegs(),
         databaseId: this.activeDatabaseId(),
         notes: event.notes,
         updateId: event.updateId ?? undefined
@@ -425,7 +429,7 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     const applied = this.savedCircuitService.applyCircuit(circuitId);
     if (!applied) return;
     this.flarmProfileService.updateProfile(applied.profile);
-    this.taskState.loadTask(applied.waypointIds, applied.taskName);
+    this.taskState.loadTask(applied.circuitLegs, applied.taskName);
     this.calculateDistance();
     this.closeCircuitsDialog();
     this.setMobileTab('task');
@@ -444,6 +448,8 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   getOccurrenceCount(id: string): number {
     return this.taskState.getOccurrenceCount(id);
   }
+
+  circuitRoleLabel = circuitRoleShortLabel;
 
   typeLabel(type: Waypoint['type']): string {
     const labels: Record<Waypoint['type'], string> = {

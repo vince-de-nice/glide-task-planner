@@ -22,12 +22,15 @@ import {
   MapOptions,
   LeafletMouseEvent,
   LayerGroup,
+  Layer
 } from 'leaflet';
 import { WaypointService } from '../../services/waypoint.service';
 import { TaskStateService } from '../../services/task-state.service';
 import { DistanceService } from '../../services/distance.service';
+import { AirspaceLayerService } from '../../services/airspace-layer.service';
+import { DEFAULT_POAFF_REGION_ID } from '../../config/map-airspace.config';
 import { Waypoint, WaypointType } from '../../models/waypoint.model';
-import { buildMapMarkerHtml, formatMapRoleSuffix } from './map-marker.util';
+import { buildMapMarkerHtml, estimateMapLabelSize, formatMapRoleSuffix } from './map-marker.util';
 import {
   buildWaypointContextPopupHtml,
   waypointTypeLabel,
@@ -68,6 +71,7 @@ export class MapViewComponent implements OnInit {
   private waypointService = inject(WaypointService);
   private taskState = inject(TaskStateService);
   private distanceService = inject(DistanceService);
+  readonly airspaceLayerService = inject(AirspaceLayerService);
 
   compact = input(false);
 
@@ -76,8 +80,17 @@ export class MapViewComponent implements OnInit {
 
   waypoints = this.waypointService.waypoints;
   selectedWaypointIds = this.taskState.selectedWaypointIds;
+  circuitLegs = this.taskState.circuitLegs;
 
   readonly typeFilterOptions = MAP_TYPE_FILTERS;
+  readonly poaffRegions = this.airspaceLayerService.poaffRegions;
+
+  airspaceVisible = signal(false);
+  airspaceRegionId = signal(DEFAULT_POAFF_REGION_ID);
+  airspaceStatus = signal<string | null>(null);
+  airspaceLoading = signal(false);
+  /** true une fois `public/config/airspace.json` lu (affiche le bon mode POAFF / OpenAIP). */
+  airspaceConfigReady = signal(false);
 
   /** Visibilité du catalogue par type (le circuit ignore ces filtres). */
   private catalogTypeVisible = signal<Record<WaypointType, boolean>>({
@@ -92,7 +105,8 @@ export class MapViewComponent implements OnInit {
   private map: Map | null = null;
   private markersLayer: LayerGroup | null = null;
   private taskLinesLayer: LayerGroup | null = null;
-  private mapReady = false;
+  private airspaceLayer: Layer | null = null;
+  mapReady = signal(false);
 
   /** Distance tâche affichée sur la carte (km, hors branches déco/attero). */
   taskDistanceKm = signal<string | null>(null);
@@ -102,7 +116,7 @@ export class MapViewComponent implements OnInit {
       this.waypoints();
       this.selectedWaypointIds();
       this.catalogTypeVisible();
-      if (this.mapReady && this.map && this.markersLayer) {
+      if (this.mapReady() && this.map && this.markersLayer) {
         this.refreshMarkers();
         this.updateTaskLines();
         this.updateTaskDistanceLabel();
@@ -120,7 +134,11 @@ export class MapViewComponent implements OnInit {
       return;
     }
 
-    const { taskDistance, totalDistance } = this.distanceService.calculateTaskDistance(wps, 'km');
+    const { taskDistance, totalDistance } = this.distanceService.calculateTaskDistance(
+      wps,
+      'km',
+      this.taskState.getCircuitRoles()
+    );
     const label =
       totalDistance > taskDistance + 0.05
         ? `${taskDistance.toFixed(1)} km (${totalDistance.toFixed(1)} total)`
@@ -132,17 +150,89 @@ export class MapViewComponent implements OnInit {
     return this.catalogTypeVisible()[type];
   }
 
+  async toggleAirspaceLayer(): Promise<void> {
+    if (this.airspaceVisible()) {
+      this.removeAirspaceLayer();
+      this.airspaceVisible.set(false);
+      this.airspaceStatus.set(null);
+      return;
+    }
+
+    this.airspaceLoading.set(true);
+    this.airspaceStatus.set('Chargement des espaces aériens…');
+
+    if (!this.map) {
+      this.airspaceLoading.set(false);
+      this.airspaceStatus.set('Carte non initialisée — attendez un instant puis réessayez.');
+      return;
+    }
+
+    const { result, failure } = await this.airspaceLayerService.loadPoaffWithDiagnostics(
+      this.airspaceRegionId()
+    );
+
+    this.airspaceLoading.set(false);
+
+    if (!result) {
+      this.airspaceStatus.set(this.airspaceLayerService.poaffFailureMessage(failure));
+      return;
+    }
+
+    this.removeAirspaceLayer();
+    result.layer.addTo(this.map);
+    this.airspaceLayer = result.layer;
+    this.airspaceVisible.set(true);
+
+    const hint =
+      result.source === 'openaip'
+        ? 'OpenAIP (monde)'
+        : `POAFF/SIA — ${result.label} (clé OpenAIP optionnelle dans public/config/airspace.json)`;
+    this.airspaceStatus.set(hint);
+  }
+
+  onAirspaceRegionChange(regionId: string): void {
+    this.airspaceRegionId.set(regionId);
+    if (this.airspaceVisible()) {
+      void this.reloadAirspaceLayer();
+    }
+  }
+
+  private async reloadAirspaceLayer(): Promise<void> {
+    this.removeAirspaceLayer();
+    this.airspaceVisible.set(false);
+    await this.toggleAirspaceLayer();
+  }
+
+  private initAirspacePane(map: Map): void {
+    if (!map.getPane('airspace')) {
+      map.createPane('airspace');
+      const pane = map.getPane('airspace');
+      if (pane) pane.style.zIndex = '350';
+    }
+  }
+
+  private removeAirspaceLayer(): void {
+    if (this.airspaceLayer && this.map) {
+      this.map.removeLayer(this.airspaceLayer);
+      this.airspaceLayer = null;
+    }
+  }
+
   toggleCatalogTypeFilter(type: WaypointType): void {
     this.catalogTypeVisible.update(current => ({
       ...current,
       [type]: !current[type]
     }));
-    if (this.mapReady) {
+    if (this.mapReady()) {
       this.refreshMarkers();
     }
   }
 
   ngOnInit(): void {
+    void this.airspaceLayerService.ensureConfigLoaded().then(() => {
+      this.airspaceConfigReady.set(true);
+    });
+
     const wps = this.waypointService.waypoints();
     const center =
       wps.length > 0 ? latLng(wps[0].latitude, wps[0].longitude) : latLng(46.5, 6.5);
@@ -167,8 +257,9 @@ export class MapViewComponent implements OnInit {
   onMapReady(map: Map): void {
     this.map = map;
     map.doubleClickZoom.disable();
+    this.initAirspacePane(map);
     this.markersLayer = layerGroup().addTo(map);
-    this.mapReady = true;
+    this.mapReady.set(true);
     this.refreshMarkers();
     this.updateTaskLines();
     this.updateTaskDistanceLabel();
@@ -182,6 +273,9 @@ export class MapViewComponent implements OnInit {
 
   onMapZoomEnd(): void {
     this.syncLabelVisibility();
+    if (this.mapReady() && this.markersLayer) {
+      this.refreshMarkers();
+    }
   }
 
   private syncLabelVisibility(): void {
@@ -228,7 +322,7 @@ export class MapViewComponent implements OnInit {
           longitude: lng,
           type: 'custom'
         });
-        this.taskState.addWaypoint(wp.id);
+        this.taskState.addTurnpoint(wp.id);
         this.map?.closePopup();
       });
     }, 0);
@@ -264,12 +358,11 @@ export class MapViewComponent implements OnInit {
     for (const wp of this.waypointsToRender()) {
       const indices = this.taskState.getCircuitIndices(wp.id);
       const inCircuit = indices.length > 0;
-      const roleLabels =
-        wp.type === 'airfield' ? this.taskState.getAirfieldRoleLabels(wp.id) : [];
+      const roleTokens = this.taskState.getWaypointMapRoleTokens(wp.id);
 
       let suffix: string | null = null;
-      if (roleLabels.length > 0) {
-        suffix = formatMapRoleSuffix(roleLabels);
+      if (roleTokens.length > 0) {
+        suffix = formatMapRoleSuffix(roleTokens);
       } else if (inCircuit) {
         suffix = `(${indices.join(',')})`;
       }
@@ -280,18 +373,29 @@ export class MapViewComponent implements OnInit {
         suffix
       });
 
+      const labelsVisible = (this.map?.getZoom() ?? 0) >= MIN_ZOOM_FOR_LABELS;
+      const iconSize = labelsVisible
+        ? estimateMapLabelSize(wp.name, suffix)
+        : ([6, 6] as [number, number]);
+      const iconAnchor: [number, number] = labelsVisible
+        ? [3, iconSize[1] / 2]
+        : [3, 3];
+
       const icon = divIcon({
         className: 'vav-map-marker-icon',
         html: markerHtml,
-        iconSize: [6, 6],
-        iconAnchor: [3, 3]
+        iconSize,
+        iconAnchor
       });
 
-      marker([wp.latitude, wp.longitude], { icon })
-        .bindTooltip(wp.name + (suffix ? ` ${suffix}` : ''), {
+      const mapMarker = marker([wp.latitude, wp.longitude], { icon });
+      if (!labelsVisible) {
+        mapMarker.bindTooltip(wp.name + (suffix ? ` ${suffix}` : ''), {
           direction: 'right',
           offset: [8, 0]
-        })
+        });
+      }
+      mapMarker
         .on('click', (ev: LeafletMouseEvent) => {
           ev.originalEvent.stopPropagation();
           this.openWaypointContextMenu(wp);
@@ -314,7 +418,11 @@ export class MapViewComponent implements OnInit {
 
     if (wps.length < 2) return;
 
-    const { legDistances } = this.distanceService.calculateTaskDistance(wps, 'km');
+    const { legDistances } = this.distanceService.calculateTaskDistance(
+      wps,
+      'km',
+      this.taskState.getCircuitRoles()
+    );
 
     for (const leg of legDistances) {
       const from = wps[leg.fromIndex];
@@ -378,11 +486,12 @@ export class MapViewComponent implements OnInit {
   private openWaypointContextMenu(wp: Waypoint): void {
     if (!this.map) return;
 
-    const circuitIndices = this.taskState.getCircuitIndices(wp.id);
     const html = buildWaypointContextPopupHtml({
       waypoint: wp,
-      circuitIndices,
-      typeLabel: waypointTypeLabel(wp.type)
+      circuitLegs: this.taskState.circuitLegs(),
+      typeLabel: waypointTypeLabel(wp.type),
+      canSetDeparture: this.taskState.canSetDeparture(wp.id),
+      canSetArrival: this.taskState.canSetArrival(wp.id)
     });
 
     const popupInstance = popup({
@@ -412,9 +521,19 @@ export class MapViewComponent implements OnInit {
 
   private runWaypointAction(action: WaypointMapAction, wp: Waypoint): string | null {
     switch (action) {
-      case 'add-circuit':
-        this.taskState.addWaypoint(wp.id);
-        return `« ${wp.name} » ajouté au circuit`;
+      case 'set-departure':
+        if (!this.taskState.setDeparture(wp.id)) {
+          return 'Seul un aérodrome peut être défini comme décollage.';
+        }
+        return `« ${wp.name} » défini comme décollage`;
+      case 'set-arrival':
+        if (!this.taskState.setArrival(wp.id)) {
+          return 'Seul un aérodrome peut être défini comme atterrissage.';
+        }
+        return `« ${wp.name} » défini comme atterrissage`;
+      case 'set-turnpoint':
+        this.taskState.addTurnpoint(wp.id);
+        return `« ${wp.name} » ajouté comme point de virage`;
       case 'remove-last':
         this.taskState.removeLastOccurrence(wp.id);
         return `« ${wp.name} » retiré du circuit`;

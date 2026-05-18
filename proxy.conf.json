@@ -1,0 +1,10 @@
+{
+  "/api/poaff": {
+    "target": "http://pascal.bazile.free.fr",
+    "secure": false,
+    "changeOrigin": true,
+    "pathRewrite": {
+      "^/api/poaff": "/paraglidingFolder/divers/GPS/OpenAir-Format"
+    }
+  }
+}

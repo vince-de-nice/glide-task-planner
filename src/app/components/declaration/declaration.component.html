@@ -130,16 +130,17 @@
           />
         </label>
         <p class="decl-circuit__hint">
-          1<sup>er</sup> = décollage · dernier = atterrissage · distance hors branches déco/attero
+          Décollage / atterrissage : aérodromes en 1<sup>er</sup> / dernier · distance hors branches déco/attero
         </p>
       </header>
 
       <ol class="decl-circuit__list vav-scroll">
-        @for (id of selectedWaypointIds(); track $index; let i = $index) {
-          @if (waypointService.getWaypoint(id); as wp) {
+        @for (leg of circuitLegs(); track $index; let i = $index) {
+          @if (waypointService.getWaypoint(leg.waypointId); as wp) {
             <li class="decl-task-item">
               <span class="decl-task-item__num">{{ i + 1 }}</span>
               <div class="decl-task-item__body">
+                <span class="decl-task-item__role">{{ circuitRoleLabel(leg.role) }}</span>
                 <strong>{{ wp.name }}</strong>
                 @if (wp.code) {
                   <small>{{ wp.code }}</small>

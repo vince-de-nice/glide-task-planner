@@ -485,6 +485,16 @@
   flex: 1;
   min-width: 0;
 
+  .decl-task-item__role {
+    display: inline-block;
+    font-size: 0.625rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--vav-accent, #2563eb);
+    margin-bottom: 0.1rem;
+  }
+
   strong {
     display: block;
     font-size: 0.875rem;

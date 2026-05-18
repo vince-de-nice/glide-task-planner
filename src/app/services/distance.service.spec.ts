@@ -44,6 +44,23 @@ describe('DistanceService.calculateTaskDistance', () => {
     expect(result.legDistances.every(l => l.counted)).toBe(true);
   });
 
+  it('ignores departure/arrival roles on non-airfield endpoints', () => {
+    const waypoints = [
+      wp('L1', 43.74, 5.78, 'landable'),
+      wp('TP1', 43.61, 5.76),
+      wp('TP2', 43.92, 6.08),
+      wp('L2', 43.5, 5.9, 'landable')
+    ];
+    const result = service.calculateTaskDistance(waypoints, 'km', [
+      'departure',
+      'turnpoint',
+      'turnpoint',
+      'arrival'
+    ]);
+    expect(result.taskDistance).toBeCloseTo(result.totalDistance, 5);
+    expect(result.legDistances.every(l => l.counted)).toBe(true);
+  });
+
   it('counts middle airfield legs', () => {
     const waypoints = [
       wp('AD1', 43.74, 5.78, 'airfield'),

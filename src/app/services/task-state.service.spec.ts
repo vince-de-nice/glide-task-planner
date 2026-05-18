@@ -1,8 +1,12 @@
+import { TestBed } from '@angular/core/testing';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TaskStateService } from './task-state.service';
+import { WaypointService } from './waypoint.service';
+import { CupParserService } from './cup-parser.service';
 
-describe('TaskStateService circuit labels', () => {
+describe('TaskStateService circuit roles', () => {
   let service: TaskStateService;
+  let waypointService: WaypointService;
   const store = new Map<string, string>();
 
   beforeEach(() => {
@@ -13,39 +17,80 @@ describe('TaskStateService circuit labels', () => {
       removeItem: (key: string) => store.delete(key),
       clear: () => store.clear()
     });
-    service = new TaskStateService();
+    TestBed.configureTestingModule({
+      providers: [CupParserService, WaypointService, TaskStateService]
+    });
+    waypointService = TestBed.inject(WaypointService);
+    service = TestBed.inject(TaskStateService);
     service.clearSelection();
   });
 
-  it('returns comma-separated 1-based indices', () => {
-    service.addWaypoint('a');
-    service.addWaypoint('b');
-    service.addWaypoint('a');
-    expect(service.getCircuitIndices('a')).toEqual([1, 3]);
-    expect(service.getCircuitIndices('b')).toEqual([2]);
+  function addWp(name: string, type: 'airfield' | 'turnpoint' = 'turnpoint'): string {
+    return waypointService.addWaypoint({
+      name,
+      latitude: 43,
+      longitude: 5,
+      type
+    }).id;
+  }
+
+  it('setDeparture places waypoint at start with departure role', () => {
+    const home = addWp('home', 'airfield');
+    const tp1 = addWp('tp1');
+    service.addTurnpoint(tp1);
+    service.setDeparture(home);
+    expect(service.circuitLegs()).toEqual([
+      { waypointId: home, role: 'departure' },
+      { waypointId: tp1, role: 'turnpoint' }
+    ]);
   });
 
-  it('labels airfield at start and end', () => {
-    service.addWaypoint('home');
-    service.addWaypoint('tp1');
-    service.addWaypoint('home');
-    expect(service.getAirfieldRoleLabels('home')).toEqual(['Décollage', 'Atterrissage']);
-    expect(service.getAirfieldRoleLabels('tp1')).toEqual([]);
+  it('setArrival places waypoint at end with arrival role', () => {
+    const home = addWp('home', 'airfield');
+    const tp1 = addWp('tp1');
+    service.setDeparture(home);
+    service.addTurnpoint(tp1);
+    service.setArrival(home);
+    expect(service.circuitLegs()).toEqual([
+      { waypointId: home, role: 'departure' },
+      { waypointId: tp1, role: 'turnpoint' },
+      { waypointId: home, role: 'arrival' }
+    ]);
+    expect(service.getWaypointRoleLabels(home)).toEqual(['Décollage', 'Atterrissage']);
   });
 
-  it('single airfield is both décollage and atterrissage', () => {
-    service.addWaypoint('home');
-    expect(service.getAirfieldRoleLabels('home')).toEqual(['Décollage', 'Atterrissage']);
+  it('addTurnpoint inserts before arrival', () => {
+    const a = addWp('a');
+    const mid = addWp('mid');
+    const ad = addWp('ad', 'airfield');
+    service.setDeparture(ad);
+    service.addTurnpoint(mid);
+    service.setArrival(ad);
+    service.addTurnpoint(a);
+    expect(service.circuitLegs()).toEqual([
+      { waypointId: ad, role: 'departure' },
+      { waypointId: mid, role: 'turnpoint' },
+      { waypointId: a, role: 'turnpoint' },
+      { waypointId: ad, role: 'arrival' }
+    ]);
+  });
+
+  it('rejects departure and arrival on non-airfield', () => {
+    const tp = addWp('tp');
+    expect(service.setDeparture(tp)).toBe(false);
+    expect(service.setArrival(tp)).toBe(false);
+    expect(service.circuitLegs()).toEqual([]);
   });
 
   it('removeLastOccurrence and removeAllOccurrences', () => {
-    service.addWaypoint('a');
-    service.addWaypoint('b');
-    service.addWaypoint('a');
-    expect(service.getLastOccurrenceIndex('a')).toBe(2);
-    service.removeLastOccurrence('a');
-    expect(service.selectedWaypointIds()).toEqual(['a', 'b']);
-    service.removeAllOccurrences('a');
-    expect(service.selectedWaypointIds()).toEqual(['b']);
+    const a = addWp('a');
+    const b = addWp('b');
+    service.addTurnpoint(a);
+    service.addTurnpoint(b);
+    service.addTurnpoint(a);
+    service.removeLastOccurrence(a);
+    expect(service.selectedWaypointIds()).toEqual([a, b]);
+    service.removeAllOccurrences(a);
+    expect(service.selectedWaypointIds()).toEqual([b]);
   });
 });

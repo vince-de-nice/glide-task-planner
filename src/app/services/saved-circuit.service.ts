@@ -1,7 +1,9 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { DEFAULT_FLARM_PROFILE, FlarmProfile } from '../models/flarm-profile.model';
+import { CircuitLeg } from '../models/circuit.model';
 import { SavedCircuit, SavedCircuitExport, WaypointSnapshot } from '../models/saved-circuit.model';
 import { Waypoint } from '../models/waypoint.model';
+import { TaskStateService } from './task-state.service';
 import { WaypointService } from './waypoint.service';
 
 const STORAGE_KEY = 'vav_saved_circuits';
@@ -12,6 +14,7 @@ const LEGACY_KEY = 'vav_circuits';
 })
 export class SavedCircuitService {
   private waypointService = inject(WaypointService);
+  private taskState = inject(TaskStateService);
 
   circuits = signal<SavedCircuit[]>([]);
   activeCircuitId = signal<string | null>(null);
@@ -96,15 +99,18 @@ export class SavedCircuitService {
     label: string;
     taskName: string;
     profile: FlarmProfile;
-    waypointIds: string[];
+    circuitLegs: CircuitLeg[];
     databaseId?: string | null;
     notes?: string;
     updateId?: string;
   }): SavedCircuit {
-    const snapshots = input.waypointIds
-      .map(id => this.waypointService.getWaypoint(id))
-      .filter((wp): wp is Waypoint => wp !== undefined)
-      .map(wp => this.waypointToSnapshot(wp));
+    const snapshots = input.circuitLegs
+      .map(leg => {
+        const wp = this.waypointService.getWaypoint(leg.waypointId);
+        if (!wp) return null;
+        return this.waypointToSnapshot(wp, leg.role);
+      })
+      .filter((snap): snap is WaypointSnapshot => snap !== null);
 
     if (snapshots.length < 2) {
       throw new Error('Au moins 2 points sont requis pour enregistrer un circuit.');
@@ -158,17 +164,27 @@ export class SavedCircuitService {
    * (crée les waypoints manquants dans la base locale).
    */
   applyCircuit(circuitId: string): {
-    waypointIds: string[];
+    circuitLegs: CircuitLeg[];
     taskName: string;
     profile: FlarmProfile;
   } | null {
     const circuit = this.circuits().find(c => c.id === circuitId);
     if (!circuit) return null;
 
-    const waypointIds = circuit.waypoints.map(snap => this.resolveSnapshot(snap).id);
+    const resolved = circuit.waypoints.map(snap => ({
+      snap,
+      waypointId: this.resolveSnapshot(snap).id
+    }));
+    const inferred = this.taskState.inferLegsFromWaypointIds(
+      resolved.map(r => r.waypointId)
+    );
+    const circuitLegs: CircuitLeg[] = resolved.map((row, index) => ({
+      waypointId: row.waypointId,
+      role: row.snap.role ?? inferred[index]?.role ?? 'turnpoint'
+    }));
     this.activeCircuitId.set(circuitId);
     return {
-      waypointIds,
+      circuitLegs,
       taskName: circuit.taskName,
       profile: { ...circuit.profile }
     };
@@ -290,7 +306,7 @@ export class SavedCircuitService {
     );
   }
 
-  private waypointToSnapshot(wp: Waypoint): WaypointSnapshot {
+  private waypointToSnapshot(wp: Waypoint, role?: CircuitLeg['role']): WaypointSnapshot {
     return {
       sourceId: wp.id,
       name: wp.name,
@@ -298,7 +314,8 @@ export class SavedCircuitService {
       latitude: wp.latitude,
       longitude: wp.longitude,
       elevation: wp.elevation,
-      type: wp.type
+      type: wp.type,
+      role
     };
   }
 

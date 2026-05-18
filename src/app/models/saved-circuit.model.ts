@@ -1,3 +1,4 @@
+import { CircuitLegRole } from './circuit.model';
 import { FlarmProfile } from './flarm-profile.model';
 import { WaypointType } from './waypoint.model';
 
@@ -10,6 +11,8 @@ export interface WaypointSnapshot {
   longitude: number;
   elevation?: number;
   type: WaypointType;
+  /** Rôle dans le circuit au moment de l'enregistrement */
+  role?: CircuitLegRole;
 }
 
 export interface SavedCircuit {
