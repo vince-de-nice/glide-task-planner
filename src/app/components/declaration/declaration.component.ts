@@ -44,10 +44,8 @@ import {
   CircuitLegZoneDialogComponent,
   CircuitLegZoneDialogSave
 } from '../circuit-leg-zone-dialog/circuit-leg-zone-dialog.component';
-import {
-  observationZoneShortLabel,
-  observationZoneSignature
-} from '../../models/observation-zone.model';
+import { observationZoneShortLabel } from '../../models/observation-zone.model';
+import { buildObsZonePreview } from '../../utils/obs-zone-preview.util';
 import { formatElevationDisplay, resolveLegElevationM } from '../../utils/elevation.util';
 import {
   waypointTypeDisplay,
@@ -242,21 +240,44 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
       { format: 'igc-crecords', label: 'IGC C-records', detail: 'Trace déclarée', icon: 'pi pi-list' }
     ];
 
-  circuitListItems = computed(() =>
-    this.circuitLegs().flatMap((leg, index) => {
+  circuitListItems = computed(() => {
+    const legs = this.circuitLegs();
+    const defaultR = this.taskState.defaultZoneRadiusM();
+    const depLeg = legs.find(l => l.role === 'departure');
+    const departureWp = depLeg
+      ? (this.waypointService.getWaypoint(depLeg.waypointId) ?? null)
+      : null;
+
+    return legs.flatMap((leg, index): CircuitListItem[] => {
       const wp = this.waypointService.getWaypoint(leg.waypointId);
-      if (!wp) {
-        return [];
-      }
-      return [
-        {
-          leg,
-          waypoint: wp,
-          key: `${index}-${leg.waypointId}-${leg.role}-${observationZoneSignature(leg.obsZone)}`
-        }
-      ];
-    })
-  );
+      if (!wp) return [];
+
+      const prev = index > 0
+        ? (this.waypointService.getWaypoint(legs[index - 1].waypointId) ?? null)
+        : null;
+      const next = index < legs.length - 1
+        ? (this.waypointService.getWaypoint(legs[index + 1].waypointId) ?? null)
+        : null;
+
+      const previewView = buildObsZonePreview({
+        legIndex: index,
+        leg,
+        waypoint: wp,
+        prev,
+        next,
+        departure: departureWp,
+        defaultRadiusM: defaultR
+      });
+
+      return [{
+        leg,
+        waypoint: wp,
+        legIndex: index,
+        previewView,
+        key: `${index}-${leg.waypointId}-${leg.role}`
+      }];
+    });
+  });
 
   selectedWaypoints = computed(() =>
     this.circuitLegs()

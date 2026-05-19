@@ -107,4 +107,53 @@ describe('obs-zone-preview.util', () => {
     expect(view?.kind).toBe('sector');
     expect(view?.pathD).toContain('M');
   });
+
+  it('builds ring-sector for FAI sector', () => {
+    const leg: CircuitLeg = {
+      waypointId: 't',
+      role: 'turnpoint',
+      obsZone: {
+        cupStyle: 0,
+        r1M: 30000,
+        a1Deg: 45,
+        r2M: 12000,
+        a2Deg: 12,
+        a12Deg: 123.4,
+        presetId: 'sector_fai'
+      }
+    };
+    const view = buildObsZonePreview({
+      legIndex: 1,
+      leg,
+      waypoint: wp,
+      prev: null,
+      next: null,
+      departure: null,
+      defaultRadiusM: 400
+    });
+    expect(view?.kind).toBe('ring-sector');
+    expect(view?.pathD).toContain('A');
+  });
+
+  it('returns non-null for every preset type', () => {
+    const presets = [
+      { cupStyle: 0 as const, r1M: 400 },
+      { cupStyle: 1 as const, r1M: 400 },
+      { cupStyle: 2 as const, r1M: 400, a1Deg: 180, line: true },
+      { cupStyle: 2 as const, r1M: 500, a1Deg: 90 }
+    ];
+    for (const obsZone of presets) {
+      const leg: CircuitLeg = { waypointId: 't', role: 'turnpoint', obsZone };
+      const view = buildObsZonePreview({
+        legIndex: 0,
+        leg,
+        waypoint: wp,
+        prev: null,
+        next: null,
+        departure: null,
+        defaultRadiusM: 400
+      });
+      expect(view).not.toBeNull();
+    }
+  });
 });

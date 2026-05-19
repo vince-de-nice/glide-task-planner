@@ -1,4 +1,4 @@
-import { Component, input, output, signal, computed, effect } from '@angular/core';
+import { Component, inject, input, output, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Dialog } from 'primeng/dialog';
@@ -7,7 +7,7 @@ import { Select } from 'primeng/select';
 import { InputNumber } from 'primeng/inputnumber';
 import { Checkbox } from 'primeng/checkbox';
 import { ObsZonePreviewComponent } from '../obs-zone-preview/obs-zone-preview.component';
-import { CircuitLeg } from '../../models/circuit.model';
+import { CircuitLeg, circuitRoleShortLabel } from '../../models/circuit.model';
 import { Waypoint } from '../../models/waypoint.model';
 import {
   CUP_STYLE_LABELS,
@@ -19,7 +19,9 @@ import {
   normalizeObservationZone
 } from '../../models/observation-zone.model';
 import { formatElevationDisplay, resolveLegElevationM } from '../../utils/elevation.util';
-import { circuitRoleShortLabel } from '../../models/circuit.model';
+import { TaskStateService } from '../../services/task-state.service';
+import { WaypointService } from '../../services/waypoint.service';
+import { buildObsZonePreview } from '../../utils/obs-zone-preview.util';
 
 export interface CircuitLegZoneDialogSave {
   obsZone: ObservationZoneConfig;
@@ -43,6 +45,9 @@ export interface CircuitLegZoneDialogSave {
   styleUrl: './circuit-leg-zone-dialog.component.scss'
 })
 export class CircuitLegZoneDialogComponent {
+  private taskState = inject(TaskStateService);
+  private waypointService = inject(WaypointService);
+
   visible = input(false);
   leg = input<CircuitLeg | null>(null);
   waypoint = input<Waypoint | null>(null);
@@ -103,10 +108,12 @@ export class CircuitLegZoneDialogComponent {
     return observationZoneShortLabel(zone);
   });
 
-  readonly previewLeg = computed((): CircuitLeg | null => {
+  readonly previewView = computed(() => {
     const leg = this.leg();
-    if (!leg) return null;
-    return {
+    const wp = this.waypoint();
+    if (!leg || !wp) return null;
+
+    const draftLeg: CircuitLeg = {
       ...leg,
       obsZone: normalizeObservationZone(
         this.buildZoneFromForm(),
@@ -114,6 +121,25 @@ export class CircuitLegZoneDialogComponent {
         this.defaultRadiusM()
       )
     };
+
+    const legs = this.taskState.circuitLegs();
+    const i = this.legIndex();
+    const depLeg = legs.find(l => l.role === 'departure');
+    const departureWp = depLeg
+      ? (this.waypointService.getWaypoint(depLeg.waypointId) ?? null)
+      : null;
+
+    return buildObsZonePreview({
+      legIndex: i,
+      leg: draftLeg,
+      waypoint: wp,
+      prev: i > 0 ? (this.waypointService.getWaypoint(legs[i - 1]?.waypointId) ?? null) : null,
+      next: i < legs.length - 1
+        ? (this.waypointService.getWaypoint(legs[i + 1]?.waypointId) ?? null)
+        : null,
+      departure: departureWp,
+      defaultRadiusM: this.defaultRadiusM()
+    });
   });
 
   constructor() {

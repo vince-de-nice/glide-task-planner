@@ -21,7 +21,6 @@
       optionValue="id"
       [ngModel]="presetId()"
       (ngModelChange)="onPresetChange($event)"
-      (onChange)="onPresetChange($event.value)"
       fluid
       size="small"
     />
@@ -118,13 +117,11 @@
 
   <div class="leg-zone-dialog__preview-block">
     <p class="leg-zone-dialog__preview">Aperçu zone : <strong>{{ zonePreview() }}</strong></p>
-    @if (previewLeg(); as pl) {
-      <app-obs-zone-preview
-        class="leg-zone-dialog__preview-shape"
-        [legIndex]="legIndex()"
-        [draftLeg]="pl"
-      />
-    }
+    <app-obs-zone-preview
+      class="leg-zone-dialog__preview-shape"
+      [previewView]="previewView()"
+      [role]="leg()?.role ?? 'turnpoint'"
+    />
   </div>
 
   <hr class="leg-zone-dialog__sep" />

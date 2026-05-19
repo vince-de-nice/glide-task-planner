@@ -201,17 +201,17 @@
             cdkDropList
             (cdkDropListDropped)="onCircuitDrop($event)"
           >
-            @for (item of circuitListItems(); track item.key; let i = $index) {
+            @for (item of circuitListItems(); track item.key) {
               <li class="decl-circuit-list__item" cdkDrag>
                 <span class="decl-circuit-list__handle" cdkDragHandle aria-label="Réordonner">
                   <i class="pi pi-arrows-v"></i>
                 </span>
-                @if (legComplianceIcon(i); as icon) {
+                @if (legComplianceIcon(item.legIndex); as icon) {
                   <span
                     class="decl-circuit-list__compliance"
-                    [class.decl-circuit-list__compliance--error]="legComplianceSeverity(i) === 'error'"
-                    [class.decl-circuit-list__compliance--warn]="legComplianceSeverity(i) === 'warn'"
-                    [pTooltip]="legComplianceTooltip(i)"
+                    [class.decl-circuit-list__compliance--error]="legComplianceSeverity(item.legIndex) === 'error'"
+                    [class.decl-circuit-list__compliance--warn]="legComplianceSeverity(item.legIndex) === 'warn'"
+                    [pTooltip]="legComplianceTooltip(item.legIndex)"
                     tooltipPosition="left"
                   >
                     <i [class]="icon" aria-hidden="true"></i>
@@ -221,10 +221,10 @@
                 }
                 <span
                   class="decl-circuit-list__num"
-                  [class.decl-circuit-list__num--error]="legComplianceSeverity(i) === 'error'"
-                  [class.decl-circuit-list__num--warn]="legComplianceSeverity(i) === 'warn'"
+                  [class.decl-circuit-list__num--error]="legComplianceSeverity(item.legIndex) === 'error'"
+                  [class.decl-circuit-list__num--warn]="legComplianceSeverity(item.legIndex) === 'warn'"
                   aria-hidden="true"
-                >{{ i + 1 }}</span>
+                >{{ item.legIndex + 1 }}</span>
                 <button
                   type="button"
                   class="decl-circuit-list__body"
@@ -253,9 +253,12 @@
                   [pTooltip]="legZoneShort(item)"
                   tooltipPosition="top"
                 >
-                  <app-obs-zone-preview [legIndex]="i" />
+                  <app-obs-zone-preview
+                    [previewView]="item.previewView"
+                    [role]="item.leg.role"
+                  />
                 </span>
-                @if (legFromIndex(i); as leg) {
+                @if (legFromIndex(item.legIndex); as leg) {
                   <span
                     class="decl-circuit-list__leg"
                     [class.decl-circuit-list__leg--off]="!leg.counted"
@@ -272,7 +275,7 @@
                     [text]="true"
                     size="small"
                     styleClass="decl-circuit-list__action-btn"
-                    (onClick)="openLegZoneDialog(i, $event)"
+                    (onClick)="openLegZoneDialog(item.legIndex, $event)"
                     pTooltip="Zone et altitude"
                     tooltipPosition="left"
                     ariaLabel="Zone et altitude"
@@ -283,7 +286,7 @@
                     size="small"
                     severity="danger"
                     styleClass="decl-circuit-list__action-btn decl-circuit-list__action-btn--danger"
-                    (onClick)="removeCircuitItem(i)"
+                    (onClick)="removeCircuitItem(item.legIndex)"
                     pTooltip="Retirer"
                     tooltipPosition="left"
                     ariaLabel="Retirer"
