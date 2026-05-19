@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   inject,
   input,
   output,
@@ -9,6 +10,7 @@ import {
   ViewChild,
   signal
 } from '@angular/core';
+import { TranslateService } from '../../i18n/translate.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LeafletDirective } from '@bluehalo/ngx-leaflet';
@@ -99,6 +101,7 @@ export class MapViewComponent implements OnInit {
   private waypointService = inject(WaypointService);
   private taskState = inject(TaskStateService);
   private uiFeedback = inject(UiFeedbackService);
+  private i18n = inject(TranslateService);
   private distanceService = inject(DistanceService);
   readonly airspaceLayerService = inject(AirspaceLayerService);
 
@@ -129,26 +132,27 @@ export class MapViewComponent implements OnInit {
 
   filtersExpanded = signal(false);
 
-  readonly toolbarMenuItems: MenuItem[] = [
-    {
-      label: 'Centrer tous les points',
-      icon: 'pi pi-globe',
-      command: () => this.centerOnAll()
-    },
-    {
-      label: 'Effacer la sélection',
-      icon: 'pi pi-trash',
-      command: () => void this.clearSelection()
-    },
-    {
-      label: 'Aide carte',
-      icon: 'pi pi-info-circle',
-      command: () => this.uiFeedback.info('Aide carte', this.mapHelpTooltip)
-    }
-  ];
-
-  readonly mapHelpTooltip =
-    'Zones tâche : cylindres/secteurs/lignes en mètres réels · espaces aériens POAFF/OpenAIP · noms au zoom ≥ 11 · double-clic : point · clic : menu';
+  readonly toolbarMenuItems = computed<MenuItem[]>(() => {
+    this.i18n.locale();
+    return [
+      {
+        label: this.i18n.t('map.centerAll'),
+        icon: 'pi pi-globe',
+        command: () => this.centerOnAll()
+      },
+      {
+        label: this.i18n.t('map.clearSelection'),
+        icon: 'pi pi-trash',
+        command: () => void this.clearSelection()
+      },
+      {
+        label: this.i18n.t('map.helpTitle'),
+        icon: 'pi pi-info-circle',
+        command: () =>
+          this.uiFeedback.info(this.i18n.t('map.helpTitle'), this.i18n.t('map.helpTooltip'))
+      }
+    ];
+  });
 
   mapOptions!: MapOptions;
 
@@ -638,8 +642,8 @@ export class MapViewComponent implements OnInit {
   async clearSelection(): Promise<void> {
     if (this.selectedWaypointIds().length === 0) return;
     const ok = await this.uiFeedback.confirm({
-      header: 'Effacer la tâche',
-      message: 'Retirer tous les points du circuit affiché sur la carte ?'
+      header: this.i18n.t('map.clearTaskHeader'),
+      message: this.i18n.t('map.clearTaskMessage')
     });
     if (ok) {
       this.taskState.clearSelection();
@@ -683,16 +687,16 @@ export class MapViewComponent implements OnInit {
   private async handleWaypointAction(action: WaypointMapAction, wp: Waypoint): Promise<void> {
     if (action === 'delete-waypoint') {
       const ok = await this.uiFeedback.confirm({
-        header: 'Supprimer le point',
-        message: `Supprimer « ${wp.name} » de la base ?`,
-        acceptLabel: 'Supprimer',
+        header: this.i18n.t('map.deleteFromDbHeader'),
+        message: this.i18n.t('map.deleteFromDbMessage', { name: wp.name }),
+        acceptLabel: this.i18n.t('common.delete'),
         acceptButtonStyleClass: 'p-button-danger'
       });
       this.map?.closePopup();
       if (!ok) return;
       this.taskState.removeAllOccurrences(wp.id);
       this.waypointService.deleteWaypoint(wp.id);
-      this.actionMessage.emit(`Point « ${wp.name} » supprimé`);
+      this.actionMessage.emit(this.i18n.t('mapActions.waypointDeleted', { name: wp.name }));
       return;
     }
     const message = this.runWaypointAction(action, wp);
@@ -704,26 +708,26 @@ export class MapViewComponent implements OnInit {
     switch (action) {
       case 'set-departure':
         if (!this.taskState.setDeparture(wp.id)) {
-          return 'Seul un aérodrome peut être défini comme décollage.';
+          return this.i18n.t('mapActions.onlyAirfieldDeparture');
         }
-        return `« ${wp.name} » défini comme décollage`;
+        return this.i18n.t('mapActions.setDepartureDone', { name: wp.name });
       case 'set-arrival':
         if (!this.taskState.setArrival(wp.id)) {
-          return 'Seul un aérodrome peut être défini comme atterrissage.';
+          return this.i18n.t('mapActions.onlyAirfieldArrival');
         }
-        return `« ${wp.name} » défini comme atterrissage`;
+        return this.i18n.t('mapActions.setArrivalDone', { name: wp.name });
       case 'set-turnpoint':
         this.taskState.addTurnpoint(wp.id);
-        return `« ${wp.name} » ajouté comme point de virage`;
+        return this.i18n.t('circuit.waypointAddedTurn', { name: wp.name });
       case 'edit':
         this.openEditDialog(wp);
         return null;
       case 'remove-last':
         this.taskState.removeLastOccurrence(wp.id);
-        return `« ${wp.name} » retiré du circuit`;
+        return this.i18n.t('mapActions.removeLast', { name: wp.name });
       case 'remove-all':
         this.taskState.removeAllOccurrences(wp.id);
-        return `Toutes les occurrences de « ${wp.name} » retirées`;
+        return this.i18n.t('mapActions.removeAll', { name: wp.name });
       case 'center': {
         const map = this.getMap();
         map?.setView([wp.latitude, wp.longitude], Math.max(map.getZoom(), 11));

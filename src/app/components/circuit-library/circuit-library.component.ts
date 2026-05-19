@@ -7,6 +7,7 @@ import { Button } from 'primeng/button';
 import { InputText } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
 import { UiFeedbackService } from '../../services/ui-feedback.service';
+import { TranslateService } from '../../i18n/translate.service';
 
 @Component({
   selector: 'app-circuit-library',
@@ -18,6 +19,7 @@ import { UiFeedbackService } from '../../services/ui-feedback.service';
 export class CircuitLibraryComponent {
   private savedCircuitService = inject(SavedCircuitService);
   private uiFeedback = inject(UiFeedbackService);
+  private i18n = inject(TranslateService);
 
   canSave = input(false);
   selectedCircuitId = input<string | null>(null);
@@ -110,15 +112,15 @@ export class CircuitLibraryComponent {
   async deleteCircuit(id: string, e?: unknown): Promise<void> {
     (e as Event | undefined)?.stopPropagation?.();
     const ok = await this.uiFeedback.confirm({
-      header: 'Supprimer le circuit',
-      message: 'Supprimer ce circuit de la bibliothèque ?',
-      acceptLabel: 'Supprimer',
+      header: this.i18n.t('common.delete'),
+      message: this.i18n.t('library.deleteConfirm'),
+      acceptLabel: this.i18n.t('common.delete'),
       acceptButtonStyleClass: 'p-button-danger'
     });
     if (!ok) return;
     this.savedCircuitService.deleteCircuit(id);
     if (this.editingId() === id) this.cancelUpdate();
-    this.uiFeedback.success('Circuit supprimé');
+    this.uiFeedback.success(this.i18n.t('library.deleted'));
   }
 
   duplicateCircuit(id: string, e?: unknown): void {
@@ -152,16 +154,16 @@ export class CircuitLibraryComponent {
 
   private async finishImport(json: string): Promise<void> {
     const merge = await this.uiFeedback.confirm({
-      header: 'Importer les circuits',
-      message: 'Fusionner avec les circuits existants ?',
-      acceptLabel: 'Fusionner',
-      rejectLabel: 'Remplacer tout'
+      header: this.i18n.t('common.import'),
+      message: this.i18n.t('library.importMerge'),
+      acceptLabel: this.i18n.t('common.yes'),
+      rejectLabel: this.i18n.t('common.no')
     });
     try {
       const count = this.savedCircuitService.importFromJson(json, merge);
-      this.uiFeedback.success(`${count} circuit(s) importé(s)`);
+      this.uiFeedback.success(this.i18n.t('library.imported', { count }));
     } catch {
-      this.uiFeedback.error('Fichier JSON invalide');
+      this.uiFeedback.error(this.i18n.t('library.importError'));
     }
   }
 

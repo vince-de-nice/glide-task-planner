@@ -1,4 +1,4 @@
-<div class="decl-circuit__tab-panel decl-circuit__tab-panel--export" role="tabpanel" aria-label="Export">
+<div class="decl-circuit__tab-panel decl-circuit__tab-panel--export" role="tabpanel" [attr.aria-label]="'circuit.export.panelAria' | translate">
   <div
     class="decl-circuit__status-card"
     [class.decl-circuit__status-card--ok]="!exportBlocked() && selectedWaypointIds().length > 0"
@@ -12,20 +12,12 @@
       [class.pi-minus-circle]="selectedWaypointIds().length === 0 && !exportBlocked()"
       aria-hidden="true"
     ></i>
-    <span>
-      @if (selectedWaypointIds().length === 0) {
-        Ajoutez des points pour exporter
-      } @else if (exportBlocked()) {
-        Export bloqué — règlement non respecté
-      } @else {
-        Prêt à exporter · {{ resolvedRegulation().label }}
-      }
-    </span>
+    <span>{{ exportStatusText() }}</span>
   </div>
 
   @if (exportBlocked()) {
     <p-button
-      label="Corriger le règlement"
+      [label]="'circuit.export.fixRegulation' | translate"
       icon="pi pi-sliders-h"
       size="small"
       [outlined]="true"
@@ -35,10 +27,10 @@
   }
 
   <section class="decl-circuit__export-section">
-    <h3 class="decl-circuit__export-section-title">Tâche</h3>
+    <h3 class="decl-circuit__export-section-title">{{ 'circuit.export.sectionTask' | translate }}</h3>
     <label class="decl-circuit__task-name">
       <span class="decl-circuit__task-name-head">
-        <span class="gc-label">Nom de tâche (NEWTASK)</span>
+        <span class="gc-label">{{ 'circuit.export.taskNameLabel' | translate }}</span>
         <span class="decl-circuit__char-count">{{ taskName().length }}/50</span>
       </span>
       <input
@@ -47,26 +39,26 @@
         pSize="small"
         [ngModel]="taskName()"
         (ngModelChange)="onTaskNameChange($event)"
-        placeholder="Circuit_500K"
+        [placeholder]="'circuit.export.taskNamePlaceholder' | translate"
         maxlength="50"
       />
     </label>
     @if (distanceResult(); as d) {
       <p class="decl-circuit__export-meta">
-        {{ d.taskDistance.toFixed(1) }} km tâche
+        {{ 'circuit.export.taskMeta' | translate: { task: d.taskDistance.toFixed(1) } }}
         @if (d.totalDistance > d.taskDistance + 0.05) {
-          · {{ d.totalDistance.toFixed(1) }} km total
+          {{ 'circuit.export.taskMetaTotal' | translate: { total: d.totalDistance.toFixed(1) } }}
         }
-        · {{ selectedWaypointIds().length }} point(s)
+        {{ 'circuit.export.taskMetaPoints' | translate: { count: selectedWaypointIds().length } }}
       </p>
     }
   </section>
 
   <section class="decl-circuit__export-section">
     <div class="decl-circuit__export-section-head">
-      <h3 class="decl-circuit__export-section-title">Pilote et planeur</h3>
+      <h3 class="decl-circuit__export-section-title">{{ 'circuit.export.sectionPilot' | translate }}</h3>
       <p-button
-        label="Modifier"
+        [label]="'common.modify' | translate"
         icon="pi pi-user-edit"
         [text]="true"
         size="small"
@@ -78,15 +70,15 @@
       <p class="decl-circuit__export-meta">LOGINT {{ flarmProfile().logInterval }} s</p>
     } @else {
       <p class="decl-circuit__pilot-summary decl-circuit__pilot-summary--empty">
-        Non renseigné — requis pour un export FLARM complet
+        {{ 'circuit.export.pilotEmpty' | translate }}
       </p>
     }
   </section>
 
   <section class="decl-circuit__export-section">
-    <h3 class="decl-circuit__export-section-title">Formats de fichier</h3>
+    <h3 class="decl-circuit__export-section-title">{{ 'circuit.export.sectionFormats' | translate }}</h3>
     <div class="decl-circuit__export-grid">
-      @for (action of exportFormatActions; track action.format) {
+      @for (action of exportFormatActions(); track action.format) {
         <button
           type="button"
           class="decl-circuit__export-card"
@@ -101,22 +93,22 @@
       }
     </div>
     <p class="decl-circuit__flarm-hint">
-      FLARM : redémarrer l’appareil après copie sur SD/USB.
+      {{ 'circuit.export.flarmHint' | translate }}
     </p>
   </section>
 
   <section class="decl-circuit__export-section decl-circuit__export-section--actions">
-    <h3 class="decl-circuit__export-section-title">Bibliothèque</h3>
+    <h3 class="decl-circuit__export-section-title">{{ 'circuit.export.sectionLibrary' | translate }}</h3>
     <div class="decl-circuit__export-actions">
       <p-button
-        label="Mes circuits"
+        [label]="'circuit.export.myCircuits' | translate"
         icon="pi pi-bookmark"
         size="small"
         [outlined]="true"
         (onClick)="openCircuits.emit()"
       />
       <p-button
-        label="Aperçu export"
+        [label]="'circuit.export.previewExport' | translate"
         icon="pi pi-eye"
         size="small"
         [outlined]="true"
@@ -124,7 +116,7 @@
         (onClick)="openPreview.emit()"
       />
       <p-button
-        label="Vider la tâche"
+        [label]="'circuit.export.clearTask' | translate"
         icon="pi pi-trash"
         size="small"
         severity="danger"

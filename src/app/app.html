@@ -5,12 +5,13 @@
   <header class="app-header">
     <div class="header-content">
       <div class="logo">
-        <h1>Glide Task Planner</h1>
-        <p class="tagline">Composition et export de tâches planeur</p>
+        <h1>{{ 'app.title' | translate }}</h1>
+        <p class="tagline">{{ 'app.tagline' | translate }}</p>
       </div>
-      <nav class="main-nav" aria-label="Navigation principale">
+      <nav class="main-nav" [attr.aria-label]="'app.nav.mainAria' | translate">
+        <app-language-switcher />
         <p-button
-          label="Circuit"
+          [label]="'app.nav.circuit' | translate"
           [rounded]="true"
           size="small"
           [text]="!isDeclaration()"
@@ -18,7 +19,7 @@
           (onClick)="goDeclaration()"
         />
         <p-button
-          label="Waypoints"
+          [label]="'app.nav.waypoints' | translate"
           [rounded]="true"
           size="small"
           [text]="!isWaypoints()"
@@ -34,6 +35,6 @@
   </main>
 
   <footer class="app-footer">
-    <p>&copy; {{ currentYear }} Glide Task Planner</p>
+    <p>&copy; {{ currentYear }} {{ 'app.footer' | translate }}</p>
   </footer>
 </div>

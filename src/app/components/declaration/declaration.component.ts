@@ -43,6 +43,8 @@ import {
 } from '../circuit-leg-zone-dialog/circuit-leg-zone-dialog.component';
 import { buildCircuitListItems } from '../../utils/circuit-list.util';
 import { CircuitLeg } from '../../models/circuit.model';
+import { TranslateService } from '../../i18n/translate.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 
 type MobileTab = 'map' | 'task';
 type CircuitTab = 'points' | 'regulation' | 'export';
@@ -66,7 +68,8 @@ const CIRCUIT_TAB_STORAGE_KEY = 'gc_circuit_tab';
     SelectButton,
     Message,
     CircuitLegZoneDialogComponent,
-    TaskRegulationPanelComponent
+    TaskRegulationPanelComponent,
+    TranslatePipe
   ],
   templateUrl: './declaration.component.html',
   styleUrls: ['./declaration.component.scss']
@@ -84,6 +87,7 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   private savedCircuitService = inject(SavedCircuitService);
   private uiFeedback = inject(UiFeedbackService);
   private ruleEngine = inject(TaskRuleEngineService);
+  private i18n = inject(TranslateService);
 
   waypoints = this.waypointService.waypoints;
   activeCircuitId = this.savedCircuitService.activeCircuitId;
@@ -134,14 +138,21 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   );
 
   regulationStatus = computed(() => {
+    this.i18n.locale();
     const v = this.ruleValidation();
     if (v.errors.length > 0) {
-      return { kind: 'error' as const, label: `${v.errors.length} erreur(s) de conformité` };
+      return {
+        kind: 'error' as const,
+        label: this.i18n.t('circuit.regulation.statusError', { count: v.errors.length })
+      };
     }
     if (v.warnings.length > 0) {
-      return { kind: 'warn' as const, label: `${v.warnings.length} avertissement(s)` };
+      return {
+        kind: 'warn' as const,
+        label: this.i18n.t('circuit.regulation.statusWarn', { count: v.warnings.length })
+      };
     }
-    return { kind: 'ok' as const, label: 'Circuit conforme au règlement' };
+    return { kind: 'ok' as const, label: this.i18n.t('circuit.regulation.statusOk') };
   });
 
   legComplianceRows = computed(() =>
@@ -171,23 +182,39 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   );
 
   mobileTabOptionsUi = computed(() => {
+    this.i18n.locale();
     const n = this.selectedWaypointIds().length;
     return [
-      { label: 'Carte', value: 'map' as MobileTab },
-      { label: n > 0 ? `Circuit (${n})` : 'Circuit', value: 'task' as MobileTab }
+      { label: this.i18n.t('circuit.tabs.map'), value: 'map' as MobileTab },
+      {
+        label:
+          n > 0
+            ? this.i18n.t('circuit.tabs.circuitWithCount', { count: n })
+            : this.i18n.t('circuit.tabs.circuit'),
+        value: 'task' as MobileTab
+      }
     ];
   });
 
   circuitTabOptionsUi = computed(() => {
+    this.i18n.locale();
     const errCount = this.ruleValidation().errors.length;
     const blocked = this.exportBlocked();
     return [
-      { label: 'Points', value: 'points' as CircuitTab },
+      { label: this.i18n.t('circuit.sections.points'), value: 'points' as CircuitTab },
       {
-        label: errCount > 0 ? `Règlement (${errCount})` : 'Règlement',
+        label:
+          errCount > 0
+            ? this.i18n.t('circuit.sections.regulationWithErrors', { count: errCount })
+            : this.i18n.t('circuit.sections.regulation'),
         value: 'regulation' as CircuitTab
       },
-      { label: blocked ? 'Export · bloqué' : 'Export', value: 'export' as CircuitTab }
+      {
+        label: blocked
+          ? this.i18n.t('circuit.sections.exportBlocked')
+          : this.i18n.t('circuit.sections.export'),
+        value: 'export' as CircuitTab
+      }
     ];
   });
 
@@ -280,6 +307,10 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     this.uiFeedback.success(message);
   }
 
+  onWaypointAddedToCircuit(name: string): void {
+    this.showAddToast(this.i18n.t('circuit.waypointAddedTurn', { name }));
+  }
+
   onCircuitLegsReordered(legs: CircuitLeg[]): void {
     this.taskState.setCircuitLegs(legs);
     this.calculateDistance();
@@ -320,10 +351,10 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   async clearTaskWithConfirm(): Promise<void> {
     if (this.selectedWaypointIds().length === 0) return;
     const ok = await this.uiFeedback.confirm({
-      header: 'Vider la tâche',
-      message: 'Retirer tous les points du circuit ?',
-      acceptLabel: 'Vider',
-      rejectLabel: 'Annuler',
+      header: this.i18n.t('circuit.clearTaskHeader'),
+      message: this.i18n.t('circuit.clearConfirm'),
+      acceptLabel: this.i18n.t('circuit.clearTaskAccept'),
+      rejectLabel: this.i18n.t('common.cancel'),
       acceptButtonStyleClass: 'p-button-danger'
     });
     if (ok) {
@@ -355,17 +386,17 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     if (this.selectedWaypointIds().length === 0) return;
     const result = await this.taskExportService.download(format, this.buildExportContext());
     if ('error' in result) {
-      this.uiFeedback.error('Export impossible', result.error);
+      this.uiFeedback.error(this.i18n.t('circuit.exportFailed'), result.error);
       return;
     }
     const warn = result.warnings;
     if (warn.length > 0) {
       this.uiFeedback.info(
-        'Export terminé',
+        this.i18n.t('circuit.exportDoneTitle'),
         warn.slice(0, 3).join(' ') + (warn.length > 3 ? '…' : '')
       );
     } else {
-      this.uiFeedback.success('Fichier exporté');
+      this.uiFeedback.success(this.i18n.t('circuit.exportDone'));
     }
   }
 
@@ -381,7 +412,9 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
         notes: event.notes,
         updateId: event.updateId ?? undefined
       });
-      const msg = event.updateId ? 'Circuit mis à jour.' : 'Circuit enregistré dans la bibliothèque.';
+      const msg = event.updateId
+        ? this.i18n.t('circuit.circuitUpdated')
+        : this.i18n.t('circuit.circuitSaved');
       this.circuitMessage.set(msg);
       this.uiFeedback.success(msg);
       this.circuitsDialog?.clearSaveForm();
@@ -402,7 +435,7 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     this.calculateDistance();
     this.circuitsDialogOpen.set(false);
     this.setMobileTab('task');
-    const msg = 'Circuit chargé — vérifiez pilote / planeur puis exportez le FLARM.';
+    const msg = this.i18n.t('circuit.circuitLoaded');
     this.circuitMessage.set(msg);
     this.uiFeedback.info(msg);
     setTimeout(() => this.circuitMessage.set(null), 5000);

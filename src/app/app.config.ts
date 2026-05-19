@@ -1,4 +1,5 @@
 import { ApplicationConfig, inject, provideAppInitializer, provideBrowserGlobalErrorListeners } from '@angular/core';
+import { TranslateService } from './i18n/translate.service';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideRouter, Router } from '@angular/router';
 import { providePrimeNG } from 'primeng/config';
@@ -24,6 +25,8 @@ export const appConfig: ApplicationConfig = {
     }),
     provideRouter(routes),
     provideAppInitializer(() => {
+      const i18n = inject(TranslateService);
+      document.documentElement.lang = i18n.locale();
       const db = inject(CupDatabaseService);
       const router = inject(Router);
       return db.bootstrapFromQueryParam(router);

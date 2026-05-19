@@ -2,20 +2,20 @@
   class="task-reg"
   [class.task-reg--compact]="compact()"
   [class.task-reg--embedded]="embeddedInTab()"
-  aria-label="Règlement de la tâche"
+  [attr.aria-label]="'regulation.panelAria' | translate"
 >
   <div class="task-reg__head">
-    <label class="gc-label" for="task-reg-profile">Règlement appliqué</label>
+    <label class="gc-label" for="task-reg-profile">{{ 'regulation.appliedLabel' | translate }}</label>
     <p-select
       inputId="task-reg-profile"
       styleClass="task-reg__profile-select"
-      [options]="profileOptions"
+      [options]="profileOptions()"
       optionLabel="label"
       optionValue="value"
       [ngModel]="profileId()"
       (ngModelChange)="onProfileChange($event)"
       [disabled]="disabled()"
-      placeholder="Choisir un règlement"
+      [placeholder]="'regulation.choose' | translate"
     >
       <ng-template let-item pTemplate="item">
         <div class="task-reg__profile-item">
@@ -26,26 +26,26 @@
     </p-select>
     <p class="task-reg__summary">{{ regulationSummary() }}</p>
     @if (embeddedInTab() || !compact()) {
-      <p class="task-reg__hint">{{ resolved().description }}</p>
+      <p class="task-reg__hint">{{ profileDescription() }}</p>
     }
   </div>
 
   @if (embeddedInTab()) {
     <div class="task-reg__body">
       <div class="task-reg__section">
-        <h3 class="task-reg__section-title">Rayons des zones (m)</h3>
+        <h3 class="task-reg__section-title">{{ 'regulation.radiiTitle' | translate }}</h3>
         <ng-container *ngTemplateOutlet="radiiFields" />
       </div>
 
       @if (canEditAdvanced()) {
         <div class="task-reg__section">
-          <h3 class="task-reg__section-title">Départ et options CUP</h3>
+          <h3 class="task-reg__section-title">{{ 'regulation.startCupTitle' | translate }}</h3>
           <ng-container *ngTemplateOutlet="advancedFields" />
         </div>
       }
 
       <p-button
-        label="Appliquer le règlement aux points"
+        [label]="'regulation.applyToPoints' | translate"
         icon="pi pi-sync"
         size="small"
         [outlined]="true"
@@ -56,7 +56,7 @@
 
       <aside class="task-reg__info-box" role="note">
         <i class="pi pi-info-circle" aria-hidden="true"></i>
-        <p>{{ scoringInfoTooltip }}</p>
+        <p>{{ scoringInfoTooltip() }}</p>
       </aside>
     </div>
   } @else {
@@ -69,7 +69,7 @@
             [text]="true"
             size="small"
             styleClass="task-reg__info-btn"
-            [pTooltip]="scoringInfoTooltip"
+            [pTooltip]="scoringInfoTooltip()"
             tooltipPosition="left"
             (onClick)="$event.stopPropagation()"
             ariaLabel="Limites et scoring"
@@ -81,7 +81,7 @@
             <ng-container *ngTemplateOutlet="advancedFields" />
           }
           <p-button
-            label="Appliquer le règlement aux points"
+            [label]="'regulation.applyToPoints' | translate"
             icon="pi pi-sync"
             size="small"
             [outlined]="true"
@@ -140,7 +140,7 @@
   <div class="task-reg__row">
     <span class="gc-label">Type de départ</span>
     <p-selectButton
-      [options]="startKindOptions"
+      [options]="startKindOptions()"
       optionLabel="label"
       optionValue="value"
       [ngModel]="startKind()"

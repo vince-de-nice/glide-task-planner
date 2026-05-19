@@ -30,6 +30,7 @@ import { CupSourcesConfigService } from '../../../services/cup-sources-config.se
 import { TaskStateService } from '../../../services/task-state.service';
 import { WaypointService } from '../../../services/waypoint.service';
 import { UiFeedbackService } from '../../../services/ui-feedback.service';
+import { TranslateService } from '../../../i18n/translate.service';
 import { CupSourceEntry } from '../../../models/cup-sources.model';
 
 const DISCLAIMER_SEEN_KEY = 'gc_disclaimer_seen';
@@ -63,6 +64,7 @@ export class CupToolbarComponent implements OnInit {
   private taskState = inject(TaskStateService);
   private waypointService = inject(WaypointService);
   private uiFeedback = inject(UiFeedbackService);
+  private i18n = inject(TranslateService);
 
   /** Base chargée ou rechargée avec succès. */
   databaseLoaded = output<void>();
@@ -154,8 +156,8 @@ export class CupToolbarComponent implements OnInit {
 
     if (this.waypoints().length > 0) {
       const ok = await this.uiFeedback.confirm({
-        header: 'Remplacer la base',
-        message: `Importer « ${file.name} » remplacera les points actuels. Continuer ?`
+        header: this.i18n.t('cup.replaceHeader'),
+        message: this.i18n.t('cup.replaceFileMessage', { name: file.name })
       });
       if (!ok) {
         input.value = '';
@@ -178,15 +180,15 @@ export class CupToolbarComponent implements OnInit {
       );
       this.cupSources.set(merged);
     } catch {
-      this.loadError.set('Configuration des sources CUP indisponible');
+      this.loadError.set(this.i18n.t('cup.configError'));
     }
   }
 
   private async loadFromUrl(url: string, label?: string): Promise<void> {
     if (this.waypoints().length > 0) {
       const ok = await this.uiFeedback.confirm({
-        header: 'Remplacer la base',
-        message: `Charger cette base remplacera les ${this.waypoints().length} points actuels. Continuer ?`
+        header: this.i18n.t('cup.replaceHeader'),
+        message: this.i18n.t('cup.replaceUrlMessage', { count: this.waypoints().length })
       });
       if (!ok) return;
     }
@@ -202,13 +204,16 @@ export class CupToolbarComponent implements OnInit {
     try {
       const count = await loader();
       if (count === 0) {
-        this.loadError.set('Aucun waypoint trouvé dans le fichier');
+        this.loadError.set(this.i18n.t('cup.noWaypoints'));
       } else {
-        this.uiFeedback.success('Base CUP chargée', `${count} point(s)`);
+        this.uiFeedback.success(
+          this.i18n.t('cup.loaded'),
+          this.i18n.t('cup.loadedDetail', { count })
+        );
         this.databaseLoaded.emit();
       }
     } catch (e) {
-      this.loadError.set(e instanceof Error ? e.message : 'Échec du chargement');
+      this.loadError.set(e instanceof Error ? e.message : this.i18n.t('cup.loadFailed'));
     } finally {
       this.loading.set(false);
     }

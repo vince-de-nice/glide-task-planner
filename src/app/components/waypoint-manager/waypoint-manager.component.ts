@@ -16,6 +16,8 @@ import { InputText } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
 import { Tooltip } from 'primeng/tooltip';
 import { UiFeedbackService } from '../../services/ui-feedback.service';
+import { TranslateService } from '../../i18n/translate.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import {
   filterWaypoints,
   paginateWaypoints,
@@ -25,18 +27,20 @@ import {
 
 export type { WaypointSortField };
 
-const SORT_LABELS: Record<WaypointSortField, string> = {
-  name: 'nom',
-  type: 'type',
-  latitude: 'latitude',
-  longitude: 'longitude',
-  elevation: 'altitude'
-};
-
 @Component({
   selector: 'app-waypoint-manager',
   standalone: true,
-  imports: [CommonModule, NgTemplateOutlet, FormsModule, RouterLink, Button, InputText, Select, Tooltip],
+  imports: [
+    CommonModule,
+    NgTemplateOutlet,
+    FormsModule,
+    RouterLink,
+    Button,
+    InputText,
+    Select,
+    Tooltip,
+    TranslatePipe
+  ],
   templateUrl: './waypoint-manager.component.html',
   styleUrls: ['./waypoint-manager.component.scss']
 })
@@ -45,6 +49,7 @@ export class WaypointManagerComponent {
   private cupDatabase = inject(CupDatabaseService);
   private cupLoader = inject(CupLoaderService);
   private uiFeedback = inject(UiFeedbackService);
+  private i18n = inject(TranslateService);
 
   waypoints = this.waypointService.waypoints;
 
@@ -147,11 +152,14 @@ export class WaypointManagerComponent {
   }
 
   sortAria(field: WaypointSortField): string {
-    const label = SORT_LABELS[field];
+    const label = this.i18n.t(`waypoints.sort.${field}`);
     if (this.sortField() !== field) {
-      return `Trier par ${label}`;
+      return this.i18n.t('waypoints.sortBy', { field: label });
     }
-    return `Tri par ${label}, ${this.sortDirection() === 'asc' ? 'croissant' : 'décroissant'}`;
+    const dir = this.i18n.t(
+      this.sortDirection() === 'asc' ? 'waypoints.sortAsc' : 'waypoints.sortDesc'
+    );
+    return this.i18n.t('waypoints.sortActive', { field: label, dir });
   }
 
   setPageSize(size: number): void {
@@ -211,14 +219,14 @@ export class WaypointManagerComponent {
 
   async deleteWaypoint(id: string): Promise<void> {
     const ok = await this.uiFeedback.confirm({
-      header: 'Supprimer le waypoint',
-      message: 'Supprimer ce waypoint ?',
-      acceptLabel: 'Supprimer',
+      header: this.i18n.t('waypoints.deleteHeader'),
+      message: this.i18n.t('waypoints.deleteConfirm'),
+      acceptLabel: this.i18n.t('common.delete'),
       acceptButtonStyleClass: 'p-button-danger'
     });
     if (!ok) return;
     this.waypointService.deleteWaypoint(id);
-    this.uiFeedback.success('Waypoint supprimé');
+    this.uiFeedback.success(this.i18n.t('waypoints.deleted'));
   }
 
   cancelEdit(): void {
@@ -236,7 +244,7 @@ export class WaypointManagerComponent {
     link.download = `${this.cupDatabase.getSourceLabel().replace(/[^\w.-]+/g, '_') || 'export'}.cup`;
     link.click();
     URL.revokeObjectURL(url);
-    this.uiFeedback.success('Export CUP téléchargé');
+    this.uiFeedback.success(this.i18n.t('waypoints.exportDone'));
   }
 
   async onCupFileSelected(event: Event): Promise<void> {
@@ -246,9 +254,9 @@ export class WaypointManagerComponent {
 
     if (this.waypoints().length > 0) {
       const ok = await this.uiFeedback.confirm({
-        header: 'Importer la base CUP',
-        message: `Importer « ${file.name} » remplacera les points actuels. Continuer ?`,
-        acceptLabel: 'Importer'
+        header: this.i18n.t('waypoints.importHeader'),
+        message: this.i18n.t('waypoints.importConfirm', { name: file.name }),
+        acceptLabel: this.i18n.t('common.import')
       });
       if (!ok) {
         input.value = '';
@@ -259,24 +267,24 @@ export class WaypointManagerComponent {
     try {
       await this.cupLoader.loadFromFile(file, true);
       this.currentPage.set(1);
-      this.uiFeedback.success('Base CUP importée');
+      this.uiFeedback.success(this.i18n.t('waypoints.imported'));
     } catch {
-      this.uiFeedback.error('Fichier CUP invalide ou illisible');
+      this.uiFeedback.error(this.i18n.t('waypoints.importError'));
     }
     input.value = '';
   }
 
   async clearAll(): Promise<void> {
     const ok = await this.uiFeedback.confirm({
-      header: 'Effacer tous les waypoints',
-      message: 'Effacer tous les waypoints ? Cette action est irréversible.',
-      acceptLabel: 'Tout effacer',
+      header: this.i18n.t('waypoints.clearHeader'),
+      message: this.i18n.t('waypoints.clearConfirm'),
+      acceptLabel: this.i18n.t('waypoints.clearAccept'),
       acceptButtonStyleClass: 'p-button-danger'
     });
     if (!ok) return;
     this.waypointService.clearWaypoints();
     this.currentPage.set(1);
-    this.uiFeedback.success('Tous les waypoints ont été effacés');
+    this.uiFeedback.success(this.i18n.t('waypoints.cleared'));
   }
 
   private resetForm(): void {

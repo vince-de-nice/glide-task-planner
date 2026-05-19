@@ -1,4 +1,5 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
+import { TranslateService } from '../i18n/translate.service';
 import {
   canWaypointBeArrival,
   canWaypointBeDeparture,
@@ -42,6 +43,8 @@ export interface TaskRuleValidationResult {
   providedIn: 'root'
 })
 export class TaskRuleEngineService {
+  private readonly i18n = inject(TranslateService);
+
   resolveRegulation(state: TaskRegulationState = DEFAULT_TASK_REGULATION): ResolvedTaskRegulation {
     const def = TASK_RULE_PROFILES[state.profileId] ?? TASK_RULE_PROFILES.club;
     const o = state.overrides;
@@ -114,7 +117,7 @@ export class TaskRuleEngineService {
     const legIssues: TaskRuleLegIssue[] = [];
 
     if (legs.length === 0) {
-      return { valid: false, errors: ['Le circuit est vide.'], warnings, legIssues };
+      return { valid: false, errors: [this.i18n.t('rules.emptyCircuit')], warnings, legIssues };
     }
 
     const hasDeparture = legs.some(l => l.role === 'departure');
@@ -125,17 +128,17 @@ export class TaskRuleEngineService {
       switch (c) {
         case 'require_airfield_departure':
           if (!hasDeparture) {
-            errors.push('Un aérodrome de décollage est requis pour ce règlement.');
+            errors.push(this.i18n.t('rules.requireDepartureAirfield'));
           }
           break;
         case 'require_airfield_arrival':
           if (!hasArrival) {
-            errors.push('Un aérodrome d’atterrissage est requis pour ce règlement.');
+            errors.push(this.i18n.t('rules.requireArrivalAirfield'));
           }
           break;
         case 'min_turnpoints':
           if (turnCount < 1) {
-            errors.push('Au moins un point de virage est requis.');
+            errors.push(this.i18n.t('rules.minTurnpoints'));
           }
           break;
         case 'pev_wait_window_range':
@@ -144,12 +147,18 @@ export class TaskRuleEngineService {
             const win = regulation.startFai.pevWindowMin;
             if (w < FAI_PEV_MIN_MINUTES || w > FAI_PEV_MAX_MINUTES) {
               errors.push(
-                `PEV Wait : ${FAI_PEV_MIN_MINUTES}–${FAI_PEV_MAX_MINUTES} min (Annexe A).`
+                this.i18n.t('rules.pevWaitRange', {
+                  min: FAI_PEV_MIN_MINUTES,
+                  max: FAI_PEV_MAX_MINUTES
+                })
               );
             }
             if (win < FAI_PEV_MIN_MINUTES || win > FAI_PEV_MAX_MINUTES) {
               errors.push(
-                `PEV Window : ${FAI_PEV_MIN_MINUTES}–${FAI_PEV_MAX_MINUTES} min (Annexe A).`
+                this.i18n.t('rules.pevWindowRange', {
+                  min: FAI_PEV_MIN_MINUTES,
+                  max: FAI_PEV_MAX_MINUTES
+                })
               );
             }
           }
@@ -158,14 +167,14 @@ export class TaskRuleEngineService {
     }
 
     if (regulation.startFai.pevEnabled && !regulation.cupOptions.noStart) {
-      warnings.push(
-        'PEV activé : renseignez l’heure d’ouverture du start (NoStart) si la compétition la publie.'
-      );
+      warnings.push(this.i18n.t('rules.pevNoStartWarn'));
     }
 
     if (regulation.startFai.maxStartGroundSpeedKmh) {
       warnings.push(
-        `Vitesse sol max au départ : ${regulation.startFai.maxStartGroundSpeedKmh} km/h (contrôle sur trace IGC).`
+        this.i18n.t('rules.maxStartSpeedWarn', {
+          speed: regulation.startFai.maxStartGroundSpeedKmh
+        })
       );
     }
 
@@ -178,19 +187,19 @@ export class TaskRuleEngineService {
       );
 
       if (leg.role === 'departure' && !canWaypointBeDeparture(wp)) {
-        const msg = `Point ${index + 1} : le décollage doit être un aérodrome.`;
+        const msg = this.i18n.t('rules.legDepartureAirfield', { index: index + 1 });
         errors.push(msg);
         legIssues.push({ legIndex: index, severity: 'error', message: msg });
       }
       if (leg.role === 'arrival' && !canWaypointBeArrival(wp)) {
-        const msg = `Point ${index + 1} : l’atterrissage doit être un aérodrome.`;
+        const msg = this.i18n.t('rules.legArrivalAirfield', { index: index + 1 });
         errors.push(msg);
         legIssues.push({ legIndex: index, severity: 'error', message: msg });
       }
 
       if (regulation.constraints.includes('departure_must_be_line') && leg.role === 'departure') {
         if (!zone.line) {
-          const msg = `Point ${index + 1} : ligne de départ requise.`;
+          const msg = this.i18n.t('rules.legDepartureLine', { index: index + 1 });
           errors.push(msg);
           legIssues.push({ legIndex: index, severity: 'error', message: msg });
         }
@@ -198,7 +207,7 @@ export class TaskRuleEngineService {
 
       if (regulation.constraints.includes('arrival_must_be_line') && leg.role === 'arrival') {
         if (!zone.line) {
-          const msg = `Point ${index + 1} : ligne d’arrivée requise.`;
+          const msg = this.i18n.t('rules.legArrivalLine', { index: index + 1 });
           errors.push(msg);
           legIssues.push({ legIndex: index, severity: 'error', message: msg });
         }
@@ -206,13 +215,16 @@ export class TaskRuleEngineService {
 
       if (regulation.constraints.includes('departure_must_be_cylinder') && leg.role === 'departure') {
         if (zone.line) {
-          const msg = `Point ${index + 1} : cylindre de départ requis (pas une ligne).`;
+          const msg = this.i18n.t('rules.legDepartureCylinder', { index: index + 1 });
           errors.push(msg);
           legIssues.push({ legIndex: index, severity: 'error', message: msg });
         }
         const minR = regulation.startFai.cylinderMinRadiusM;
         if (zone.r1M < minR) {
-          const msg = `Point ${index + 1} : rayon départ ≥ ${(minR / 1000).toFixed(0)} km.`;
+          const msg = this.i18n.t('rules.legDepartureRadius', {
+            index: index + 1,
+            km: (minR / 1000).toFixed(0)
+          });
           errors.push(msg);
           legIssues.push({ legIndex: index, severity: 'error', message: msg });
         }
@@ -227,7 +239,9 @@ export class TaskRuleEngineService {
       const depLeg = legs.find(l => l.role === 'departure');
       if (depLeg?.obsZone && depLeg.obsZone.r1M < FAI_CYLINDER_START_MIN_RADIUS_M) {
         warnings.push(
-          `Cylindre de départ < ${FAI_CYLINDER_START_MIN_RADIUS_M / 1000} km : vérifiez la feuille de route.`
+          this.i18n.t('rules.faiCylinderWarn', {
+            km: FAI_CYLINDER_START_MIN_RADIUS_M / 1000
+          })
         );
       }
     }

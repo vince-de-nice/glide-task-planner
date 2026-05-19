@@ -1,8 +1,6 @@
-<div class="decl-circuit__tab-panel" role="tabpanel" aria-label="Points du circuit">
+<div class="decl-circuit__tab-panel" role="tabpanel" [attr.aria-label]="'circuit.points.panelAria' | translate">
   @if (circuitLegs().length === 0) {
-    <p class="decl-circuit__hint decl-circuit__hint--tab">
-      Décollage et atterrissage sur aérodromes (1<sup>er</sup> / dernier) · distance hors branches déco/attero
-    </p>
+    <p class="decl-circuit__hint decl-circuit__hint--tab" [innerHTML]="'circuit.points.hint' | translate"></p>
   }
   <div class="decl-circuit__list-wrap">
     @if (circuitListItems().length > 0) {
@@ -13,7 +11,7 @@
       >
         @for (item of circuitListItems(); track item.key) {
           <li class="cl-row" cdkDrag>
-            <span class="cl-row__handle" cdkDragHandle aria-label="Réordonner">
+            <span class="cl-row__handle" cdkDragHandle [attr.aria-label]="'common.reorder' | translate">
               <i class="pi pi-bars" aria-hidden="true"></i>
             </span>
 
@@ -78,7 +76,7 @@
                     >
                       {{ leg.distance.toFixed(1) }} km
                       @if (!leg.counted) {
-                        <span class="cl-row__dist-badge">hors tâche</span>
+                        <span class="cl-row__dist-badge">{{ 'common.offTask' | translate }}</span>
                       }
                     </span>
                   }
@@ -93,9 +91,9 @@
                 size="small"
                 styleClass="cl-row__action-btn"
                 (onClick)="openLegZone.emit({ legIndex: item.legIndex, event: $event })"
-                pTooltip="Zone et altitude"
+                [pTooltip]="'circuit.points.zoneAltitude' | translate"
                 tooltipPosition="left"
-                ariaLabel="Zone et altitude"
+                [attr.aria-label]="'circuit.points.zoneAltitude' | translate"
               />
               <p-button
                 icon="pi pi-times"
@@ -104,9 +102,9 @@
                 severity="danger"
                 styleClass="cl-row__action-btn cl-row__action-btn--danger"
                 (onClick)="removeItem.emit(item.legIndex)"
-                pTooltip="Retirer"
+                [pTooltip]="'common.remove' | translate"
                 tooltipPosition="left"
-                ariaLabel="Retirer"
+                [attr.aria-label]="'common.remove' | translate"
               />
             </div>
           </li>
@@ -114,24 +112,24 @@
       </ol>
     } @else if (circuitLegs().length > 0) {
       <p class="decl-empty decl-circuit__empty">
-        Points en cours de chargement depuis la base…
+        {{ 'circuit.points.loading' | translate }}
       </p>
     } @else {
       <p class="decl-empty decl-circuit__empty">
-        Aucun point dans la tâche — ajoutez-en depuis la base ou la carte.
+        {{ 'circuit.points.empty' | translate }}
       </p>
     }
   </div>
 
   <div class="decl-circuit__add">
     <p-button
-      label="Ajouter des points"
+      [label]="'circuit.points.add' | translate"
       icon="pi pi-plus"
       size="small"
       [outlined]="true"
       [disabled]="waypoints().length === 0"
       (onClick)="addPoints.emit()"
-      [pTooltip]="waypoints().length === 0 ? 'Chargez d\'abord une base CUP' : ''"
+      [pTooltip]="waypoints().length === 0 ? ('circuit.points.addTooltip' | translate) : ''"
       tooltipPosition="top"
     />
   </div>

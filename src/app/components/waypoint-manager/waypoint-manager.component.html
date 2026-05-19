@@ -1,17 +1,17 @@
 <div class="waypoint-manager">
   <header class="wp-header">
     <div class="wp-header__text">
-      <h2>Gestion des waypoints</h2>
+      <h2>{{ 'waypoints.title' | translate }}</h2>
       <p class="wp-header__hint">
-        Pour composer une tâche FLARM, utilisez la page
-        <a routerLink="/declaration">Déclaration</a>.
+        {{ 'waypoints.hint' | translate }}
+        <a routerLink="/declaration">{{ 'waypoints.declarationLink' | translate }}</a>.
       </p>
     </div>
     <div class="wp-header__actions">
       <input #wpCupFile type="file" accept=".cup" (change)="onCupFileSelected($event)" hidden />
-      <p-button label="Importer .cup" icon="pi pi-upload" size="small" severity="secondary" (onClick)="wpCupFile.click()" />
+      <p-button [label]="'waypoints.importCup' | translate" icon="pi pi-upload" size="small" severity="secondary" (onClick)="wpCupFile.click()" />
       <p-button
-        label="Exporter .cup"
+        [label]="'waypoints.exportCup' | translate"
         icon="pi pi-file-export"
         size="small"
         [outlined]="true"
@@ -19,7 +19,7 @@
         (onClick)="exportCup()"
       />
       <p-button
-        label="Tout effacer"
+        [label]="'waypoints.clearAll' | translate"
         icon="pi pi-trash"
         size="small"
         severity="danger"
@@ -28,7 +28,7 @@
         (onClick)="clearAll()"
       />
       <p-button
-        [label]="showAddForm() ? 'Fermer' : 'Ajouter'"
+        [label]="showAddForm() ? ('waypoints.close' | translate) : ('waypoints.add' | translate)"
         [icon]="showAddForm() ? 'pi pi-times' : 'pi pi-plus'"
         size="small"
         (onClick)="toggleAddForm()"

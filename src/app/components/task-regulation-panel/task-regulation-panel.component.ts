@@ -1,4 +1,6 @@
 import { Component, computed, inject, input } from '@angular/core';
+import { TranslateService } from '../../i18n/translate.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Select } from 'primeng/select';
@@ -34,7 +36,8 @@ import { UiFeedbackService } from '../../services/ui-feedback.service';
     AccordionContent,
     Button,
     SelectButton,
-    Tooltip
+    Tooltip,
+    TranslatePipe
   ],
   templateUrl: './task-regulation-panel.component.html',
   styleUrl: './task-regulation-panel.component.scss'
@@ -43,28 +46,40 @@ export class TaskRegulationPanelComponent {
   private taskState = inject(TaskStateService);
   private ruleEngine = inject(TaskRuleEngineService);
   private uiFeedback = inject(UiFeedbackService);
+  private i18n = inject(TranslateService);
 
   disabled = input(false);
   compact = input(false);
   /** Panneau plein onglet : paramètres visibles sans accordéon. */
   embeddedInTab = input(false);
 
-  readonly scoringInfoTooltip =
-    'L’app prépare les fichiers de déclaration. Le scoring officiel (trace IGC, PEV sur enregistreur principal) reste du ressort du scorer. FLARM : waypoints sans zones.';
-
-  readonly profileOptions = this.ruleEngine.getProfileOptions().map(p => ({
-    label: p.label,
-    value: p.id,
-    description: p.description
-  }));
+  readonly profileOptions = computed(() => {
+    this.i18n.locale();
+    return this.ruleEngine.getProfileOptions().map(p => ({
+      label: this.i18n.t(`regulation.profiles.${p.id}.label`),
+      value: p.id,
+      description: this.i18n.t(`regulation.profiles.${p.id}.description`)
+    }));
+  });
 
   readonly resolved = this.taskState.resolvedRegulation;
   readonly isCustom = computed(() => this.taskState.regulation().profileId === 'custom');
 
-  readonly startKindOptions = [
-    { label: 'Ligne', value: 'line' as TaskStartKind },
-    { label: 'Cylindre', value: 'cylinder' as TaskStartKind }
-  ];
+  readonly startKindOptions = computed(() => {
+    this.i18n.locale();
+    return [
+      { label: this.i18n.t('regulation.startKind.line'), value: 'line' as TaskStartKind },
+      { label: this.i18n.t('regulation.startKind.cylinder'), value: 'cylinder' as TaskStartKind }
+    ];
+  });
+
+  profileDescription(): string {
+    return this.i18n.t(`regulation.profiles.${this.profileId()}.description`);
+  }
+
+  scoringInfoTooltip(): string {
+    return this.i18n.t('regulation.scoringTooltip');
+  }
 
   profileId = computed(() => this.taskState.regulation().profileId);
 
@@ -73,24 +88,29 @@ export class TaskRegulationPanelComponent {
     const _previous = this.profileId();
     void this.uiFeedback
       .confirm({
-        header: 'Changer de règlement',
-        message:
-          'Appliquer les valeurs par défaut du profil (rayons et zones) à tous les points du circuit ?',
-        acceptLabel: 'Oui, appliquer',
-        rejectLabel: 'Non, garder les zones'
+        header: this.i18n.t('regulation.changeProfileHeader'),
+        message: this.i18n.t('regulation.changeProfileMessage'),
+        acceptLabel: this.i18n.t('regulation.applyProfileYes'),
+        rejectLabel: this.i18n.t('regulation.applyProfileNo')
       })
       .then(applyZones => {
         this.taskState.setRegulationProfile(nextId);
         if (applyZones) {
           this.taskState.applyRegulationToAllLegs();
-          this.uiFeedback.success('Règlement appliqué', 'Profil et zones mis à jour.');
+          this.uiFeedback.success(
+            this.i18n.t('regulation.applied'),
+            this.i18n.t('regulation.appliedDetail')
+          );
         }
       })
   }
 
   applyRegulation(): void {
     this.taskState.applyRegulationToAllLegs();
-    this.uiFeedback.success('Zones mises à jour', 'Rayons et préréglages du règlement appliqués.');
+    this.uiFeedback.success(
+      this.i18n.t('regulation.zonesUpdated'),
+      this.i18n.t('regulation.zonesUpdatedDetail')
+    );
   }
 
   patchOverrides(patch: TaskRegulationOverrides): void {
@@ -162,11 +182,13 @@ export class TaskRegulationPanelComponent {
   }
 
   regulationSummary(): string {
+    this.i18n.locale();
     const r = this.resolved();
     const d = r.radiiM.departureM;
     const t = r.radiiM.turnpointM;
     const a = r.radiiM.arrivalM;
-    let line = `${r.label} · D${d} / V${t} / A${a}`;
+    const label = this.i18n.t(`regulation.profiles.${this.profileId()}.label`);
+    let line = `${label} · D${d} / V${t} / A${a}`;
     if (r.startFai.pevEnabled) {
       line += ` · PEV ${r.startFai.pevWaitMin}+${r.startFai.pevWindowMin} min`;
     }

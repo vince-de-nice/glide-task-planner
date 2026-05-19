@@ -18,7 +18,7 @@
             (onClick)="toolbarMenu.toggle($event)"
             ariaLabel="Plus d’actions carte"
           />
-          <p-menu #toolbarMenu [popup]="true" [model]="toolbarMenuItems" />
+          <p-menu #toolbarMenu [popup]="true" [model]="toolbarMenuItems()" />
         </div>
       </ng-template>
       <ng-template #end>

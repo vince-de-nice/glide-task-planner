@@ -17,9 +17,11 @@ import {
   DistanceResult,
   TaskLegDistance
 } from '../../../services/distance.service';
-import { CircuitLeg, circuitRoleShortLabel } from '../../../models/circuit.model';
+import { CircuitLeg, CircuitLegRole } from '../../../models/circuit.model';
 import { CircuitListItem } from '../../../models/circuit-list-item.model';
-import { observationZoneShortLabel } from '../../../models/observation-zone.model';
+import { observationZoneShortLabelI18n } from '../../../i18n/zone-label.util';
+import { TranslateService } from '../../../i18n/translate.service';
+import { TranslatePipe } from '../../../i18n/translate.pipe';
 import { formatElevationDisplay, resolveLegElevationM } from '../../../utils/elevation.util';
 import { waypointTypeDisplay } from '../../../utils/waypoint-type-display.util';
 import { buildCircuitListItems } from '../../../utils/circuit-list.util';
@@ -28,7 +30,7 @@ import { ObsZonePreviewComponent } from '../../obs-zone-preview/obs-zone-preview
 @Component({
   selector: 'app-circuit-points-panel',
   standalone: true,
-  imports: [CommonModule, DragDropModule, Button, Tooltip, ObsZonePreviewComponent],
+  imports: [CommonModule, DragDropModule, Button, Tooltip, ObsZonePreviewComponent, TranslatePipe],
   templateUrl: './circuit-points-panel.component.html',
   styleUrl: './circuit-points-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -37,6 +39,7 @@ export class CircuitPointsPanelComponent {
   private taskState = inject(TaskStateService);
   private waypointService = inject(WaypointService);
   private ruleEngine = inject(TaskRuleEngineService);
+  private i18n = inject(TranslateService);
   distanceResult = input<DistanceResult | null>(null);
 
   waypoints = this.waypointService.waypoints;
@@ -51,7 +54,10 @@ export class CircuitPointsPanelComponent {
   resolvedRegulation = this.taskState.resolvedRegulation;
 
   readonly waypointTypeDisplay = waypointTypeDisplay;
-  readonly circuitRoleLabel = circuitRoleShortLabel;
+
+  circuitRoleLabel(role: CircuitLegRole): string {
+    return this.i18n.t(`circuit.role.${role}`);
+  }
 
   ruleValidation = computed(() => {
     const wpMap = new Map(this.waypoints().map(w => [w.id, w]));
@@ -81,7 +87,7 @@ export class CircuitPointsPanelComponent {
 
   legZoneLabel(item: CircuitListItem): string {
     const zone = item.leg.obsZone;
-    return zone ? observationZoneShortLabel(zone) : '—';
+    return zone ? observationZoneShortLabelI18n(zone, this.i18n) : '—';
   }
 
   legElevationLabel(item: CircuitListItem): string {
@@ -111,7 +117,7 @@ export class CircuitPointsPanelComponent {
   }
 
   legComplianceTooltip(index: number): string {
-    return this.legIssueMessage(index) ?? 'Conforme au règlement';
+    return this.legIssueMessage(index) ?? this.i18n.t('common.compliant');
   }
 
   legFromIndex(index: number): TaskLegDistance | undefined {

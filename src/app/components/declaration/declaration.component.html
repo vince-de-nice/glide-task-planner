@@ -5,7 +5,7 @@
     <p-message severity="success" [text]="circuitMessage()!" styleClass="decl-flash-msg" />
   }
 
-  <nav class="decl-tabs" aria-label="Panneaux">
+  <nav class="decl-tabs" [attr.aria-label]="'circuit.panelsAria' | translate">
     <p-selectButton
       class="decl-tabs__select"
       [options]="mobileTabOptionsUi()"
@@ -25,34 +25,34 @@
   >
     <app-circuit-map-shell (actionMessage)="showAddToast($event)" />
 
-    <section class="decl-panel decl-panel--circuit gc-card" aria-label="Circuit et export">
+    <section class="decl-panel decl-panel--circuit gc-card" [attr.aria-label]="'circuit.circuitPanelAria' | translate">
       <header class="decl-circuit__head">
         <div class="decl-circuit__title-row">
-          <h2 class="decl-section-title">Circuit</h2>
+          <h2 class="decl-section-title">{{ 'circuit.title' | translate }}</h2>
         </div>
         @if (distanceResult(); as d) {
           <div class="decl-circuit__metrics">
             <div class="decl-circuit__metric decl-circuit__metric--primary">
-              <span class="decl-circuit__metric-label">Distance tâche</span>
+              <span class="decl-circuit__metric-label">{{ 'circuit.taskDistance' | translate }}</span>
               <span class="decl-circuit__metric-value">{{ d.taskDistance.toFixed(1) }} km</span>
             </div>
             @if (d.totalDistance > d.taskDistance + 0.05) {
               <div class="decl-circuit__metric">
-                <span class="decl-circuit__metric-label">Total</span>
+                <span class="decl-circuit__metric-label">{{ 'circuit.total' | translate }}</span>
                 <span class="decl-circuit__metric-value">{{ d.totalDistance.toFixed(1) }} km</span>
               </div>
             }
             <div class="decl-circuit__metric">
-              <span class="decl-circuit__metric-label">Points</span>
+              <span class="decl-circuit__metric-label">{{ 'circuit.pointsMetric' | translate }}</span>
               <span class="decl-circuit__metric-value">{{ selectedWaypointIds().length }}</span>
             </div>
           </div>
         } @else if (selectedWaypointIds().length > 0) {
-          <p class="decl-circuit__stats">{{ selectedWaypointIds().length }} pt(s)</p>
+          <p class="decl-circuit__stats">{{ 'circuit.pointsCount' | translate: { count: selectedWaypointIds().length } }}</p>
         }
       </header>
 
-      <nav class="decl-circuit__tabs" aria-label="Sections du circuit">
+      <nav class="decl-circuit__tabs" [attr.aria-label]="'circuit.title' | translate">
         <p-selectButton
           class="decl-circuit__tabs-select"
           [options]="circuitTabOptionsUi()"
@@ -82,7 +82,7 @@
           <div
             class="decl-circuit__tab-panel decl-circuit__tab-panel--regulation"
             role="tabpanel"
-            aria-label="Règlement"
+            [attr.aria-label]="'circuit.regulation.panelAria' | translate"
           >
             <div
               class="decl-circuit__status-card"
@@ -101,8 +101,8 @@
             </div>
 
             @if (ruleValidation().errors.length > 0) {
-              <section class="decl-circuit__issue-block decl-circuit__issue-block--error" aria-label="Erreurs">
-                <h3 class="decl-circuit__issue-title">Erreurs</h3>
+              <section class="decl-circuit__issue-block decl-circuit__issue-block--error" [attr.aria-label]="'circuit.regulation.errors' | translate">
+                <h3 class="decl-circuit__issue-title">{{ 'circuit.regulation.errors' | translate }}</h3>
                 <ul class="decl-circuit__issue-list">
                   @for (err of ruleValidation().errors; track err) {
                     <li>{{ err }}</li>
@@ -112,8 +112,8 @@
             }
 
             @if (ruleValidation().warnings.length > 0) {
-              <section class="decl-circuit__issue-block decl-circuit__issue-block--warn" aria-label="Avertissements">
-                <h3 class="decl-circuit__issue-title">Avertissements</h3>
+              <section class="decl-circuit__issue-block decl-circuit__issue-block--warn" [attr.aria-label]="'circuit.regulation.warnings' | translate">
+                <h3 class="decl-circuit__issue-title">{{ 'circuit.regulation.warnings' | translate }}</h3>
                 <ul class="decl-circuit__issue-list">
                   @for (warn of ruleValidation().warnings; track warn) {
                     <li>{{ warn }}</li>
@@ -123,8 +123,8 @@
             }
 
             @if (legComplianceRows().length > 0) {
-              <section class="decl-circuit__leg-check" aria-label="Points concernés">
-                <h3 class="decl-circuit__issue-title">Points du circuit</h3>
+              <section class="decl-circuit__leg-check" [attr.aria-label]="'circuit.regulation.legCheck' | translate">
+                <h3 class="decl-circuit__issue-title">{{ 'circuit.regulation.legCheck' | translate }}</h3>
                 <ul class="decl-circuit__leg-check-list">
                   @for (row of legComplianceRows(); track row.index) {
                     <li
@@ -169,7 +169,7 @@
 <app-waypoint-picker-drawer
   [visible]="waypointDialogOpen()"
   (visibleChange)="onWaypointDrawerVisible($event)"
-  (waypointAdded)="showAddToast('« ' + $event + ' » ajouté comme point de virage')"
+  (waypointAdded)="onWaypointAddedToCircuit($event)"
 />
 
 <app-pilot-profile-dialog

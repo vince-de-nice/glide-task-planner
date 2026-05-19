@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { ConfirmationService, MessageService } from 'primeng/api';
+import { TranslateService } from '../i18n/translate.service';
 
 export interface ConfirmOptions {
   header?: string;
@@ -16,6 +17,7 @@ export interface ConfirmOptions {
 export class UiFeedbackService {
   private messageService = inject(MessageService);
   private confirmationService = inject(ConfirmationService);
+  private i18n = inject(TranslateService);
 
   success(summary: string, detail?: string, life = 2500): void {
     this.messageService.add({
@@ -56,11 +58,11 @@ export class UiFeedbackService {
   confirm(options: ConfirmOptions): Promise<boolean> {
     return new Promise(resolve => {
       this.confirmationService.confirm({
-        header: options.header ?? 'Confirmation',
+        header: options.header ?? this.i18n.t('common.confirm'),
         message: options.message,
         icon: options.icon ?? 'pi pi-exclamation-triangle',
-        acceptLabel: options.acceptLabel ?? 'Oui',
-        rejectLabel: options.rejectLabel ?? 'Non',
+        acceptLabel: options.acceptLabel ?? this.i18n.t('common.yes'),
+        rejectLabel: options.rejectLabel ?? this.i18n.t('common.no'),
         acceptButtonStyleClass: options.acceptButtonStyleClass,
         accept: () => resolve(true),
         reject: () => resolve(false)

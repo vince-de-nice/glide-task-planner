@@ -5,10 +5,12 @@ import { Button } from 'primeng/button';
 import { Toast } from 'primeng/toast';
 import { ConfirmDialog } from 'primeng/confirmdialog';
 import { filter } from 'rxjs';
+import { TranslatePipe } from './i18n/translate.pipe';
+import { LanguageSwitcherComponent } from './components/language-switcher/language-switcher.component';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, CommonModule, Button, Toast, ConfirmDialog],
+  imports: [RouterOutlet, CommonModule, Button, Toast, ConfirmDialog, TranslatePipe, LanguageSwitcherComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss'
 })

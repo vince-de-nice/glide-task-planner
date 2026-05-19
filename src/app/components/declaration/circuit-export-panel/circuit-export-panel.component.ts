@@ -16,20 +16,23 @@ import { WaypointService } from '../../../services/waypoint.service';
 import { FlarmProfileService } from '../../../services/flarm-profile.service';
 import { DistanceResult } from '../../../services/distance.service';
 import { TaskExportFormat } from '../../../services/task-export.service';
+import { TranslateService } from '../../../i18n/translate.service';
+import { TranslatePipe } from '../../../i18n/translate.pipe';
 
 @Component({
   selector: 'app-circuit-export-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule, Button, InputText],
+  imports: [CommonModule, FormsModule, Button, InputText, TranslatePipe],
   templateUrl: './circuit-export-panel.component.html',
   styleUrl: './circuit-export-panel.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class CircuitExportPanelComponent {
-  private taskState = inject(TaskStateService);
+  taskState = inject(TaskStateService);
   private waypointService = inject(WaypointService);
   private ruleEngine = inject(TaskRuleEngineService);
   flarmProfileService = inject(FlarmProfileService);
+  private i18n = inject(TranslateService);
 
   distanceResult = input<DistanceResult | null>(null);
 
@@ -48,25 +51,61 @@ export class CircuitExportPanelComponent {
   flarmProfile = this.flarmProfileService.profile;
   waypoints = this.waypointService.waypoints;
 
-  readonly exportFormatActions: {
-    format: TaskExportFormat;
-    label: string;
-    detail: string;
-    icon: string;
-    primary?: boolean;
-  }[] = [
-    {
-      format: 'flarm',
-      label: 'FLARM',
-      detail: 'flarmcfg.txt — SD/USB',
-      icon: 'pi pi-download',
-      primary: true
-    },
-    { format: 'cup', label: 'CUP', detail: 'Waypoints + tâche', icon: 'pi pi-file' },
-    { format: 'cupx', label: 'CUPX', detail: 'Archive POINTS.CUP', icon: 'pi pi-box' },
-    { format: 'tsk', label: 'XCSoar', detail: 'Fichier .tsk', icon: 'pi pi-code' },
-    { format: 'igc-crecords', label: 'IGC C-records', detail: 'Trace déclarée', icon: 'pi pi-list' }
-  ];
+  readonly exportFormatActions = computed(() => {
+    this.i18n.locale();
+    return [
+      {
+        format: 'flarm' as TaskExportFormat,
+        label: 'FLARM',
+        detail: this.i18n.t('circuit.export.formatFlarmDetail'),
+        icon: 'pi pi-download',
+        primary: true
+      },
+      {
+        format: 'cup' as TaskExportFormat,
+        label: 'CUP',
+        detail: this.i18n.t('circuit.export.formatCupDetail'),
+        icon: 'pi pi-file'
+      },
+      {
+        format: 'cupx' as TaskExportFormat,
+        label: 'CUPX',
+        detail: this.i18n.t('circuit.export.formatCupxDetail'),
+        icon: 'pi pi-box'
+      },
+      {
+        format: 'tsk' as TaskExportFormat,
+        label: 'XCSoar',
+        detail: this.i18n.t('circuit.export.formatTskDetail'),
+        icon: 'pi pi-code'
+      },
+      {
+        format: 'igc-crecords' as TaskExportFormat,
+        label: 'IGC C-records',
+        detail: this.i18n.t('circuit.export.formatIgcDetail'),
+        icon: 'pi pi-list'
+      }
+    ];
+  });
+
+  exportStatusText = computed(() => {
+    this.i18n.locale();
+    if (this.selectedWaypointIds().length === 0) {
+      return this.i18n.t('circuit.export.statusEmpty');
+    }
+    if (this.exportBlocked()) {
+      return this.i18n.t('circuit.export.statusBlocked');
+    }
+    const profileId = this.taskState.regulation().profileId;
+    const label = this.i18n.t(`regulation.profiles.${profileId}.label`);
+    return this.i18n.t('circuit.export.statusReady', { label });
+  });
+
+  regulationProfileLabel = computed(() => {
+    this.i18n.locale();
+    const profileId = this.taskState.regulation().profileId;
+    return this.i18n.t(`regulation.profiles.${profileId}.label`);
+  });
 
   ruleValidation = computed(() => {
     const wpMap = new Map(this.waypoints().map(w => [w.id, w]));
