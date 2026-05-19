@@ -7,11 +7,10 @@ import { Select } from 'primeng/select';
 import { InputNumber } from 'primeng/inputnumber';
 import { Checkbox } from 'primeng/checkbox';
 import { ObsZoneCupDiagramComponent } from '../obs-zone-cup-diagram/obs-zone-cup-diagram.component';
-import { CircuitLeg, circuitRoleShortLabel } from '../../models/circuit.model';
+import { CircuitLeg } from '../../models/circuit.model';
 import { Waypoint } from '../../models/waypoint.model';
 import {
   applyCupZoneParamVisibility,
-  CUP_STYLE_LABELS,
   CupZoneParamKey,
   cupZoneParamVisibility,
   OBS_ZONE_PRESETS,
@@ -24,11 +23,30 @@ import { formatElevationDisplay, resolveLegElevationM } from '../../utils/elevat
 import { TaskStateService } from '../../services/task-state.service';
 import { WaypointService } from '../../services/waypoint.service';
 import { cupZoneReferenceBearingDeg } from '../../utils/obs-zone-map.util';
+import { TranslateService } from '../../i18n/translate.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
+import {
+  circuitRoleShortLabelI18n,
+  obsZonePresetDescriptionI18n,
+  obsZonePresetLabelI18n
+} from '../../i18n/display-i18n.util';
 
 export interface CircuitLegZoneDialogSave {
   obsZone: ObservationZoneConfig;
   elevationM?: number;
 }
+
+const CUP_PARAM_I18N_KEYS: Record<CupZoneParamKey, string> = {
+  style: 'zoneCup.paramStyle',
+  r1: 'zoneCup.paramR1',
+  a1: 'zoneCup.paramA1',
+  r2: 'zoneCup.paramR2',
+  a2: 'zoneCup.paramA2',
+  a12: 'zoneCup.paramA12',
+  line: 'zoneCup.paramLine'
+};
+
+const CUP_STYLES = [0, 1, 2, 3, 4] as const;
 
 @Component({
   selector: 'app-circuit-leg-zone-dialog',
@@ -41,7 +59,8 @@ export interface CircuitLegZoneDialogSave {
     Select,
     InputNumber,
     Checkbox,
-    ObsZoneCupDiagramComponent
+    ObsZoneCupDiagramComponent,
+    TranslatePipe
   ],
   templateUrl: './circuit-leg-zone-dialog.component.html',
   styleUrl: './circuit-leg-zone-dialog.component.scss'
@@ -49,6 +68,7 @@ export interface CircuitLegZoneDialogSave {
 export class CircuitLegZoneDialogComponent {
   private taskState = inject(TaskStateService);
   private waypointService = inject(WaypointService);
+  private i18n = inject(TranslateService);
 
   visible = input(false);
   leg = input<CircuitLeg | null>(null);
@@ -75,6 +95,7 @@ export class CircuitLegZoneDialogComponent {
   zoneFormMounted = signal(false);
 
   readonly presetOptions = computed(() => {
+    this.i18n.locale();
     const role = this.leg()?.role;
     const allowed = this.allowedPresetIds();
     return OBS_ZONE_PRESETS.filter(p => {
@@ -82,17 +103,24 @@ export class CircuitLegZoneDialogComponent {
         return false;
       }
       return !p.forRoles || (role && p.forRoles.includes(role));
-    });
+    }).map(p => ({
+      id: p.id,
+      label: obsZonePresetLabelI18n(p.id, this.i18n)
+    }));
   });
 
-  readonly cupStyleOptions = Object.entries(CUP_STYLE_LABELS).map(([value, label]) => ({
-    value: Number(value) as 0 | 1 | 2 | 3 | 4,
-    label
-  }));
+  readonly cupStyleOptions = computed(() => {
+    this.i18n.locale();
+    return CUP_STYLES.map(value => ({
+      value,
+      label: this.i18n.t(`zoneCup.style${value}`)
+    }));
+  });
 
   readonly roleLabel = computed(() => {
+    this.i18n.locale();
     const role = this.leg()?.role;
-    return role ? circuitRoleShortLabel(role) : '';
+    return role ? circuitRoleShortLabelI18n(role, this.i18n) : '';
   });
 
   readonly wpName = computed(() => this.waypoint()?.name ?? '');
@@ -107,29 +135,19 @@ export class CircuitLegZoneDialogComponent {
     return formatElevationDisplay(resolveLegElevationM(wp, leg));
   });
 
-  private static readonly CUP_PARAM_LABELS: Record<CupZoneParamKey, string> = {
-    style: 'Style',
-    r1: 'R1',
-    a1: 'A1',
-    r2: 'R2',
-    a2: 'A2',
-    a12: 'A12',
-    line: 'Line'
-  };
-
   readonly presetHint = computed(() => {
-    const opt = this.presetOptions().find(p => p.id === this.presetId());
-    if (!opt) return '';
-    if (this.presetId() !== 'custom') {
-      return opt.description;
+    this.i18n.locale();
+    const id = this.presetId();
+    if (id !== 'custom') {
+      return obsZonePresetDescriptionI18n(id, this.i18n);
     }
     const vis = this.paramVisibility();
-    const keys = (Object.keys(CircuitLegZoneDialogComponent.CUP_PARAM_LABELS) as CupZoneParamKey[])
+    const keys = (Object.keys(CUP_PARAM_I18N_KEYS) as CupZoneParamKey[])
       .filter(k => vis[k])
-      .map(k => CircuitLegZoneDialogComponent.CUP_PARAM_LABELS[k]);
+      .map(k => this.i18n.t(CUP_PARAM_I18N_KEYS[k]));
     return keys.length
-      ? `Paramètres modifiables : ${keys.join(', ')}.`
-      : opt.description;
+      ? this.i18n.t('zoneCup.editableParams', { params: keys.join(', ') })
+      : obsZonePresetDescriptionI18n('custom', this.i18n);
   });
 
   readonly paramVisibility = computed(() => {
@@ -214,6 +232,11 @@ export class CircuitLegZoneDialogComponent {
       this.elevationM.set(elev ?? null);
       this.zoneFormMounted.set(true);
     });
+  }
+
+  dialogHeader(): string {
+    this.i18n.locale();
+    return this.i18n.t('zoneCup.header', { name: this.wpName() });
   }
 
   onR1Change(value: number | null): void {

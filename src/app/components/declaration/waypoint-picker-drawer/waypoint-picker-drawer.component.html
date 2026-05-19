@@ -1,7 +1,7 @@
 <p-drawer
   [visible]="visible()"
   (visibleChange)="onVisibleChange($event)"
-  header="Choisir des points"
+  [header]="'picker.title' | translate"
   position="right"
   styleClass="decl-wp-drawer"
   [style]="{ width: 'min(100vw, 480px)' }"
@@ -10,7 +10,7 @@
   [closeOnEscape]="true"
 >
   @if (filteredCount() > 0) {
-    <p class="decl-panel__meta decl-wp-dialog__meta">{{ filteredCount() }} résultat(s)</p>
+    <p class="decl-panel__meta decl-wp-dialog__meta">{{ 'picker.results' | translate: { count: filteredCount() } }}</p>
   }
   <div class="decl-list-tools">
     <input
@@ -18,12 +18,12 @@
       fluid
       pSize="small"
       type="search"
-      placeholder="Rechercher nom, code…"
+      [placeholder]="'picker.search' | translate"
       [ngModel]="searchQuery()"
       (ngModelChange)="onSearchChange($event)"
     />
-    <div class="decl-chips" role="group" aria-label="Filtres">
-      @for (f of typeFilters; track f.id) {
+    <div class="decl-chips" role="group" [attr.aria-label]="'picker.filtersAria' | translate">
+      @for (f of typeFilters(); track f.id) {
         <p-button
           size="small"
           [text]="typeFilter() !== f.id"
@@ -36,7 +36,7 @@
     </div>
   </div>
   <div class="decl-list-body">
-    <ul class="decl-wp-list gc-scroll" aria-label="Page {{ currentPage() }}">
+    <ul class="decl-wp-list gc-scroll" [attr.aria-label]="'picker.listAria' | translate: { page: currentPage() }">
       @for (wp of paginatedWaypoints(); track wp.id) {
         <li>
           <button
@@ -67,12 +67,12 @@
           </button>
         </li>
       } @empty {
-        <li class="decl-empty">Aucun point ne correspond.</li>
+        <li class="decl-empty">{{ 'picker.empty' | translate }}</li>
       }
     </ul>
   </div>
   @if (filteredCount() > 0) {
-    <nav class="decl-pager" aria-label="Pagination des points">
+    <nav class="decl-pager" [attr.aria-label]="'picker.pagerAria' | translate">
       <span class="decl-pager__info">{{ pageRangeStart() }}–{{ pageRangeEnd() }} / {{ filteredCount() }}</span>
       <div class="decl-pager__nav">
         <p-button
@@ -81,7 +81,7 @@
           size="small"
           (onClick)="prevPage()"
           [disabled]="currentPage() <= 1"
-          ariaLabel="Page précédente"
+          [ariaLabel]="'picker.prevPage' | translate"
         />
         <span class="decl-pager__page">{{ currentPage() }} / {{ totalPages() }}</span>
         <p-button
@@ -90,22 +90,22 @@
           size="small"
           (onClick)="nextPage()"
           [disabled]="currentPage() >= totalPages()"
-          ariaLabel="Page suivante"
+          [ariaLabel]="'picker.nextPage' | translate"
         />
       </div>
       <label class="decl-pager__size">
-        <span class="gc-label gc-label--invisible">Par page</span>
+        <span class="gc-label gc-label--invisible">{{ 'picker.perPage' | translate }}</span>
         <p-select
           [options]="pageSizeOptions"
           [ngModel]="pageSize()"
           (ngModelChange)="setPageSize(+$event)"
           size="small"
-          ariaLabel="Points par page"
+          [ariaLabel]="'picker.perPageAria' | translate"
         />
       </label>
     </nav>
   }
   <div class="decl-wp-dialog__foot">
-    <p-button label="Terminé" icon="pi pi-check" (onClick)="close()" />
+    <p-button [label]="'common.done' | translate" icon="pi pi-check" (onClick)="close()" />
   </div>
 </p-drawer>

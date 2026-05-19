@@ -11,11 +11,12 @@ import { Dialog } from 'primeng/dialog';
 import { Button } from 'primeng/button';
 import { InputText } from 'primeng/inputtext';
 import { FlarmProfileService } from '../../../services/flarm-profile.service';
+import { TranslatePipe } from '../../../i18n/translate.pipe';
 
 @Component({
   selector: 'app-pilot-profile-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, Dialog, Button, InputText],
+  imports: [CommonModule, FormsModule, Dialog, Button, InputText, TranslatePipe],
   templateUrl: './pilot-profile-dialog.component.html',
   styleUrl: './pilot-profile-dialog.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush

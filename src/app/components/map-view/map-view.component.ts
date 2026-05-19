@@ -11,6 +11,13 @@ import {
   signal
 } from '@angular/core';
 import { TranslateService } from '../../i18n/translate.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
+import {
+  circuitRoleShortLabelI18n,
+  mapPopupLabels,
+  waypointTypeDisplayI18n
+} from '../../i18n/display-i18n.util';
+import { WAYPOINT_TYPE_ORDER } from '../../utils/waypoint-type-display.util';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LeafletDirective } from '@bluehalo/ngx-leaflet';
@@ -43,7 +50,6 @@ import { Waypoint, WaypointType } from '../../models/waypoint.model';
 import { buildMapMarkerHtml, estimateMapLabelSize, formatMapRoleSuffix } from './map-marker.util';
 import {
   buildWaypointContextPopupHtml,
-  waypointTypeLabel,
   WaypointMapAction
 } from './map-waypoint-popup.util';
 import {
@@ -58,8 +64,6 @@ import { Toolbar } from 'primeng/toolbar';
 import { ToggleSwitch } from 'primeng/toggleswitch';
 import { Tooltip } from 'primeng/tooltip';
 import { UiFeedbackService } from '../../services/ui-feedback.service';
-import { waypointTypeMapFilters } from '../../utils/waypoint-type-display.util';
-
 const SATELLITE_TILES = {
   url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
   attribution:
@@ -74,8 +78,6 @@ const SATELLITE_LABELS = {
 /** Texte des libellés visible à partir de ce zoom Leaflet (plus on zoome, plus z est grand). */
 const MIN_ZOOM_FOR_LABELS = 11;
 
-const MAP_TYPE_FILTERS = waypointTypeMapFilters();
-
 @Component({
   selector: 'app-map-view',
   standalone: true,
@@ -89,7 +91,8 @@ const MAP_TYPE_FILTERS = waypointTypeMapFilters();
     Menu,
     Toolbar,
     ToggleSwitch,
-    Tooltip
+    Tooltip,
+    TranslatePipe
   ],
   templateUrl: './map-view.component.html',
   styleUrls: ['./map-view.component.scss'],
@@ -115,7 +118,10 @@ export class MapViewComponent implements OnInit {
   circuitLegs = this.taskState.circuitLegs;
   defaultZoneRadiusM = this.taskState.defaultZoneRadiusM;
 
-  readonly typeFilterOptions = MAP_TYPE_FILTERS;
+  readonly typeFilterOptions = computed(() => {
+    this.i18n.locale();
+    return WAYPOINT_TYPE_ORDER.map(type => waypointTypeDisplayI18n(type, this.i18n));
+  });
   readonly poaffRegions = this.airspaceLayerService.poaffRegions;
 
   /** Aperçu à l’échelle des zones d’observation (CUP / tâche). */
@@ -249,11 +255,11 @@ export class MapViewComponent implements OnInit {
     }
 
     this.airspaceLoading.set(true);
-    this.airspaceStatus.set('Chargement des espaces aériens…');
+    this.airspaceStatus.set(this.i18n.t('map.airspaceLoading'));
 
     if (!this.map) {
       this.airspaceLoading.set(false);
-      this.airspaceStatus.set('Carte non initialisée — attendez un instant puis réessayez.');
+      this.airspaceStatus.set(this.i18n.t('map.mapNotReady'));
       return;
     }
 
@@ -275,8 +281,8 @@ export class MapViewComponent implements OnInit {
 
     const hint =
       result.source === 'openaip'
-        ? 'OpenAIP (monde)'
-        : `POAFF/SIA — ${result.label} (clé OpenAIP optionnelle dans public/config/airspace.json)`;
+        ? this.i18n.t('map.airspaceOpenAip')
+        : this.i18n.t('map.airspacePoaff', { label: result.label });
     this.airspaceStatus.set(hint);
   }
 
@@ -394,12 +400,12 @@ export class MapViewComponent implements OnInit {
     if (this.editIsCreate()) {
       const wp = this.waypointService.addWaypoint(payload);
       this.taskState.addTurnpoint(wp.id);
-      this.actionMessage.emit(`« ${wp.name} » ajouté`);
+      this.actionMessage.emit(this.i18n.t('common.added', { name: wp.name }));
     } else {
       const current = this.editingWaypoint();
       if (current) {
         this.waypointService.updateWaypoint(current.id, payload);
-        this.actionMessage.emit(`« ${payload.name} » mis à jour`);
+        this.actionMessage.emit(this.i18n.t('common.updated', { name: payload.name }));
       }
     }
     this.closeEditDialog();
@@ -656,9 +662,11 @@ export class MapViewComponent implements OnInit {
     const html = buildWaypointContextPopupHtml({
       waypoint: wp,
       circuitLegs: this.taskState.circuitLegs(),
-      typeLabel: waypointTypeLabel(wp.type),
+      typeLabel: waypointTypeDisplayI18n(wp.type, this.i18n).description,
       canSetDeparture: this.taskState.canSetDeparture(wp.id),
-      canSetArrival: this.taskState.canSetArrival(wp.id)
+      canSetArrival: this.taskState.canSetArrival(wp.id),
+      labels: mapPopupLabels(this.i18n),
+      roleLabel: role => circuitRoleShortLabelI18n(role, this.i18n)
     });
 
     const popupInstance = popup({

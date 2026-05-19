@@ -1,5 +1,5 @@
 @if (diagram(); as d) {
-  <div class="cup-diagram" role="figure" aria-label="Schéma des paramètres CUP">
+  <div class="cup-diagram" role="figure" [attr.aria-label]="'zoneCup.diagramAria' | translate">
     <svg
       class="cup-diagram__svg"
       [attr.viewBox]="viewBox"

@@ -1,7 +1,7 @@
 <p-dialog
   [visible]="visible()"
   (visibleChange)="onVisibleChange($event)"
-  header="Aperçu export"
+  [header]="'dialogs.exportPreview' | translate"
   [modal]="true"
   [closable]="true"
   [dismissableMask]="true"
@@ -10,22 +10,22 @@
   [style]="{ width: 'min(100vw - 1rem, 640px)' }"
   [contentStyle]="{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }"
 >
-  <p class="decl-preview__reg">{{ resolvedRegulation().label }}</p>
+  <p class="decl-preview__reg">{{ regulationProfileLabel() }}</p>
   @if (ruleValidation().errors.length > 0) {
     <p-message severity="error">{{ ruleValidation().errors.join(' · ') }}</p-message>
   }
   <p-select
-    [options]="previewFormatOptions"
+    [options]="previewFormatOptions()"
     optionLabel="label"
     optionValue="value"
     [ngModel]="previewFormat()"
     (ngModelChange)="previewFormat.set($event)"
     size="small"
     fluid
-    ariaLabel="Format d’aperçu"
+    [ariaLabel]="'preview.formatAria' | translate"
   />
   <p-button
-    [label]="copyFeedback() ? 'Copié' : 'Copier'"
+    [label]="copyFeedback() ? ('common.copied' | translate) : ('common.copy' | translate)"
     icon="pi pi-copy"
     size="small"
     severity="secondary"
@@ -35,11 +35,11 @@
   <textarea pTextarea fluid pSize="small" readonly [value]="exportPreview()" rows="14"></textarea>
   <div class="decl-wp-dialog__foot decl-wp-dialog__foot--split">
     <p-button
-      label="Télécharger"
+      [label]="'common.download' | translate"
       icon="pi pi-download"
       (onClick)="requestDownload()"
       [disabled]="selectedWaypointIds().length === 0 || exportBlocked()"
     />
-    <p-button label="Fermer" [outlined]="true" (onClick)="close()" />
+    <p-button [label]="'common.close' | translate" [outlined]="true" (onClick)="close()" />
   </div>
 </p-dialog>

@@ -4,9 +4,10 @@ import {
   canWaypointBeDeparture,
   CircuitLeg,
   CircuitLegRole,
-  circuitRoleLabel,
   circuitRoleMapToken
 } from '../models/circuit.model';
+import { circuitRoleLabelI18n } from '../i18n/display-i18n.util';
+import { TranslateService } from '../i18n/translate.service';
 import {
   ObservationZoneConfig,
   normalizeObservationZone,
@@ -42,6 +43,7 @@ interface PersistedTaskState {
 export class TaskStateService {
   private waypointService = inject(WaypointService);
   private ruleEngine = inject(TaskRuleEngineService);
+  private i18n = inject(TranslateService);
 
   circuitLegs = signal<CircuitLeg[]>([]);
   selectedWaypointIds = computed(() => this.circuitLegs().map(leg => leg.waypointId));
@@ -253,11 +255,11 @@ export class TaskStateService {
     return this.circuitLegs().map(leg => leg.role);
   }
 
-  /** Libellés français pour chaque occurrence du waypoint dans le circuit. */
+  /** Libellés localisés pour chaque occurrence du waypoint dans le circuit. */
   getWaypointRoleLabels(waypointId: string): string[] {
     return this.circuitLegs()
       .filter(leg => leg.waypointId === waypointId)
-      .map(leg => circuitRoleLabel(leg.role));
+      .map(leg => circuitRoleLabelI18n(leg.role, this.i18n));
   }
 
   /** Tokens affichés sur la carte (decollage, atterrissage, numéros de position). */

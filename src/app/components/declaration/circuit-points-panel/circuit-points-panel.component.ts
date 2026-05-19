@@ -23,7 +23,8 @@ import { observationZoneShortLabelI18n } from '../../../i18n/zone-label.util';
 import { TranslateService } from '../../../i18n/translate.service';
 import { TranslatePipe } from '../../../i18n/translate.pipe';
 import { formatElevationDisplay, resolveLegElevationM } from '../../../utils/elevation.util';
-import { waypointTypeDisplay } from '../../../utils/waypoint-type-display.util';
+import { WaypointType } from '../../../models/waypoint.model';
+import { waypointTypeDisplayI18n } from '../../../i18n/display-i18n.util';
 import { buildCircuitListItems } from '../../../utils/circuit-list.util';
 import { ObsZonePreviewComponent } from '../../obs-zone-preview/obs-zone-preview.component';
 
@@ -53,7 +54,9 @@ export class CircuitPointsPanelComponent {
   circuitLegs = this.taskState.circuitLegs;
   resolvedRegulation = this.taskState.resolvedRegulation;
 
-  readonly waypointTypeDisplay = waypointTypeDisplay;
+  waypointTypeDisplay(type: WaypointType) {
+    return waypointTypeDisplayI18n(type, this.i18n);
+  }
 
   circuitRoleLabel(role: CircuitLegRole): string {
     return this.i18n.t(`circuit.role.${role}`);

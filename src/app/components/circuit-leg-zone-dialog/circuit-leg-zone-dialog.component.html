@@ -1,7 +1,7 @@
 <p-dialog
   [visible]="visible()"
   (visibleChange)="visibleChange.emit($event)"
-  [header]="'Zone & altitude — ' + wpName()"
+  [header]="dialogHeader()"
   [modal]="true"
   [closable]="true"
   [dismissableMask]="true"
@@ -12,13 +12,13 @@
 >
   <div class="leg-zone-dialog__scroll">
     <p class="leg-zone-dialog__meta">
-      Point {{ legIndex() + 1 }} · {{ roleLabel() }}
+      {{ 'zoneCup.pointMeta' | translate: { index: legIndex() + 1, role: roleLabel() } }}
     </p>
 
     <div class="leg-zone-dialog__cup-layout">
       <div class="leg-zone-dialog__cup-fields">
         <div class="leg-zone-dialog__field">
-          <label for="zone-preset">Type de zone</label>
+          <label for="zone-preset">{{ 'zoneCup.zoneType' | translate }}</label>
           <p-select
             inputId="zone-preset"
             [options]="presetOptions()"
@@ -37,10 +37,10 @@
         @if (zoneFormMounted()) {
           <div class="leg-zone-dialog__fields-col">
             <div class="leg-zone-dialog__field">
-              <label for="zone-style">Style CUP</label>
+              <label for="zone-style">{{ 'zoneCup.cupStyle' | translate }}</label>
               <p-select
                 inputId="zone-style"
-                [options]="cupStyleOptions"
+                [options]="cupStyleOptions()"
                 optionLabel="label"
                 optionValue="value"
                 [ngModel]="cupStyle()"
@@ -50,7 +50,7 @@
               />
             </div>
             <div class="leg-zone-dialog__field">
-              <label for="zone-r1">R1 (m)</label>
+              <label for="zone-r1">{{ 'zoneCup.paramR1' | translate }} (m)</label>
               <p-inputNumber
                 inputId="zone-r1"
                 [ngModel]="r1M()"
@@ -64,7 +64,7 @@
             </div>
             @if (paramVisibility().a1) {
               <div class="leg-zone-dialog__field">
-                <label for="zone-a1">A1 (°)</label>
+                <label for="zone-a1">{{ 'zoneCup.paramA1' | translate }} (°)</label>
                 <p-inputNumber
                   inputId="zone-a1"
                   [ngModel]="a1Deg()"
@@ -77,16 +77,16 @@
                 />
                 <p class="leg-zone-dialog__hint leg-zone-dialog__field-hint">
                   @if (line()) {
-                    Ouverture de la ligne (souvent 180°).
+                    {{ 'zoneCup.a1LineHint' | translate }}
                   } @else {
-                    Largeur du secteur (°) autour de l’axe d’orientation.
+                    {{ 'zoneCup.a1SectorHint' | translate }}
                   }
                 </p>
               </div>
             }
             @if (paramVisibility().r2) {
               <div class="leg-zone-dialog__field">
-                <label for="zone-r2">R2 (m)</label>
+                <label for="zone-r2">{{ 'zoneCup.paramR2' | translate }} (m)</label>
                 <p-inputNumber
                   inputId="zone-r2"
                   [ngModel]="r2M()"
@@ -98,13 +98,13 @@
                   fluid
                 />
                 <p class="leg-zone-dialog__hint leg-zone-dialog__field-hint">
-                  Rayon intérieur (trou / keyhole FAI).
+                  {{ 'zoneCup.r2Hint' | translate }}
                 </p>
               </div>
             }
             @if (paramVisibility().a2) {
               <div class="leg-zone-dialog__field">
-                <label for="zone-a2">A2 (°)</label>
+                <label for="zone-a2">{{ 'zoneCup.paramA2' | translate }} (°)</label>
                 <p-inputNumber
                   inputId="zone-a2"
                   [ngModel]="a2Deg()"
@@ -116,13 +116,13 @@
                   fluid
                 />
                 <p class="leg-zone-dialog__hint leg-zone-dialog__field-hint">
-                  Ouverture du secteur intérieur sur R2 (même axe que A1).
+                  {{ 'zoneCup.a2Hint' | translate }}
                 </p>
               </div>
             }
             @if (paramVisibility().a12) {
               <div class="leg-zone-dialog__field">
-                <label for="zone-a12">A12 (°)</label>
+                <label for="zone-a12">{{ 'zoneCup.paramA12' | translate }} (°)</label>
                 <p-inputNumber
                   inputId="zone-a12"
                   [ngModel]="a12Deg()"
@@ -134,7 +134,7 @@
                   fluid
                 />
                 <p class="leg-zone-dialog__hint leg-zone-dialog__field-hint">
-                  Style fixe : cap dans le CUP ; axe du secteur sur la carte ≈ A12 + 180°.
+                  {{ 'zoneCup.a12Hint' | translate }}
                 </p>
               </div>
             }
@@ -146,7 +146,7 @@
                   [binary]="true"
                   inputId="zone-line"
                 />
-                <label for="zone-line">Ligne (CUP Line=1)</label>
+                <label for="zone-line">{{ 'zoneCup.lineCup' | translate }}</label>
               </div>
             }
           </div>
@@ -155,10 +155,10 @@
 
       <section class="leg-zone-dialog__cup-visual" aria-labelledby="cup-visual-title">
         <h3 id="cup-visual-title" class="leg-zone-dialog__cup-visual-title">
-          Schéma des paramètres CUP
+          {{ 'zoneCup.diagramTitle' | translate }}
         </h3>
         <p class="leg-zone-dialog__hint leg-zone-dialog__cup-visual-lead">
-          Vue de dessus (nord en haut). Paramètres utiles pour la configuration actuelle.
+          {{ 'zoneCup.diagramLead' | translate }}
         </p>
         <app-obs-zone-cup-diagram
           [zone]="normalizedZoneFromForm()"
@@ -178,12 +178,12 @@
         [binary]="true"
         inputId="leg-elev-custom"
       />
-      <label for="leg-elev-custom">Altitude tâche personnalisée (MSL)</label>
+      <label for="leg-elev-custom">{{ 'zoneCup.customElevation' | translate }}</label>
     </div>
 
     @if (useCustomElevation()) {
       <div class="leg-zone-dialog__field">
-        <label for="leg-elev">Altitude (m MSL)</label>
+        <label for="leg-elev">{{ 'zoneCup.elevationMsl' | translate }}</label>
         <p-inputNumber
           inputId="leg-elev"
           [ngModel]="elevationM()"
@@ -195,12 +195,12 @@
         />
       </div>
     } @else {
-      <p class="leg-zone-dialog__hint">Altitude export : {{ effectiveElevation() }} (waypoint CUP)</p>
+      <p class="leg-zone-dialog__hint">{{ 'zoneCup.exportElevation' | translate: { value: effectiveElevation() } }}</p>
     }
   </div>
 
   <div class="leg-zone-dialog__foot">
-    <p-button label="Annuler" [outlined]="true" size="small" (onClick)="close()" />
-    <p-button label="Enregistrer" icon="pi pi-check" size="small" (onClick)="onSave()" />
+    <p-button [label]="'common.cancel' | translate" [outlined]="true" size="small" (onClick)="close()" />
+    <p-button [label]="'dialogs.legZoneSave' | translate" icon="pi pi-check" size="small" (onClick)="onSave()" />
   </div>
 </p-dialog>

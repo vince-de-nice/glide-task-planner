@@ -301,20 +301,30 @@ export class TaskRuleEngineService {
   }
 
   complianceSummary(regulation: ResolvedTaskRegulation): string[] {
+    const profileId = regulation.profileId;
+    const label = this.i18n.t(`regulation.profiles.${profileId}.label`);
+    const description = this.i18n.t(`regulation.profiles.${profileId}.description`);
     const lines: string[] = [
-      `Règlement : ${regulation.label}`,
-      regulation.description,
-      `Rayons — départ ${regulation.radiiM.departureM} m · virage ${regulation.radiiM.turnpointM} m · arrivée ${regulation.radiiM.arrivalM} m`,
-      `Départ : ${regulation.startFai.startKind === 'line' ? 'ligne' : 'cylindre'}`
+      this.i18n.t('regulation.complianceRegulation', { label }),
+      description,
+      this.i18n.t('regulation.complianceRadii', {
+        departure: regulation.radiiM.departureM,
+        turn: regulation.radiiM.turnpointM,
+        arrival: regulation.radiiM.arrivalM
+      }),
+      regulation.startFai.startKind === 'line'
+        ? this.i18n.t('regulation.complianceStartLine')
+        : this.i18n.t('regulation.complianceStartCylinder')
     ];
     if (regulation.startFai.pevEnabled) {
       lines.push(
-        `PEV — attente ${regulation.startFai.pevWaitMin} min, fenêtre ${regulation.startFai.pevWindowMin} min`
+        this.i18n.t('regulation.compliancePev', {
+          wait: regulation.startFai.pevWaitMin,
+          window: regulation.startFai.pevWindowMin
+        })
       );
     }
-    lines.push(
-      'Le scoring officiel (trace IGC, PEV sur enregistreur principal) reste du ressort du scorer.'
-    );
+    lines.push(this.i18n.t('regulation.complianceScoringNote'));
     return lines;
   }
 

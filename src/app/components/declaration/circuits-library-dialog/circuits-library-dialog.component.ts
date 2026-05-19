@@ -8,11 +8,12 @@ import {
 import { Dialog } from 'primeng/dialog';
 import { Button } from 'primeng/button';
 import { CircuitLibraryComponent } from '../../circuit-library/circuit-library.component';
+import { TranslatePipe } from '../../../i18n/translate.pipe';
 
 @Component({
   selector: 'app-circuits-library-dialog',
   standalone: true,
-  imports: [Dialog, Button, CircuitLibraryComponent],
+  imports: [Dialog, Button, CircuitLibraryComponent, TranslatePipe],
   templateUrl: './circuits-library-dialog.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })

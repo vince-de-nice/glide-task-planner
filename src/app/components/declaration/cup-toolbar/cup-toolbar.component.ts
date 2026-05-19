@@ -31,6 +31,7 @@ import { TaskStateService } from '../../../services/task-state.service';
 import { WaypointService } from '../../../services/waypoint.service';
 import { UiFeedbackService } from '../../../services/ui-feedback.service';
 import { TranslateService } from '../../../i18n/translate.service';
+import { TranslatePipe } from '../../../i18n/translate.pipe';
 import { CupSourceEntry } from '../../../models/cup-sources.model';
 
 const DISCLAIMER_SEEN_KEY = 'gc_disclaimer_seen';
@@ -51,7 +52,8 @@ const DISCLAIMER_LEGACY_KEY = 'vav_disclaimer_seen';
     Accordion,
     AccordionPanel,
     AccordionHeader,
-    AccordionContent
+    AccordionContent,
+    TranslatePipe
   ],
   templateUrl: './cup-toolbar.component.html',
   styleUrl: './cup-toolbar.component.scss',
@@ -82,19 +84,22 @@ export class CupToolbarComponent implements OnInit {
   panelExpanded = signal(false);
   disclaimerAccordionIndex = signal<number | number[] | string | string[] | null>(-1);
 
-  cupMenuItems = computed<MenuItem[]>(() => [
-    {
-      label: 'Importer .cup',
-      icon: 'pi pi-upload',
-      command: () => this.cupFileInput?.nativeElement.click()
-    },
-    {
-      label: 'Exporter .cup',
-      icon: 'pi pi-file-export',
-      disabled: this.waypoints().length === 0,
-      command: () => this.exportCup()
-    }
-  ]);
+  cupMenuItems = computed<MenuItem[]>(() => {
+    this.i18n.locale();
+    return [
+      {
+        label: this.i18n.t('cup.importCup'),
+        icon: 'pi pi-upload',
+        command: () => this.cupFileInput?.nativeElement.click()
+      },
+      {
+        label: this.i18n.t('cup.exportCup'),
+        icon: 'pi pi-file-export',
+        disabled: this.waypoints().length === 0,
+        command: () => this.exportCup()
+      }
+    ];
+  });
 
   @ViewChild('cupFileInput') cupFileInput?: ElementRef<HTMLInputElement>;
 

@@ -1,7 +1,7 @@
 <p-dialog
   [visible]="open()"
   (visibleChange)="onDialogVisibleChange($event)"
-  [header]="isCreate() ? 'Nouveau point' : 'Modifier le point'"
+  [header]="isCreate() ? ('waypointEdit.createTitle' | translate) : ('waypointEdit.editTitle' | translate)"
   [modal]="true"
   [closable]="true"
   [dismissableMask]="true"
@@ -10,7 +10,7 @@
 >
   <form class="wp-edit-dialog__form" (ngSubmit)="onSubmit()">
     <label class="wp-edit-dialog__field">
-      <span class="gc-label">Nom</span>
+      <span class="gc-label">{{ 'waypoints.name' | translate }}</span>
       <input
         pInputText
         fluid
@@ -22,7 +22,7 @@
       />
     </label>
     <label class="wp-edit-dialog__field">
-      <span class="gc-label">Code</span>
+      <span class="gc-label">{{ 'common.code' | translate }}</span>
       <input
         pInputText
         fluid
@@ -33,9 +33,9 @@
       />
     </label>
     <label class="wp-edit-dialog__field">
-      <span class="gc-label">Type</span>
+      <span class="gc-label">{{ 'waypoints.type' | translate }}</span>
       <p-select
-        [options]="types"
+        [options]="types()"
         optionLabel="label"
         optionValue="value"
         [ngModel]="form().type"
@@ -47,7 +47,7 @@
     </label>
     <div class="wp-edit-dialog__row">
       <label class="wp-edit-dialog__field">
-        <span class="gc-label">Latitude</span>
+        <span class="gc-label">{{ 'waypoints.latitude' | translate }}</span>
         <input
           pInputText
           fluid
@@ -60,7 +60,7 @@
         />
       </label>
       <label class="wp-edit-dialog__field">
-        <span class="gc-label">Longitude</span>
+        <span class="gc-label">{{ 'waypoints.longitude' | translate }}</span>
         <input
           pInputText
           fluid
@@ -74,7 +74,7 @@
       </label>
     </div>
     <label class="wp-edit-dialog__field">
-      <span class="gc-label">Altitude (m)</span>
+      <span class="gc-label">{{ 'waypoints.elevation' | translate }}</span>
       <input
         pInputText
         fluid
@@ -85,7 +85,7 @@
       />
     </label>
     <label class="wp-edit-dialog__field">
-      <span class="gc-label">Description</span>
+      <span class="gc-label">{{ 'waypoints.description' | translate }}</span>
       <input
         pInputText
         fluid
@@ -95,8 +95,8 @@
       />
     </label>
     <footer class="wp-edit-dialog__actions">
-      <p-button label="Annuler" type="button" [text]="true" (onClick)="onCancel()" />
-      <p-button label="Enregistrer" type="submit" icon="pi pi-check" severity="primary" />
+      <p-button [label]="'common.cancel' | translate" type="button" [text]="true" (onClick)="onCancel()" />
+      <p-button [label]="'dialogs.waypointEditSave' | translate" type="submit" icon="pi pi-check" severity="primary" />
     </footer>
   </form>
 </p-dialog>

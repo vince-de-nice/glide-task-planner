@@ -16,17 +16,19 @@ import { InputText } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
 import { WaypointService } from '../../../services/waypoint.service';
 import { TaskStateService } from '../../../services/task-state.service';
-import { WaypointTypeFilter } from '../../../models/waypoint.model';
+import { WaypointType, WaypointTypeFilter } from '../../../models/waypoint.model';
 import {
-  waypointTypeDisplay,
   WAYPOINT_TYPE_DISPLAY,
   WAYPOINT_TYPE_ORDER
 } from '../../../utils/waypoint-type-display.util';
+import { TranslateService } from '../../../i18n/translate.service';
+import { TranslatePipe } from '../../../i18n/translate.pipe';
+import { waypointTypeDisplayI18n } from '../../../i18n/display-i18n.util';
 
 @Component({
   selector: 'app-waypoint-picker-drawer',
   standalone: true,
-  imports: [CommonModule, FormsModule, Drawer, Button, InputText, Select],
+  imports: [CommonModule, FormsModule, Drawer, Button, InputText, Select, TranslatePipe],
   templateUrl: './waypoint-picker-drawer.component.html',
   styleUrl: './waypoint-picker-drawer.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -34,6 +36,7 @@ import {
 export class WaypointPickerDrawerComponent {
   private waypointService = inject(WaypointService);
   private taskState = inject(TaskStateService);
+  private i18n = inject(TranslateService);
 
   visible = input(false);
   visibleChange = output<boolean>();
@@ -46,16 +49,19 @@ export class WaypointPickerDrawerComponent {
   currentPage = signal(1);
   pageSize = signal(40);
 
-  readonly waypointTypeDisplay = waypointTypeDisplay;
   readonly pageSizeOptions = [25, 40, 50, 100];
-  readonly typeFilters: { id: WaypointTypeFilter; label: string; icon: string }[] = [
-    { id: 'all', label: 'Tous', icon: 'pi pi-list' },
-    ...WAYPOINT_TYPE_ORDER.map(t => ({
-      id: t as WaypointTypeFilter,
-      label: WAYPOINT_TYPE_DISPLAY[t].label,
-      icon: WAYPOINT_TYPE_DISPLAY[t].icon
-    }))
-  ];
+
+  readonly typeFilters = computed(() => {
+    this.i18n.locale();
+    return [
+      { id: 'all' as WaypointTypeFilter, label: this.i18n.t('common.all'), icon: 'pi pi-list' },
+      ...WAYPOINT_TYPE_ORDER.map(t => ({
+        id: t as WaypointTypeFilter,
+        label: this.i18n.t(`wpType.${t}.label`),
+        icon: WAYPOINT_TYPE_DISPLAY[t].icon
+      }))
+    ];
+  });
 
   filteredWaypoints = computed(() => {
     const q = this.searchQuery().trim().toLowerCase();
@@ -102,6 +108,10 @@ export class WaypointPickerDrawerComponent {
         this.currentPage.set(total);
       }
     });
+  }
+
+  waypointTypeDisplay(type: WaypointType) {
+    return waypointTypeDisplayI18n(type, this.i18n);
   }
 
   onVisibleChange(v: boolean): void {

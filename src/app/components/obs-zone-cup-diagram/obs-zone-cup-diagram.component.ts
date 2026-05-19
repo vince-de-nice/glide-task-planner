@@ -1,4 +1,5 @@
 import { Component, computed, input } from '@angular/core';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 import { CircuitLegRole } from '../../models/circuit.model';
 import { ObservationZoneConfig } from '../../models/observation-zone.model';
 import {
@@ -11,6 +12,7 @@ import {
 @Component({
   selector: 'app-obs-zone-cup-diagram',
   standalone: true,
+  imports: [TranslatePipe],
   templateUrl: './obs-zone-cup-diagram.component.html',
   styleUrl: './obs-zone-cup-diagram.component.scss'
 })

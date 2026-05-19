@@ -12,7 +12,8 @@ import { CupWriterService } from './cup-writer.service';
 import { CupTaskWriterService } from './cup-task-writer.service';
 import { TaskDeclarationResolver } from './task-declaration.resolver';
 import { decodeCupFileBytes } from '../utils/cup-text-encoding.util';
-import { cupUrlRejectionMessage, isAllowedCupFetchUrl } from '../utils/cup-url.util';
+import { isAllowedCupFetchUrl } from '../utils/cup-url.util';
+import { TranslateService } from '../i18n/translate.service';
 import { readMigratedLocalStorage } from '../utils/local-storage-migrate.util';
 
 const STORAGE_KEY = 'gc_cup_database';
@@ -35,9 +36,10 @@ export class CupDatabaseService {
   private cupWriter = inject(CupWriterService);
   private cupTaskWriter = inject(CupTaskWriterService);
   private taskResolver = inject(TaskDeclarationResolver);
+  private i18n = inject(TranslateService);
 
   private sourceUrl = signal<string | null>(null);
-  private sourceLabel = signal<string>('Aucune base');
+  private sourceLabel = signal<string>(this.i18n.t('cupUrl.noBaseLabel'));
   private loadedAt = signal<string | null>(null);
   private cupHeaderLine = signal<string>(DEFAULT_HEADER);
   waypoints = signal<Waypoint[]>([]);
@@ -103,7 +105,7 @@ export class CupDatabaseService {
     if (this.isFromUrl(DEFAULT_EMBEDDED_CUP_URL)) return;
 
     try {
-      await this.fetchAndApply(DEFAULT_EMBEDDED_CUP_URL, 'Base par défaut');
+      await this.fetchAndApply(DEFAULT_EMBEDDED_CUP_URL, this.i18n.t('cupUrl.defaultBase'));
     } catch {
       /* Fichier absent ou invalide — l’utilisateur peut importer */
     }
@@ -111,11 +113,11 @@ export class CupDatabaseService {
 
   async fetchAndApply(url: string, label?: string): Promise<number> {
     if (!isAllowedCupFetchUrl(url)) {
-      throw new Error(cupUrlRejectionMessage(url));
+      throw new Error(this.i18n.t('cupUrl.rejected', { url: url.trim().slice(0, 80) }));
     }
     const response = await fetch(url);
     if (!response.ok) {
-      throw new Error(`Impossible de charger le CUP (HTTP ${response.status})`);
+      throw new Error(this.i18n.t('cupUrl.httpError', { status: response.status }));
     }
     const content = decodeCupFileBytes(await response.arrayBuffer());
     const resolvedLabel = label ?? this.labelFromUrl(url);

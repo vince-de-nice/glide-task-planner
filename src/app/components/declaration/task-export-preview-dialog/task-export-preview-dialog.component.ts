@@ -23,11 +23,13 @@ import { TaskRuleEngineService } from '../../../services/task-rule-engine.servic
 import { WaypointService } from '../../../services/waypoint.service';
 import { FlarmProfileService } from '../../../services/flarm-profile.service';
 import { FlarmDeclaration } from '../../../models/flarm-profile.model';
+import { TranslateService } from '../../../i18n/translate.service';
+import { TranslatePipe } from '../../../i18n/translate.pipe';
 
 @Component({
   selector: 'app-task-export-preview-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, Dialog, Button, Select, Textarea, Message],
+  imports: [CommonModule, FormsModule, Dialog, Button, Select, Textarea, Message, TranslatePipe],
   templateUrl: './task-export-preview-dialog.component.html',
   styleUrl: './task-export-preview-dialog.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -38,6 +40,7 @@ export class TaskExportPreviewDialogComponent {
   private waypointService = inject(WaypointService);
   private ruleEngine = inject(TaskRuleEngineService);
   private flarmProfileService = inject(FlarmProfileService);
+  private i18n = inject(TranslateService);
 
   visible = input(false);
   visibleChange = output<boolean>();
@@ -53,13 +56,22 @@ export class TaskExportPreviewDialogComponent {
   resolvedRegulation = this.taskState.resolvedRegulation;
   flarmProfile = this.flarmProfileService.profile;
 
-  readonly previewFormatOptions: { label: string; value: TaskExportFormat }[] = [
-    { label: 'FLARM (flarmcfg.txt)', value: 'flarm' },
-    { label: 'CUP avec tâche', value: 'cup' },
-    { label: 'CUPX (POINTS.CUP)', value: 'cupx' },
-    { label: 'XCSoar (.tsk)', value: 'tsk' },
-    { label: 'IGC C-records', value: 'igc-crecords' }
-  ];
+  readonly previewFormatOptions = computed(() => {
+    this.i18n.locale();
+    return [
+      { label: this.i18n.t('preview.formatFlarm'), value: 'flarm' as TaskExportFormat },
+      { label: this.i18n.t('preview.formatCup'), value: 'cup' as TaskExportFormat },
+      { label: this.i18n.t('preview.formatCupx'), value: 'cupx' as TaskExportFormat },
+      { label: this.i18n.t('preview.formatTsk'), value: 'tsk' as TaskExportFormat },
+      { label: this.i18n.t('preview.formatIgc'), value: 'igc-crecords' as TaskExportFormat }
+    ];
+  });
+
+  regulationProfileLabel = computed(() => {
+    this.i18n.locale();
+    const profileId = this.taskState.regulation().profileId;
+    return this.i18n.t(`regulation.profiles.${profileId}.label`);
+  });
 
   ruleValidation = computed(() => {
     const wpMap = new Map(this.waypoints().map(w => [w.id, w]));
@@ -75,6 +87,7 @@ export class TaskExportPreviewDialogComponent {
   );
 
   exportPreview = computed(() => {
+    this.i18n.locale();
     if (this.selectedWaypointIds().length === 0) {
       return '';
     }
@@ -83,7 +96,8 @@ export class TaskExportPreviewDialogComponent {
     if (fmt === 'cupx') {
       const cup = this.taskExportService.preview('cup', ctx);
       if (!cup) return '';
-      return `[Contenu POINTS.CUP — le fichier .cupx est une archive binaire]\n\n${cup}`;
+      const note = this.i18n.t('preview.cupArchiveNote');
+      return `${note}\n\n${cup}`;
     }
     return this.taskExportService.preview(fmt, ctx);
   });

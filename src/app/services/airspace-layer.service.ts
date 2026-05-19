@@ -1,4 +1,5 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
+import { TranslateService } from '../i18n/translate.service';
 import { geoJSON, GeoJSON, Layer, PathOptions, TileLayer, tileLayer } from 'leaflet';
 import type { Feature, FeatureCollection, Geometry } from 'geojson';
 
@@ -44,6 +45,7 @@ interface PoaffProperties {
   providedIn: 'root'
 })
 export class AirspaceLayerService {
+  private readonly i18n = inject(TranslateService);
   private openAipApiKey: string | null = null;
   private configLoaded = false;
 
@@ -132,7 +134,7 @@ export class AirspaceLayerService {
       maxNativeZoom: 14,
       maxZoom: 19,
       attribution:
-        'Espaces aériens © <a href="https://www.openaip.net">OpenAIP</a> (CC BY-NC 4.0)'
+        this.i18n.t('map.attribution')
     });
   }
 
@@ -178,16 +180,13 @@ export class AirspaceLayerService {
   poaffFailureMessage(failure: AirspaceLoadFailure | undefined): string {
     switch (failure) {
       case 'not_found':
-        return (
-          'Fichiers POAFF introuvables. En dev : relancez avec npm start (proxy). ' +
-          'Sinon : npm run airspace:fetch puis rechargez.'
-        );
+        return this.i18n.t('map.failNotFound');
       case 'network':
-        return 'Réseau indisponible ou serveur POAFF injoignable. Réessayez plus tard.';
+        return this.i18n.t('map.failNetwork');
       case 'parse':
-        return 'Réponse POAFF invalide (GeoJSON vide ou corrompu).';
+        return this.i18n.t('map.failParse');
       default:
-        return 'Impossible de charger les espaces aériens.';
+        return this.i18n.t('map.failGeneric');
     }
   }
 

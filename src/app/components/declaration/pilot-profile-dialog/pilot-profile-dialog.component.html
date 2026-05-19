@@ -1,7 +1,7 @@
 <p-dialog
   [visible]="visible()"
   (visibleChange)="onVisibleChange($event)"
-  header="Pilote & planeur"
+  [header]="'pilot.title' | translate"
   [modal]="true"
   [closable]="true"
   [dismissableMask]="true"
@@ -10,62 +10,62 @@
 >
   <div class="decl-form-grid">
     <label class="decl-field">
-      <span class="gc-label">Pilote</span>
+      <span class="gc-label">{{ 'pilot.pilotLabel' | translate }}</span>
       <input
         pInputText
         fluid
         [ngModel]="flarmProfile().pilotName"
         (ngModelChange)="flarmProfileService.setPilotName($event)"
-        placeholder="Jean Dupont"
+        [placeholder]="'pilot.namePlaceholder' | translate"
         maxlength="47"
       />
     </label>
     <label class="decl-field">
-      <span class="gc-label">Type planeur</span>
+      <span class="gc-label">{{ 'pilot.gliderType' | translate }}</span>
       <input
         pInputText
         fluid
         [ngModel]="flarmProfile().gliderType"
         (ngModelChange)="flarmProfileService.setGliderType($event)"
-        placeholder="JS1-C"
+        [placeholder]="'pilot.gliderPlaceholder' | translate"
         maxlength="31"
       />
     </label>
     <label class="decl-field">
-      <span class="gc-label">Immatriculation</span>
+      <span class="gc-label">{{ 'pilot.reg' | translate }}</span>
       <input
         pInputText
         fluid
         [ngModel]="flarmProfile().gliderId"
         (ngModelChange)="flarmProfileService.setGliderId($event)"
-        placeholder="F-CINE"
+        [placeholder]="'pilot.regPlaceholder' | translate"
         maxlength="15"
       />
     </label>
     <label class="decl-field">
-      <span class="gc-label">ID compétition</span>
+      <span class="gc-label">{{ 'pilot.compId' | translate }}</span>
       <input
         pInputText
         fluid
         [ngModel]="flarmProfile().compId"
         (ngModelChange)="flarmProfileService.setCompId($event)"
-        placeholder="ZX"
+        [placeholder]="'pilot.compIdPlaceholder' | translate"
         maxlength="15"
       />
     </label>
     <label class="decl-field">
-      <span class="gc-label">Classe</span>
+      <span class="gc-label">{{ 'pilot.class' | translate }}</span>
       <input
         pInputText
         fluid
         [ngModel]="flarmProfile().compClass"
         (ngModelChange)="flarmProfileService.setCompClass($event)"
-        placeholder="Standard"
+        [placeholder]="'pilot.classPlaceholder' | translate"
         maxlength="15"
       />
     </label>
     <label class="decl-field">
-      <span class="gc-label">LOGINT (s)</span>
+      <span class="gc-label">{{ 'pilot.logint' | translate }}</span>
       <input
         pInputText
         fluid
@@ -78,6 +78,6 @@
     </label>
   </div>
   <div class="decl-wp-dialog__foot">
-    <p-button label="Enregistrer" icon="pi pi-check" (onClick)="close()" />
+    <p-button [label]="'common.save' | translate" icon="pi pi-check" (onClick)="close()" />
   </div>
 </p-dialog>

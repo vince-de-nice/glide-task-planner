@@ -1,7 +1,7 @@
 <section class="circuit-library">
   <header class="lib-header">
-    <h3>Bibliothèque de circuits</h3>
-    <p class="lib-desc">Enregistrement local avec profil FLARM. Exportez le JSON pour un autre poste ou pilote.</p>
+    <h3>{{ 'library.title' | translate }}</h3>
+    <p class="lib-desc">{{ 'library.desc' | translate }}</p>
   </header>
 
   @if (importMessage()) {
@@ -9,13 +9,13 @@
   }
 
   <div class="quick-load">
-    <label class="gc-label" for="quickCircuit">Chargement rapide</label>
+    <label class="gc-label" for="quickCircuit">{{ 'library.quickLoad' | translate }}</label>
     <p-select
       inputId="quickCircuit"
       [options]="circuitQuickOptions()"
       optionLabel="label"
       optionValue="id"
-      placeholder="— Choisir un circuit —"
+      [placeholder]="'library.chooseCircuit' | translate"
       [showClear]="true"
       [ngModel]="quickPickId()"
       (ngModelChange)="onQuickPickChange($event)"
@@ -26,37 +26,37 @@
   </div>
 
   <div class="save-panel">
-    <h4>{{ editingId() ? 'Mettre à jour' : 'Enregistrer le circuit actuel' }}</h4>
+    <h4>{{ editingId() ? ('library.saveTitleUpdate' | translate) : ('library.saveTitle' | translate) }}</h4>
     <div class="save-fields">
       <input
         pInputText
         fluid
-        placeholder="Nom du circuit (ex. 500 km Vinon)"
+        [placeholder]="'library.namePlaceholder' | translate"
         [ngModel]="saveLabel()"
         (ngModelChange)="saveLabel.set($event)"
       />
       <input
         pInputText
         fluid
-        placeholder="Note (pilote, machine…)"
+        [placeholder]="'library.notesPlaceholder' | translate"
         [ngModel]="saveNotes()"
         (ngModelChange)="saveNotes.set($event)"
       />
     </div>
     <div class="save-actions">
       <p-button
-        [label]="editingId() ? 'Mettre à jour' : 'Enregistrer'"
+        [label]="editingId() ? ('library.saveTitleUpdate' | translate) : ('common.save' | translate)"
         icon="pi pi-save"
         severity="success"
         (onClick)="requestSave()"
         [disabled]="!canSave() || (!saveLabel().trim() && !editingId())"
       />
       @if (editingId()) {
-        <p-button label="Annuler" [text]="true" (onClick)="cancelUpdate()" />
+        <p-button [label]="'common.cancel' | translate" [text]="true" (onClick)="cancelUpdate()" />
       }
     </div>
     @if (!canSave()) {
-      <p class="hint">Au moins 2 points requis dans la tâche.</p>
+      <p class="hint">{{ 'library.minPoints' | translate }}</p>
     }
   </div>
 
@@ -67,13 +67,13 @@
       pSize="small"
       class="filter-input"
       type="search"
-      placeholder="Filtrer…"
+      [placeholder]="'common.filter' | translate"
       [ngModel]="filterQuery()"
       (ngModelChange)="filterQuery.set($event)"
     />
     <input #libJsonImport type="file" accept=".json,application/json" (change)="onImportFile($event)" hidden />
-    <p-button label="Exporter" icon="pi pi-download" size="small" severity="secondary" [disabled]="circuits().length === 0" (onClick)="exportAll()" />
-    <p-button label="Importer" icon="pi pi-upload" size="small" severity="secondary" (onClick)="libJsonImport.click()" />
+    <p-button [label]="'common.export' | translate" icon="pi pi-download" size="small" severity="secondary" [disabled]="circuits().length === 0" (onClick)="exportAll()" />
+    <p-button [label]="'common.import' | translate" icon="pi pi-upload" size="small" severity="secondary" (onClick)="libJsonImport.click()" />
   </div>
 
   <ul class="circuit-list gc-scroll">
@@ -81,26 +81,26 @@
       <li [class.active]="isActive(c.id)">
         <button type="button" class="circuit-main" (click)="loadCircuit(c.id)">
           <span class="circuit-title">{{ c.label }}</span>
-          <span class="circuit-meta">{{ c.waypoints.length }} pts · {{ c.taskName }} · {{ circuitSummary(c) }}</span>
+          <span class="circuit-meta">{{ 'library.ptsMeta' | translate: { count: c.waypoints.length } }} · {{ c.taskName }} · {{ circuitSummary(c) }}</span>
           <span class="circuit-date">{{ c.updatedAt | date: 'short' }}</span>
           @if (c.notes) {
             <span class="circuit-notes">{{ c.notes }}</span>
           }
         </button>
         <div class="circuit-actions">
-          <p-button icon="pi pi-play" [text]="true" size="small" title="Charger" (onClick)="loadCircuit(c.id)" />
-          <p-button icon="pi pi-pencil" [text]="true" size="small" title="Mettre à jour" (onClick)="startUpdate(c, $event)" />
-          <p-button icon="pi pi-copy" [text]="true" size="small" title="Dupliquer" (onClick)="duplicateCircuit(c.id, $event)" />
-          <p-button icon="pi pi-file-edit" [text]="true" size="small" title="Renommer" (onClick)="startRename(c, $event)" />
-          <p-button icon="pi pi-trash" [text]="true" size="small" severity="danger" title="Supprimer" (onClick)="deleteCircuit(c.id, $event)" />
+          <p-button icon="pi pi-play" [text]="true" size="small" [title]="'library.loadTitle' | translate" (onClick)="loadCircuit(c.id)" />
+          <p-button icon="pi pi-pencil" [text]="true" size="small" [title]="'library.saveTitleUpdate' | translate" (onClick)="startUpdate(c, $event)" />
+          <p-button icon="pi pi-copy" [text]="true" size="small" [title]="'common.duplicate' | translate" (onClick)="duplicateCircuit(c.id, $event)" />
+          <p-button icon="pi pi-file-edit" [text]="true" size="small" [title]="'common.rename' | translate" (onClick)="startRename(c, $event)" />
+          <p-button icon="pi pi-trash" [text]="true" size="small" severity="danger" [title]="'common.delete' | translate" (onClick)="deleteCircuit(c.id, $event)" />
         </div>
       </li>
     } @empty {
       <li class="empty">
         @if (circuits().length === 0) {
-          Aucun circuit — enregistrez la tâche courante ci-dessus.
+          {{ 'library.empty' | translate }}
         } @else {
-          Aucun résultat pour ce filtre.
+          {{ 'library.emptyFilter' | translate }}
         }
       </li>
     }

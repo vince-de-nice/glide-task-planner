@@ -8,11 +8,12 @@ import { InputText } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
 import { UiFeedbackService } from '../../services/ui-feedback.service';
 import { TranslateService } from '../../i18n/translate.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 
 @Component({
   selector: 'app-circuit-library',
   standalone: true,
-  imports: [CommonModule, FormsModule, Button, InputText, Select],
+  imports: [CommonModule, FormsModule, Button, InputText, Select, TranslatePipe],
   templateUrl: './circuit-library.component.html',
   styleUrls: ['./circuit-library.component.scss']
 })
@@ -38,12 +39,13 @@ export class CircuitLibraryComponent {
   importMessage = signal<string | null>(null);
   quickPickId = signal<string | null>(null);
 
-  circuitQuickOptions = computed(() =>
-    this.circuits().map(c => ({
+  circuitQuickOptions = computed(() => {
+    this.i18n.locale();
+    return this.circuits().map(c => ({
       id: c.id,
-      label: `${c.label} (${c.waypoints.length} pts)${c.profile.pilotName ? ` — ${c.profile.pilotName}` : ''}`
-    }))
-  );
+      label: `${c.label} (${this.i18n.t('library.ptsMeta', { count: c.waypoints.length })})${c.profile.pilotName ? ` — ${c.profile.pilotName}` : ''}`
+    }));
+  });
 
   filteredCircuits = computed(() => {
     const q = this.filterQuery().trim().toLowerCase();
@@ -82,7 +84,7 @@ export class CircuitLibraryComponent {
   loadCircuit(id: string): void {
     if (this.savedCircuitService.getCircuit(id)) {
       this.circuitLoaded.emit(id);
-      this.importMessage.set('Circuit chargé.');
+      this.importMessage.set(this.i18n.t('library.loaded'));
     }
   }
 
@@ -130,7 +132,7 @@ export class CircuitLibraryComponent {
 
   startRename(circuit: SavedCircuit, e?: unknown): void {
     (e as Event | undefined)?.stopPropagation?.();
-    const name = prompt('Nouveau nom du circuit :', circuit.label);
+    const name = prompt(this.i18n.t('library.renamePrompt'), circuit.label);
     if (name?.trim()) {
       this.savedCircuitService.renameCircuit(circuit.id, name);
     }
@@ -138,7 +140,7 @@ export class CircuitLibraryComponent {
 
   exportAll(): void {
     this.savedCircuitService.downloadExport();
-    this.importMessage.set('Bibliothèque exportée.');
+    this.importMessage.set(this.i18n.t('library.exported'));
   }
 
   onImportFile(event: Event): void {

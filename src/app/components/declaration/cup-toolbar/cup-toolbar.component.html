@@ -1,18 +1,18 @@
-<section class="decl-db gc-card" aria-label="Base de points">
+<section class="decl-db gc-card" [attr.aria-label]="'cup.panelAria' | translate">
   @if (!panelExpanded()) {
     <div class="decl-db__summary">
-      <p-tag [value]="cupMeta().sourceLabel || 'Aucune base'" severity="info" />
+      <p-tag [value]="cupMeta().sourceLabel || ('common.noBase' | translate)" severity="info" />
       @if (waypoints().length > 0) {
-        <p-tag [value]="waypoints().length + ' pts'" />
+        <p-tag [value]="'common.pts' | translate: { count: waypoints().length }" />
       }
       @if (selectedWaypointIds().length > 0) {
-        <p-tag [value]="selectedWaypointIds().length + ' en tâche'" severity="success" />
+        <p-tag [value]="'common.inTask' | translate: { count: selectedWaypointIds().length }" severity="success" />
       }
       @if (loading()) {
-        <p-tag value="Chargement…" severity="warn" />
+        <p-tag [value]="'common.loading' | translate" severity="warn" />
       }
       <p-button
-        label="Changer de base"
+        [label]="'cup.changeBase' | translate"
         icon="pi pi-database"
         size="small"
         [outlined]="true"
@@ -23,15 +23,15 @@
         size="small"
         [text]="true"
         (onClick)="cupMenu.toggle($event)"
-        ariaLabel="Actions base"
+        [attr.aria-label]="'cup.actionsAria' | translate"
       />
       <p-menu #cupMenu [model]="cupMenuItems()" [popup]="true" appendTo="body" />
     </div>
   } @else {
     <div class="decl-db__expanded">
       <div class="decl-db__expanded-head">
-        <h2 class="decl-section-title">Base de points</h2>
-        <p-button icon="pi pi-times" size="small" [text]="true" (onClick)="togglePanel()" ariaLabel="Replier" />
+        <h2 class="decl-section-title">{{ 'cup.title' | translate }}</h2>
+        <p-button icon="pi pi-times" size="small" [text]="true" (onClick)="togglePanel()" [attr.aria-label]="'common.collapsePanel' | translate" />
       </div>
       <div class="decl-db__form">
         <p-select
@@ -39,10 +39,10 @@
           [options]="cupSources()"
           optionLabel="label"
           optionValue="url"
-          placeholder="Source connue…"
+          [placeholder]="'cup.sourcePlaceholder' | translate"
           [showClear]="true"
           [filter]="cupSources().length > 8"
-          filterPlaceholder="Filtrer…"
+          [filterPlaceholder]="'common.filter' | translate"
           [ngModel]="cupQuickSourcePick()"
           (ngModelChange)="onCupQuickPickChange($event)"
           [disabled]="loading()"
@@ -55,13 +55,13 @@
             pSize="small"
             class="decl-db__url-input"
             type="url"
-            placeholder="URL du fichier .cup"
+            [placeholder]="'cup.urlPlaceholder' | translate"
             [ngModel]="cupUrlInput()"
             (ngModelChange)="cupUrlInput.set($event)"
             [disabled]="loading()"
           />
           <p-button
-            label="Charger"
+            [label]="'cup.load' | translate"
             icon="pi pi-download"
             size="small"
             [disabled]="loading() || !cupUrlInput().trim()"
@@ -71,7 +71,7 @@
         <input #cupFileInput type="file" accept=".cup" (change)="onCupFileSelected($event)" hidden />
         <div class="decl-db__actions">
           <p-button
-            label="Importer .cup"
+            [label]="'cup.importCup' | translate"
             icon="pi pi-upload"
             size="small"
             severity="secondary"
@@ -79,7 +79,7 @@
             (onClick)="cupFileInput.click()"
           />
           <p-button
-            label="Exporter .cup"
+            [label]="'cup.exportCup' | translate"
             icon="pi pi-file-export"
             size="small"
             [outlined]="true"
@@ -92,7 +92,7 @@
   }
   @if (cupMeta().sourceLabel && panelExpanded()) {
     <p class="decl-db__source">
-      Base : <strong>{{ cupMeta().sourceLabel }}</strong>
+      {{ 'common.basePrefix' | translate }} <strong>{{ cupMeta().sourceLabel }}</strong>
       @if (cupMeta().sourceUrl) {
         <span class="decl-db__source-url" [title]="cupMeta().sourceUrl!">{{ cupMeta().sourceUrl }}</span>
       }
@@ -108,7 +108,7 @@
       styleClass="decl-db__disclaimer-acc"
     >
       <p-accordionpanel [value]="0">
-        <p-accordionheader>Avertissement données</p-accordionheader>
+        <p-accordionheader>{{ 'common.disclaimerData' | translate }}</p-accordionheader>
         <p-accordioncontent>
           <p class="decl-db__disclaimer-text">{{ disclaimer() }}</p>
         </p-accordioncontent>

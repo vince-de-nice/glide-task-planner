@@ -1,7 +1,7 @@
 <p-dialog
   [visible]="visible()"
   (visibleChange)="onVisibleChange($event)"
-  header="Mes circuits"
+  [header]="'dialogs.myCircuits' | translate"
   [modal]="true"
   [closable]="true"
   [dismissableMask]="true"
@@ -18,6 +18,6 @@
     />
   }
   <div class="decl-wp-dialog__foot">
-    <p-button label="Fermer" icon="pi pi-times" (onClick)="close()" />
+    <p-button [label]="'common.close' | translate" icon="pi pi-times" (onClick)="close()" />
   </div>
 </p-dialog>

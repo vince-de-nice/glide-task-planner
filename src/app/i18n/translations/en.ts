@@ -38,7 +38,27 @@ export const en = {
     choose: '— Select —',
     offTask: 'off task',
     compliant: 'Compliant with rules',
-    reorder: 'Reorder'
+    reorder: 'Reorder',
+    copy: 'Copy',
+    copied: 'Copied',
+    duplicate: 'Duplicate',
+    rename: 'Rename',
+    firstPage: 'First page',
+    prevPage: 'Previous page',
+    nextPage: 'Next page',
+    lastPage: 'Last page',
+    collapsePanel: 'Collapse',
+    actions: 'Actions',
+    searchLabel: 'Search',
+    pts: '{{count}} pts',
+    inTask: '{{count}} in task',
+    noBase: 'No database',
+    disclaimerData: 'Data disclaimer',
+    basePrefix: 'Database:',
+    code: 'Code',
+    altShort: 'Alt.',
+    added: '« {{name}} » added',
+    updated: '« {{name}} » updated'
   },
   circuit: {
     title: 'Task',
@@ -71,7 +91,8 @@ export const en = {
     role: {
       departure: 'Take-off',
       arrival: 'Landing',
-      turnpoint: 'Turn'
+      turnpoint: 'Turn',
+      turnpointLong: 'Turn point'
     },
     regulation: {
       panelAria: 'Rules',
@@ -144,7 +165,9 @@ export const en = {
     replaceUrlMessage: 'Loading this database will replace the current {{count}} waypoints. Continue?',
     configError: 'CUP sources configuration unavailable',
     noWaypoints: 'No waypoints found in file',
-    loadFailed: 'Load failed'
+    loadFailed: 'Load failed',
+    title: 'Waypoint database',
+    noBase: 'No database'
   },
   waypoints: {
     title: 'Waypoint management',
@@ -205,7 +228,10 @@ export const en = {
     pagerAria: 'Point pagination',
     perPage: 'Per page',
     results: '{{count}} result(s)',
-    empty: 'No matching waypoint.'
+    empty: 'No matching waypoint.',
+    prevPage: 'Previous page',
+    nextPage: 'Next page',
+    perPageAria: 'Waypoints per page'
   },
   map: {
     centerTask: 'Center on task',
@@ -219,7 +245,36 @@ export const en = {
     clearTaskHeader: 'Clear task',
     clearTaskMessage: 'Remove all waypoints from the task shown on the map?',
     deleteFromDbHeader: 'Delete waypoint',
-    deleteFromDbMessage: 'Delete « {{name}} » from the database?'
+    deleteFromDbMessage: 'Delete « {{name}} » from the database?',
+    moreActions: 'More map actions',
+    filtersToggle: 'Filters',
+    filtersExpanded: 'Filters ▴',
+    filtersCollapsed: 'Filters ▾',
+    filtersTypesAria: 'Show type filters',
+    taskZones: 'Task zones',
+    taskZonesTooltip: 'Cylinders / lines / sectors at real scale (m)',
+    taskZonesTooltipEmpty: 'Build a task first',
+    taskZonesAria: 'Show observation zones',
+    airspace: 'Airspace',
+    airspaceAria: 'Show airspace',
+    airspaceLoading: 'Loading airspace…',
+    mapNotReady: 'Map not ready — wait a moment and try again.',
+    airspaceOpenAip: 'OpenAIP (worldwide)',
+    airspacePoaff: 'POAFF/SIA — {{label}} (optional OpenAIP key in public/config/airspace.json)',
+    showType: 'Show {{label}}',
+    failNotFound:
+      'POAFF files not found. In dev: restart with npm start (proxy). Otherwise: npm run airspace:fetch then reload.',
+    failNetwork: 'Network unavailable or POAFF server unreachable. Try again later.',
+    failParse: 'Invalid POAFF response (empty or corrupt GeoJSON).',
+    failGeneric: 'Could not load airspace.',
+    attribution:
+      'Airspace © <a href="https://www.openaip.net">OpenAIP</a> (CC BY-NC 4.0)'
+  },
+  cupUrl: {
+    rejected: 'CUP URL not allowed: {{url}}',
+    defaultBase: 'Default database',
+    httpError: 'Could not load CUP (HTTP {{status}})',
+    noBaseLabel: 'No database'
   },
   pilot: {
     title: 'Pilot & glider',
@@ -232,7 +287,10 @@ export const en = {
     compId: 'Competition ID',
     compIdPlaceholder: 'ZX',
     class: 'Class',
-    classPlaceholder: 'Standard'
+    classPlaceholder: 'Standard',
+    pilotLabel: 'Pilot',
+    gliderType: 'Glider type',
+    logint: 'LOGINT (s)'
   },
   dialogs: {
     myCircuits: 'My tasks',
@@ -247,7 +305,21 @@ export const en = {
     deleted: 'Task deleted',
     importMerge: 'Merge with existing saved tasks?',
     imported: '{{count}} task(s) imported',
-    importError: 'Invalid JSON file'
+    importError: 'Invalid JSON file',
+    title: 'Saved tasks library',
+    desc: 'Local storage with FLARM profile. Export JSON for another device or pilot.',
+    quickLoad: 'Quick load',
+    chooseCircuit: '— Select a saved task —',
+    saveTitle: 'Save current task',
+    saveTitleUpdate: 'Update',
+    minPoints: 'At least 2 waypoints required in the task.',
+    empty: 'No saved tasks — save the current task above.',
+    emptyFilter: 'No results for this filter.',
+    loaded: 'Task loaded.',
+    exported: 'Library exported.',
+    renamePrompt: 'New task name:',
+    loadTitle: 'Load',
+    ptsMeta: '{{count}} pts'
   },
   regulation: {
     panelAria: 'Task rules',
@@ -273,6 +345,23 @@ export const en = {
       line: 'Line',
       cylinder: 'Cylinder'
     },
+    accordionTitle: 'Rules settings',
+    limitsAria: 'Limits and scoring',
+    radiusDeparture: 'Start radius (m)',
+    radiusTurn: 'Turn radius (m)',
+    radiusArrival: 'Finish radius (m)',
+    startType: 'Start type',
+    noStartLabel: 'Start opening (NoStart, HH:MM:SS)',
+    pevLabel: 'PEV (Annex A §7.4.3)',
+    pevWait: 'PEV wait (min)',
+    pevWindow: 'PEV window (min)',
+    complianceRegulation: 'Rules: {{label}}',
+    complianceRadii: 'Radii — start {{departure}} m · turn {{turn}} m · finish {{arrival}} m',
+    complianceStartLine: 'Start: line',
+    complianceStartCylinder: 'Start: cylinder',
+    compliancePev: 'PEV — wait {{wait}} min, window {{window}} min',
+    complianceScoringNote:
+      'Official scoring (IGC trace, PEV on primary logger) remains with the scorer.',
     profiles: {
       club: {
         label: 'Club (free)',
@@ -326,6 +415,97 @@ export const en = {
     legDepartureRadius: 'Point {{index}}: start radius ≥ {{km}} km.',
     faiCylinderWarn:
       'Start cylinder < {{km}} km: check the task sheet.'
+  },
+  wpType: {
+    turnpoint: { label: 'Turn points', description: 'Turn point', shortLabel: 'TP' },
+    airfield: { label: 'Airfields', description: 'Airfield', shortLabel: 'AD' },
+    landable: { label: 'Landable', description: 'Landable field', shortLabel: 'AL' },
+    custom: { label: 'Custom', description: 'Custom point', shortLabel: 'P' }
+  },
+  zonePreset: {
+    cylinder_fixed: { label: 'Fixed cylinder', description: 'Style 0 — cylinder oriented north (SeeYou)' },
+    cylinder_symmetric: {
+      label: 'Symmetric cylinder',
+      description: 'Style 1 — oriented toward adjacent points'
+    },
+    start_line: { label: 'Start line', description: 'Style 2, Line=1 — cut cylinder (take-off)' },
+    finish_line: { label: 'Finish line', description: 'Style 3, Line=1 — toward previous point' },
+    departure_cylinder: { label: 'Start cylinder', description: 'Style 0 — cylinder without line (take-off)' },
+    arrival_cylinder: { label: 'Finish cylinder', description: 'Style 0 — cylinder without line (landing)' },
+    start_cylinder_fai: { label: 'FAI start cylinder', description: 'Style 0 — cylinder ≥ 10 km (championship)' },
+    sector_to_next: {
+      label: 'Sector to next',
+      description: 'Style 2 — sector oriented toward next point'
+    },
+    sector_fai: { label: 'FAI sector (large)', description: 'Style 0 — large sector with R2 (competition)' },
+    custom: { label: 'Custom', description: 'Manual setup — only useful parameters shown' }
+  },
+  zoneCup: {
+    style0: 'Fixed (0)',
+    style1: 'Symmetric (1)',
+    style2: 'To next point (2)',
+    style3: 'To previous point (3)',
+    style4: 'To start (4)',
+    paramStyle: 'Style',
+    paramR1: 'R1',
+    paramA1: 'A1',
+    paramR2: 'R2',
+    paramA2: 'A2',
+    paramA12: 'A12',
+    paramLine: 'Line',
+    editableParams: 'Editable parameters: {{params}}.',
+    diagramAria: 'CUP parameters diagram',
+    diagramTitle: 'CUP parameters diagram',
+    diagramLead: 'Top-down view (north up). Parameters relevant to the current setup.',
+    zoneType: 'Zone type',
+    cupStyle: 'CUP style',
+    lineCup: 'Line (CUP Line=1)',
+    a1LineHint: 'Line opening angle (often 180°).',
+    a1SectorHint: 'Sector width (°) around the orientation axis.',
+    r2Hint: 'Inner radius (hole / FAI keyhole).',
+    a2Hint: 'Inner sector opening on R2 (same axis as A1).',
+    a12Hint: 'Fixed style: bearing in CUP; sector axis on map ≈ A12 + 180°.',
+    customElevation: 'Custom task elevation (MSL)',
+    elevationMsl: 'Elevation (m MSL)',
+    exportElevation: 'Export elevation: {{value}} (CUP waypoint)',
+    header: 'Zone & altitude — {{name}}',
+    pointMeta: 'Point {{index}} · {{role}}'
+  },
+  preview: {
+    formatAria: 'Preview format',
+    cupArchiveNote: '[POINTS.CUP content — .cupx file is a binary archive]',
+    formatFlarm: 'FLARM (flarmcfg.txt)',
+    formatCup: 'CUP with task',
+    formatCupx: 'CUPX (POINTS.CUP)',
+    formatTsk: 'XCSoar (.tsk)',
+    formatIgc: 'IGC C-records'
+  },
+  mapPopup: {
+    circuitPrefix: 'Task:',
+    setTurnpoint: 'Set as turn point',
+    removeLast: 'Remove last occurrence',
+    removeFromCircuit: 'Remove from task',
+    removeAll: 'Remove all occurrences',
+    center: 'Center on map',
+    deleteWaypoint: 'Delete this waypoint',
+    menuAria: 'Actions for {{name}}'
+  },
+  validation: {
+    singlePoint: 'Single point: declaration may be incomplete for some formats.',
+    noCoursePoint: 'No course point (START, TURN or FINISH) in the declaration.',
+    invalidCoords: 'Invalid coordinates for « {{name}} ».',
+    missingFromCup: '« {{name}} » missing from loaded CUP database: CUP/CUPX export may fail in SeeYou.'
+  },
+  exportWarnings: {
+    cupxNoPhotos: 'CUPX generated without photos (minimal pics.zip): database images are not included.'
+  },
+  waypointEdit: {
+    createTitle: 'New waypoint',
+    editTitle: 'Edit waypoint'
+  },
+  waypointsExtra: {
+    emptyPage: 'No waypoints on this page.',
+    perPageAria: 'Waypoints per page'
   },
   mapActions: {
     setDeparture: 'Set take-off',

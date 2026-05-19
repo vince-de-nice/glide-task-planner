@@ -63,7 +63,7 @@
     <p-accordion [multiple]="false" value="">
       <p-accordion-panel value="0">
         <p-accordion-header>
-          <span class="task-reg__accordion-title">Paramètres du règlement</span>
+          <span class="task-reg__accordion-title">{{ 'regulation.accordionTitle' | translate }}</span>
           <p-button
             icon="pi pi-info-circle"
             [text]="true"
@@ -72,7 +72,7 @@
             [pTooltip]="scoringInfoTooltip()"
             tooltipPosition="left"
             (onClick)="$event.stopPropagation()"
-            ariaLabel="Limites et scoring"
+            [ariaLabel]="'regulation.limitsAria' | translate"
           />
         </p-accordion-header>
         <p-accordion-content>
@@ -98,7 +98,7 @@
 <ng-template #radiiFields>
   <div class="task-reg__grid">
     <div class="task-reg__field">
-      <span class="gc-label">Rayon départ (m)</span>
+      <span class="gc-label">{{ 'regulation.radiusDeparture' | translate }}</span>
       <p-inputNumber
         [ngModel]="radiiDeparture()"
         (ngModelChange)="onRadiiDeparture(+$event || 400)"
@@ -110,7 +110,7 @@
       />
     </div>
     <div class="task-reg__field">
-      <span class="gc-label">Rayon virage (m)</span>
+      <span class="gc-label">{{ 'regulation.radiusTurn' | translate }}</span>
       <p-inputNumber
         [ngModel]="radiiTurn()"
         (ngModelChange)="onRadiiTurn(+$event || 400)"
@@ -122,7 +122,7 @@
       />
     </div>
     <div class="task-reg__field">
-      <span class="gc-label">Rayon arrivée (m)</span>
+      <span class="gc-label">{{ 'regulation.radiusArrival' | translate }}</span>
       <p-inputNumber
         [ngModel]="radiiArrival()"
         (ngModelChange)="onRadiiArrival(+$event || 400)"
@@ -138,7 +138,7 @@
 
 <ng-template #advancedFields>
   <div class="task-reg__row">
-    <span class="gc-label">Type de départ</span>
+    <span class="gc-label">{{ 'regulation.startType' | translate }}</span>
     <p-selectButton
       [options]="startKindOptions()"
       optionLabel="label"
@@ -151,13 +151,13 @@
   </div>
 
   <div class="task-reg__field">
-    <span class="gc-label">Ouverture start (NoStart, HH:MM:SS)</span>
+    <span class="gc-label">{{ 'regulation.noStartLabel' | translate }}</span>
     <input
       pInputText
       class="gc-input gc-input--sm"
       [ngModel]="noStart()"
       (ngModelChange)="onNoStart($event)"
-      placeholder="12:30:00"
+      [placeholder]="'regulation.taskTimePlaceholder' | translate"
       [disabled]="disabled()"
     />
   </div>
@@ -170,13 +170,13 @@
       inputId="task-reg-pev"
       [disabled]="disabled()"
     />
-    <label for="task-reg-pev">PEV (Annexe A §7.4.3)</label>
+    <label for="task-reg-pev">{{ 'regulation.pevLabel' | translate }}</label>
   </div>
 
   @if (pevEnabled()) {
     <div class="task-reg__grid task-reg__grid--pev">
       <div class="task-reg__field">
-        <span class="gc-label">PEV wait (min)</span>
+        <span class="gc-label">{{ 'regulation.pevWait' | translate }}</span>
         <p-inputNumber
           [ngModel]="pevWait()"
           (ngModelChange)="onPevWait(+$event || 5)"
@@ -187,7 +187,7 @@
         />
       </div>
       <div class="task-reg__field">
-        <span class="gc-label">PEV window (min)</span>
+        <span class="gc-label">{{ 'regulation.pevWindow' | translate }}</span>
         <p-inputNumber
           [ngModel]="pevWindow()"
           (ngModelChange)="onPevWindow(+$event || 10)"

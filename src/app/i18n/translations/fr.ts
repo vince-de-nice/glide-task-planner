@@ -36,7 +36,27 @@ export const fr = {
     choose: '— Choisir —',
     offTask: 'hors tâche',
     compliant: 'Conforme au règlement',
-    reorder: 'Réordonner'
+    reorder: 'Réordonner',
+    copy: 'Copier',
+    copied: 'Copié',
+    duplicate: 'Dupliquer',
+    rename: 'Renommer',
+    firstPage: 'Première page',
+    prevPage: 'Page précédente',
+    nextPage: 'Page suivante',
+    lastPage: 'Dernière page',
+    collapsePanel: 'Replier',
+    actions: 'Actions',
+    searchLabel: 'Rechercher',
+    pts: '{{count}} pts',
+    inTask: '{{count}} en tâche',
+    noBase: 'Aucune base',
+    disclaimerData: 'Avertissement données',
+    basePrefix: 'Base :',
+    code: 'Code',
+    altShort: 'Alt.',
+    added: '« {{name}} » ajouté',
+    updated: '« {{name}} » mis à jour'
   },
   circuit: {
     title: 'Circuit',
@@ -69,7 +89,8 @@ export const fr = {
     role: {
       departure: 'Décollage',
       arrival: 'Atterrissage',
-      turnpoint: 'Virage'
+      turnpoint: 'Virage',
+      turnpointLong: 'Point de virage'
     },
     regulation: {
       panelAria: 'Règlement',
@@ -142,7 +163,9 @@ export const fr = {
     replaceUrlMessage: 'Charger cette base remplacera les {{count}} points actuels. Continuer ?',
     configError: 'Configuration des sources CUP indisponible',
     noWaypoints: 'Aucun waypoint trouvé dans le fichier',
-    loadFailed: 'Échec du chargement'
+    loadFailed: 'Échec du chargement',
+    title: 'Base de points',
+    noBase: 'Aucune base'
   },
   waypoints: {
     title: 'Gestion des waypoints',
@@ -203,7 +226,10 @@ export const fr = {
     pagerAria: 'Pagination des points',
     perPage: 'Par page',
     results: '{{count}} résultat(s)',
-    empty: 'Aucun point ne correspond.'
+    empty: 'Aucun point ne correspond.',
+    prevPage: 'Page précédente',
+    nextPage: 'Page suivante',
+    perPageAria: 'Points par page'
   },
   map: {
     centerTask: 'Centrer tâche',
@@ -217,7 +243,36 @@ export const fr = {
     clearTaskHeader: 'Effacer la tâche',
     clearTaskMessage: 'Retirer tous les points du circuit affiché sur la carte ?',
     deleteFromDbHeader: 'Supprimer le point',
-    deleteFromDbMessage: 'Supprimer « {{name}} » de la base ?'
+    deleteFromDbMessage: 'Supprimer « {{name}} » de la base ?',
+    moreActions: 'Plus d’actions carte',
+    filtersToggle: 'Filtres',
+    filtersExpanded: 'Filtres ▴',
+    filtersCollapsed: 'Filtres ▾',
+    filtersTypesAria: 'Afficher les filtres de types',
+    taskZones: 'Zones tâche',
+    taskZonesTooltip: 'Cylindres / lignes / secteurs à l’échelle (m)',
+    taskZonesTooltipEmpty: 'Composez un circuit',
+    taskZonesAria: 'Afficher les zones d’observation',
+    airspace: 'Espaces aériens',
+    airspaceAria: 'Afficher les espaces aériens',
+    airspaceLoading: 'Chargement des espaces aériens…',
+    mapNotReady: 'Carte non initialisée — attendez un instant puis réessayez.',
+    airspaceOpenAip: 'OpenAIP (monde)',
+    airspacePoaff: 'POAFF/SIA — {{label}} (clé OpenAIP optionnelle dans public/config/airspace.json)',
+    showType: 'Afficher {{label}}',
+    failNotFound:
+      'Fichiers POAFF introuvables. En dev : relancez avec npm start (proxy). Sinon : npm run airspace:fetch puis rechargez.',
+    failNetwork: 'Réseau indisponible ou serveur POAFF injoignable. Réessayez plus tard.',
+    failParse: 'Réponse POAFF invalide (GeoJSON vide ou corrompu).',
+    failGeneric: 'Impossible de charger les espaces aériens.',
+    attribution:
+      'Espaces aériens © <a href="https://www.openaip.net">OpenAIP</a> (CC BY-NC 4.0)'
+  },
+  cupUrl: {
+    rejected: 'URL CUP non autorisée : {{url}}',
+    defaultBase: 'Base par défaut',
+    httpError: 'Impossible de charger le CUP (HTTP {{status}})',
+    noBaseLabel: 'Aucune base'
   },
   pilot: {
     title: 'Pilote & planeur',
@@ -230,7 +285,10 @@ export const fr = {
     compId: 'ID compétition',
     compIdPlaceholder: 'ZX',
     class: 'Classe',
-    classPlaceholder: 'Standard'
+    classPlaceholder: 'Standard',
+    pilotLabel: 'Pilote',
+    gliderType: 'Type planeur',
+    logint: 'LOGINT (s)'
   },
   dialogs: {
     myCircuits: 'Mes circuits',
@@ -245,7 +303,21 @@ export const fr = {
     deleted: 'Circuit supprimé',
     importMerge: 'Fusionner avec les circuits existants ?',
     imported: '{{count}} circuit(s) importé(s)',
-    importError: 'Fichier JSON invalide'
+    importError: 'Fichier JSON invalide',
+    title: 'Bibliothèque de circuits',
+    desc: 'Enregistrement local avec profil FLARM. Exportez le JSON pour un autre poste ou pilote.',
+    quickLoad: 'Chargement rapide',
+    chooseCircuit: '— Choisir un circuit —',
+    saveTitle: 'Enregistrer le circuit actuel',
+    saveTitleUpdate: 'Mettre à jour',
+    minPoints: 'Au moins 2 points requis dans la tâche.',
+    empty: 'Aucun circuit — enregistrez la tâche courante ci-dessus.',
+    emptyFilter: 'Aucun résultat pour ce filtre.',
+    loaded: 'Circuit chargé.',
+    exported: 'Bibliothèque exportée.',
+    renamePrompt: 'Nouveau nom du circuit :',
+    loadTitle: 'Charger',
+    ptsMeta: '{{count}} pts'
   },
   regulation: {
     panelAria: 'Règlement de la tâche',
@@ -271,6 +343,24 @@ export const fr = {
       line: 'Ligne',
       cylinder: 'Cylindre'
     },
+    accordionTitle: 'Paramètres du règlement',
+    limitsAria: 'Limites et scoring',
+    radiusDeparture: 'Rayon départ (m)',
+    radiusTurn: 'Rayon virage (m)',
+    radiusArrival: 'Rayon arrivée (m)',
+    startType: 'Type de départ',
+    noStartLabel: 'Ouverture start (NoStart, HH:MM:SS)',
+    pevLabel: 'PEV (Annexe A §7.4.3)',
+    pevWait: 'PEV wait (min)',
+    pevWindow: 'PEV window (min)',
+    complianceRegulation: 'Règlement : {{label}}',
+    complianceRadii:
+      'Rayons — départ {{departure}} m · virage {{turn}} m · arrivée {{arrival}} m',
+    complianceStartLine: 'Départ : ligne',
+    complianceStartCylinder: 'Départ : cylindre',
+    compliancePev: 'PEV — attente {{wait}} min, fenêtre {{window}} min',
+    complianceScoringNote:
+      'Le scoring officiel (trace IGC, PEV sur enregistreur principal) reste du ressort du scorer.',
     profiles: {
       club: {
         label: 'Club (libre)',
@@ -324,6 +414,97 @@ export const fr = {
     legDepartureRadius: 'Point {{index}} : rayon départ ≥ {{km}} km.',
     faiCylinderWarn:
       'Cylindre de départ < {{km}} km : vérifiez la feuille de route.'
+  },
+  wpType: {
+    turnpoint: { label: 'Turnpoints', description: 'Point de virage', shortLabel: 'TP' },
+    airfield: { label: 'Aérodromes', description: 'Aérodrome', shortLabel: 'AD' },
+    landable: { label: 'Atterrissables', description: 'Posé possible', shortLabel: 'AL' },
+    custom: { label: 'Perso', description: 'Point personnalisé', shortLabel: 'P' }
+  },
+  zonePreset: {
+    cylinder_fixed: { label: 'Cylindre fixe', description: 'Style 0 — cylindre orienté au nord (SeeYou)' },
+    cylinder_symmetric: {
+      label: 'Cylindre symétrique',
+      description: 'Style 1 — orienté vers les points adjacents'
+    },
+    start_line: { label: 'Ligne de départ', description: 'Style 2, Line=1 — cylindre coupé (décollage)' },
+    finish_line: { label: 'Ligne d’arrivée', description: 'Style 3, Line=1 — vers le point précédent' },
+    departure_cylinder: { label: 'Cylindre départ', description: 'Style 0 — cylindre sans ligne (décollage)' },
+    arrival_cylinder: { label: 'Cylindre arrivée', description: 'Style 0 — cylindre sans ligne (atterrissage)' },
+    start_cylinder_fai: { label: 'Cylindre FAI départ', description: 'Style 0 — cylindre ≥ 10 km (championnat)' },
+    sector_to_next: {
+      label: 'Secteur vers suivant',
+      description: 'Style 2 — secteur orienté vers le point suivant'
+    },
+    sector_fai: { label: 'Secteur FAI (large)', description: 'Style 0 — grand secteur avec R2 (compétition)' },
+    custom: { label: 'Personnalisé', description: 'Réglage manuel — seuls les paramètres utiles sont proposés' }
+  },
+  zoneCup: {
+    style0: 'Fixe (0)',
+    style1: 'Symétrique (1)',
+    style2: 'Vers point suivant (2)',
+    style3: 'Vers point précédent (3)',
+    style4: 'Vers départ (4)',
+    paramStyle: 'Style',
+    paramR1: 'R1',
+    paramA1: 'A1',
+    paramR2: 'R2',
+    paramA2: 'A2',
+    paramA12: 'A12',
+    paramLine: 'Line',
+    editableParams: 'Paramètres modifiables : {{params}}.',
+    diagramAria: 'Schéma des paramètres CUP',
+    diagramTitle: 'Schéma des paramètres CUP',
+    diagramLead: 'Vue de dessus (nord en haut). Paramètres utiles pour la configuration actuelle.',
+    zoneType: 'Type de zone',
+    cupStyle: 'Style CUP',
+    lineCup: 'Ligne (CUP Line=1)',
+    a1LineHint: 'Ouverture de la ligne (souvent 180°).',
+    a1SectorHint: 'Largeur du secteur (°) autour de l’axe d’orientation.',
+    r2Hint: 'Rayon intérieur (trou / keyhole FAI).',
+    a2Hint: 'Ouverture du secteur intérieur sur R2 (même axe que A1).',
+    a12Hint: 'Style fixe : cap dans le CUP ; axe du secteur sur la carte ≈ A12 + 180°.',
+    customElevation: 'Altitude tâche personnalisée (MSL)',
+    elevationMsl: 'Altitude (m MSL)',
+    exportElevation: 'Altitude export : {{value}} (waypoint CUP)',
+    header: 'Zone & altitude — {{name}}',
+    pointMeta: 'Point {{index}} · {{role}}'
+  },
+  preview: {
+    formatAria: 'Format d’aperçu',
+    cupArchiveNote: '[Contenu POINTS.CUP — le fichier .cupx est une archive binaire]',
+    formatFlarm: 'FLARM (flarmcfg.txt)',
+    formatCup: 'CUP avec tâche',
+    formatCupx: 'CUPX (POINTS.CUP)',
+    formatTsk: 'XCSoar (.tsk)',
+    formatIgc: 'IGC C-records'
+  },
+  mapPopup: {
+    circuitPrefix: 'Circuit :',
+    setTurnpoint: 'Définir point de virage',
+    removeLast: 'Retirer la dernière occurrence',
+    removeFromCircuit: 'Retirer du circuit',
+    removeAll: 'Retirer toutes les occurrences',
+    center: 'Centrer sur la carte',
+    deleteWaypoint: 'Supprimer ce point',
+    menuAria: 'Actions sur {{name}}'
+  },
+  validation: {
+    singlePoint: 'Un seul point : la déclaration peut être incomplète pour certains formats.',
+    noCoursePoint: 'Aucun point de course (START, TURN ou FINISH) dans la déclaration.',
+    invalidCoords: 'Coordonnées invalides pour « {{name}} ».',
+    missingFromCup: '« {{name}} » absent de la base CUP chargée : export CUP/CUPX peut échouer dans SeeYou.'
+  },
+  exportWarnings: {
+    cupxNoPhotos: 'CUPX généré sans photos (pics.zip minimal) : les images de la base ne sont pas incluses.'
+  },
+  waypointEdit: {
+    createTitle: 'Nouveau point',
+    editTitle: 'Modifier le point'
+  },
+  waypointsExtra: {
+    emptyPage: 'Aucun waypoint sur cette page.',
+    perPageAria: 'Waypoints par page'
   },
   mapActions: {
     setDeparture: 'Définir décollage',

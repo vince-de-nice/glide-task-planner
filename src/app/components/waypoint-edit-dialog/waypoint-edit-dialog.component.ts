@@ -1,23 +1,27 @@
-import { Component, input, output, signal, effect } from '@angular/core';
+import { Component, computed, inject, input, output, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Waypoint } from '../../models/waypoint.model';
-import { WAYPOINT_TYPE_DISPLAY, WAYPOINT_TYPE_ORDER } from '../../utils/waypoint-type-display.util';
+import { WAYPOINT_TYPE_ORDER } from '../../utils/waypoint-type-display.util';
 import { Dialog } from 'primeng/dialog';
 import { Button } from 'primeng/button';
 import { InputText } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
+import { TranslateService } from '../../i18n/translate.service';
+import { TranslatePipe } from '../../i18n/translate.pipe';
 
 export type WaypointEditPayload = Omit<Waypoint, 'id'>;
 
 @Component({
   selector: 'app-waypoint-edit-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, Dialog, Button, InputText, Select],
+  imports: [CommonModule, FormsModule, Dialog, Button, InputText, Select, TranslatePipe],
   templateUrl: './waypoint-edit-dialog.component.html',
   styleUrls: ['./waypoint-edit-dialog.component.scss']
 })
 export class WaypointEditDialogComponent {
+  private i18n = inject(TranslateService);
+
   open = input(false);
   waypoint = input<Waypoint | null>(null);
   isCreate = input(false);
@@ -27,10 +31,13 @@ export class WaypointEditDialogComponent {
 
   form = signal<WaypointEditPayload>(this.emptyForm());
 
-  readonly types = WAYPOINT_TYPE_ORDER.map(t => ({
-    value: t,
-    label: WAYPOINT_TYPE_DISPLAY[t].description
-  }));
+  readonly types = computed(() => {
+    this.i18n.locale();
+    return WAYPOINT_TYPE_ORDER.map(t => ({
+      value: t,
+      label: this.i18n.t(`wpType.${t}.description`)
+    }));
+  });
 
   constructor() {
     effect(() => {

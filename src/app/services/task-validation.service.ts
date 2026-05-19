@@ -4,6 +4,7 @@ import { TaskDeclaration, ResolvedTaskRegulation } from '../models/task-declarat
 import { Waypoint } from '../models/waypoint.model';
 import { isValidLatitude, isValidLongitude } from '../utils/geo-format.util';
 import { TaskRuleEngineService } from './task-rule-engine.service';
+import { TranslateService } from '../i18n/translate.service';
 
 export interface TaskValidationResult {
   valid: boolean;
@@ -16,6 +17,7 @@ export interface TaskValidationResult {
 })
 export class TaskValidationService {
   private ruleEngine = inject(TaskRuleEngineService);
+  private i18n = inject(TranslateService);
 
   validateForExport(
     legs: CircuitLeg[],
@@ -28,18 +30,18 @@ export class TaskValidationService {
     const warnings = [...declaration.warnings];
 
     if (legs.length === 0) {
-      errors.push('Le circuit est vide.');
+      errors.push(this.i18n.t('rules.emptyCircuit'));
     }
 
     if (legs.length === 1) {
-      warnings.push('Un seul point : la déclaration peut être incomplète pour certains formats.');
+      warnings.push(this.i18n.t('validation.singlePoint'));
     }
 
     const hasCoursePoint = declaration.points.some(
       p => p.role === 'start' || p.role === 'turn' || p.role === 'finish'
     );
     if (legs.length > 0 && !hasCoursePoint) {
-      errors.push('Aucun point de course (START, TURN ou FINISH) dans la déclaration.');
+      errors.push(this.i18n.t('validation.noCoursePoint'));
     }
 
     for (const p of declaration.points) {
@@ -49,7 +51,7 @@ export class TaskValidationService {
             continue;
           }
         }
-        errors.push(`Coordonnées invalides pour « ${p.name} ».`);
+        errors.push(this.i18n.t('validation.invalidCoords', { name: p.name }));
       }
     }
 
@@ -61,9 +63,7 @@ export class TaskValidationService {
         }
         checked.add(p.cupName);
         if (!cupWaypointNames.has(p.cupName)) {
-          warnings.push(
-            `« ${p.cupName} » absent de la base CUP chargée : export CUP/CUPX peut échouer dans SeeYou.`
-          );
+          warnings.push(this.i18n.t('validation.missingFromCup', { name: p.cupName }));
         }
       }
     }

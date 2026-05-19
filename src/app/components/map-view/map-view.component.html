@@ -4,7 +4,7 @@
       <ng-template #start>
         <div class="map-toolbar__group">
           <p-button
-            label="Centrer tâche"
+            [label]="'map.centerTask' | translate"
             icon="pi pi-crosshairs"
             size="small"
             severity="secondary"
@@ -16,7 +16,7 @@
             severity="secondary"
             [text]="true"
             (onClick)="toolbarMenu.toggle($event)"
-            ariaLabel="Plus d’actions carte"
+            [attr.aria-label]="'map.moreActions' | translate"
           />
           <p-menu #toolbarMenu [popup]="true" [model]="toolbarMenuItems()" />
         </div>
@@ -24,38 +24,38 @@
       <ng-template #end>
         <div class="map-toolbar__controls">
           <p-button
-            [label]="filtersExpanded() ? 'Filtres ▴' : 'Filtres ▾'"
+            [label]="(filtersExpanded() ? 'map.filtersExpanded' : 'map.filtersCollapsed') | translate"
             icon="pi pi-filter"
             size="small"
             [outlined]="!filtersExpanded()"
             severity="secondary"
             (onClick)="toggleFilters()"
-            ariaLabel="Afficher les filtres de types"
+            [attr.aria-label]="'map.filtersTypesAria' | translate"
           />
           <label class="map-airspace-switch" for="map-obs-zones-toggle">
-            <span class="map-airspace-switch__label">Zones tâche</span>
+            <span class="map-airspace-switch__label">{{ 'map.taskZones' | translate }}</span>
             <p-toggleswitch
               inputId="map-obs-zones-toggle"
               [ngModel]="obsZonesVisible()"
               (ngModelChange)="onObsZonesToggle($event)"
               size="small"
               [disabled]="!mapReady() || circuitLegs().length === 0"
-              [pTooltip]="circuitLegs().length === 0 ? 'Composez un circuit' : 'Cylindres / lignes / secteurs à l’échelle (m)'"
+              [pTooltip]="circuitLegs().length === 0 ? ('map.taskZonesTooltipEmpty' | translate) : ('map.taskZonesTooltip' | translate)"
               tooltipPosition="bottom"
-              ariaLabel="Afficher les zones d’observation"
+              [attr.aria-label]="'map.taskZonesAria' | translate"
             />
           </label>
           <label class="map-airspace-switch" for="map-airspace-toggle">
-            <span class="map-airspace-switch__label">Espaces aériens</span>
+            <span class="map-airspace-switch__label">{{ 'map.airspace' | translate }}</span>
             <p-toggleswitch
               inputId="map-airspace-toggle"
               [ngModel]="airspaceVisible()"
               (ngModelChange)="onAirspaceToggle($event)"
               size="small"
               [disabled]="airspaceLoading() || !mapReady()"
-              [pTooltip]="airspaceLoading() ? 'Chargement…' : ''"
+              [pTooltip]="airspaceLoading() ? ('common.loading' | translate) : ''"
               tooltipPosition="bottom"
-              ariaLabel="Afficher les espaces aériens"
+              [attr.aria-label]="'map.airspaceAria' | translate"
             />
           </label>
           @if (airspaceConfigReady() && !airspaceLayerService.hasOpenAipKey()) {
@@ -67,7 +67,7 @@
               (ngModelChange)="onAirspaceRegionChange($event)"
               [disabled]="airspaceLoading()"
               size="small"
-              placeholder="Région"
+              [placeholder]="'map.region' | translate"
               styleClass="map-region-select"
             />
           }
@@ -80,8 +80,8 @@
   </div>
 
   @if (filtersExpanded()) {
-    <div class="map-filters" role="group" aria-label="Afficher sur la carte">
-      @for (filter of typeFilterOptions; track filter.type) {
+    <div class="map-filters" role="group" [attr.aria-label]="'map.filtersAria' | translate">
+      @for (filter of typeFilterOptions(); track filter.type) {
         <label
           class="map-filter-switch"
           [class.map-filter-switch--off]="!isCatalogTypeVisible(filter.type)"
@@ -95,7 +95,7 @@
             [ngModel]="isCatalogTypeVisible(filter.type)"
             (ngModelChange)="onCatalogTypeToggle(filter.type, $event)"
             size="small"
-            [ariaLabel]="'Afficher ' + filter.label"
+            [attr.aria-label]="'map.showType' | translate: { label: filter.label }"
           />
         </label>
       }

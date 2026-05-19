@@ -1,8 +1,6 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import type JSZip from 'jszip';
-
-const CUPX_NO_PICS_WARNING =
-  'CUPX généré sans photos (pics.zip minimal) : les images de la base ne sont pas incluses.';
+import { TranslateService } from '../i18n/translate.service';
 
 type JsZipCtor = typeof JSZip;
 
@@ -10,7 +8,12 @@ type JsZipCtor = typeof JSZip;
   providedIn: 'root'
 })
 export class CupxWriterService {
-  readonly noPicsWarning = CUPX_NO_PICS_WARNING;
+  private i18n = inject(TranslateService);
+
+  get noPicsWarning(): string {
+    return this.i18n.t('exportWarnings.cupxNoPhotos');
+  }
+
   private jsZipPromise: Promise<JsZipCtor> | null = null;
 
   async buildCupxBlob(pointsCupContent: string): Promise<Blob> {
