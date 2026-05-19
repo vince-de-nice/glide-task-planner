@@ -38,6 +38,8 @@ export class CircuitLegZoneDialogComponent {
   waypoint = input<Waypoint | null>(null);
   legIndex = input(0);
   defaultRadiusM = input(400);
+  /** Si défini, limite les préréglages proposés (règlement). */
+  allowedPresetIds = input<ObsZonePresetId[] | null>(null);
 
   visibleChange = output<boolean>();
   saved = output<CircuitLegZoneDialogSave>();
@@ -55,9 +57,13 @@ export class CircuitLegZoneDialogComponent {
 
   readonly presetOptions = computed(() => {
     const role = this.leg()?.role;
-    return OBS_ZONE_PRESETS.filter(
-      p => !p.forRoles || (role && p.forRoles.includes(role))
-    );
+    const allowed = this.allowedPresetIds();
+    return OBS_ZONE_PRESETS.filter(p => {
+      if (allowed?.length && !allowed.includes(p.id)) {
+        return false;
+      }
+      return !p.forRoles || (role && p.forRoles.includes(role));
+    });
   });
 
   readonly cupStyleOptions = Object.entries(CUP_STYLE_LABELS).map(([value, label]) => ({

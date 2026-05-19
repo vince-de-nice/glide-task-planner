@@ -1,8 +1,9 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { CircuitLeg } from '../models/circuit.model';
-import { TaskDeclaration } from '../models/task-declaration.model';
+import { TaskDeclaration, ResolvedTaskRegulation } from '../models/task-declaration.model';
 import { Waypoint } from '../models/waypoint.model';
 import { isValidLatitude, isValidLongitude } from '../utils/geo-format.util';
+import { TaskRuleEngineService } from './task-rule-engine.service';
 
 export interface TaskValidationResult {
   valid: boolean;
@@ -14,9 +15,13 @@ export interface TaskValidationResult {
   providedIn: 'root'
 })
 export class TaskValidationService {
+  private ruleEngine = inject(TaskRuleEngineService);
+
   validateForExport(
     legs: CircuitLeg[],
     declaration: TaskDeclaration,
+    waypointsById: Map<string, Waypoint>,
+    regulation: ResolvedTaskRegulation,
     cupWaypointNames?: Set<string>
   ): TaskValidationResult {
     const errors: string[] = [];
@@ -63,10 +68,16 @@ export class TaskValidationService {
       }
     }
 
+    const ruleResult = this.ruleEngine.validate(legs, waypointsById, regulation);
+    errors.push(...ruleResult.errors);
+    warnings.push(...ruleResult.warnings);
+
+    const hasErrors = errors.length > 0;
+
     return {
-      valid: errors.length === 0,
-      errors,
-      warnings
+      valid: !hasErrors || regulation.allowExportDespiteErrors,
+      errors: [...new Set(errors)],
+      warnings: [...new Set(warnings)]
     };
   }
 

@@ -171,7 +171,8 @@ export class CupDatabaseService {
       legs,
       namesById,
       declaration,
-      defaultRadiusM
+      defaultRadiusM,
+      options?.regulation
     );
   }
 

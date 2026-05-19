@@ -52,8 +52,9 @@ import {
   WaypointEditPayload
 } from '../waypoint-edit-dialog/waypoint-edit-dialog.component';
 import { Button } from 'primeng/button';
-import { Tag } from 'primeng/tag';
 import { Select } from 'primeng/select';
+import { Menu } from 'primeng/menu';
+import { MenuItem } from 'primeng/api';
 import { Toolbar } from 'primeng/toolbar';
 import { ToggleSwitch } from 'primeng/toggleswitch';
 import { Tooltip } from 'primeng/tooltip';
@@ -85,8 +86,8 @@ const MAP_TYPE_FILTERS = waypointTypeMapFilters();
     LeafletDirective,
     WaypointEditDialogComponent,
     Button,
-    Tag,
     Select,
+    Menu,
     Toolbar,
     ToggleSwitch,
     Tooltip
@@ -128,6 +129,26 @@ export class MapViewComponent implements OnInit {
   /** Types de waypoints affichés sur la carte (catalogue). */
   catalogTypeFilter = signal<WaypointType[]>(['turnpoint', 'airfield', 'landable', 'custom']);
 
+  filtersExpanded = signal(false);
+
+  readonly toolbarMenuItems: MenuItem[] = [
+    {
+      label: 'Centrer tous les points',
+      icon: 'pi pi-globe',
+      command: () => this.centerOnAll()
+    },
+    {
+      label: 'Effacer la sélection',
+      icon: 'pi pi-trash',
+      command: () => void this.clearSelection()
+    },
+    {
+      label: 'Aide carte',
+      icon: 'pi pi-info-circle',
+      command: () => this.uiFeedback.info('Aide carte', this.mapHelpTooltip)
+    }
+  ];
+
   readonly mapHelpTooltip =
     'Zones tâche : cylindres/secteurs/lignes en mètres réels · espaces aériens POAFF/OpenAIP · noms au zoom ≥ 11 · double-clic : point · clic : menu';
 
@@ -160,9 +181,12 @@ export class MapViewComponent implements OnInit {
         this.refreshMarkers();
         this.updateTaskLines();
         this.updateObsZones();
-        this.updateTaskDistanceLabel();
       }
     });
+  }
+
+  toggleFilters(): void {
+    this.filtersExpanded.update(v => !v);
   }
 
   private updateTaskDistanceLabel(): void {

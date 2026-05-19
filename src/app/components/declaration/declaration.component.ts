@@ -28,7 +28,8 @@ import {
   TaskExportFormat,
   TaskExportService
 } from '../../services/task-export.service';
-import { DEFAULT_TASK_EXPORT_RADIUS_M } from '../../models/task-declaration.model';
+import { TaskRegulationPanelComponent } from '../task-regulation-panel/task-regulation-panel.component';
+import { TaskRuleEngineService } from '../../services/task-rule-engine.service';
 import { MapViewComponent } from '../map-view/map-view.component';
 import { CircuitLibraryComponent } from '../circuit-library/circuit-library.component';
 import { SavedCircuitService } from '../../services/saved-circuit.service';
@@ -69,6 +70,9 @@ const DISCLAIMER_SEEN_KEY = 'gc_disclaimer_seen';
 const DISCLAIMER_LEGACY_KEY = 'vav_disclaimer_seen';
 
 type MobileTab = 'map' | 'task';
+type CircuitTab = 'points' | 'regulation' | 'export';
+
+const CIRCUIT_TAB_STORAGE_KEY = 'gc_circuit_tab';
 
 @Component({
   selector: 'app-declaration',
@@ -95,8 +99,8 @@ type MobileTab = 'map' | 'task';
     DragDropModule,
     Menu,
     SplitButton,
-    InputNumber,
-    CircuitLegZoneDialogComponent
+    CircuitLegZoneDialogComponent,
+    TaskRegulationPanelComponent
   ],
   templateUrl: './declaration.component.html',
   styleUrls: ['./declaration.component.scss']
@@ -115,6 +119,7 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   flarmProfileService = inject(FlarmProfileService);
   private savedCircuitService = inject(SavedCircuitService);
   private uiFeedback = inject(UiFeedbackService);
+  private ruleEngine = inject(TaskRuleEngineService);
 
   waypoints = this.waypointService.waypoints;
   activeCircuitId = this.savedCircuitService.activeCircuitId;
@@ -133,6 +138,7 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   currentPage = signal(1);
   pageSize = signal(40);
   mobileTab = signal<MobileTab>('map');
+  circuitTab = signal<CircuitTab>('points');
   waypointDialogOpen = signal(false);
   pilotDialogOpen = signal(false);
   previewDialogOpen = signal(false);
@@ -144,8 +150,8 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   circuitMessage = signal<string | null>(null);
   cupPanelExpanded = signal(false);
   disclaimerAccordionIndex = signal<number | number[] | string | string[] | null>(-1);
-  exportRadiusM = signal(DEFAULT_TASK_EXPORT_RADIUS_M);
   previewFormat = signal<TaskExportFormat>('flarm');
+  resolvedRegulation = this.taskState.resolvedRegulation;
   legZoneDialogOpen = signal(false);
   legZoneEditIndex = signal(-1);
 
@@ -158,6 +164,79 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     const leg = this.legZoneEditLeg();
     return leg ? this.waypointService.getWaypoint(leg.waypointId) : undefined;
   });
+
+  legZoneDefaultRadiusM = computed(() => {
+    const leg = this.legZoneEditLeg();
+    if (!leg) return this.resolvedRegulation().radiiM.turnpointM;
+    return this.ruleEngine.radiusForLegRole(this.resolvedRegulation(), leg.role);
+  });
+
+  ruleValidation = computed(() => {
+    const wpMap = new Map(this.waypoints().map(w => [w.id, w]));
+    return this.ruleEngine.validate(
+      this.circuitLegs(),
+      wpMap,
+      this.resolvedRegulation()
+    );
+  });
+
+  exportBlocked = computed(
+    () => !this.ruleValidation().valid && !this.resolvedRegulation().allowExportDespiteErrors
+  );
+
+  regulationStatus = computed(() => {
+    const v = this.ruleValidation();
+    if (v.errors.length > 0) {
+      return { kind: 'error' as const, label: `${v.errors.length} erreur(s) de conformité` };
+    }
+    if (v.warnings.length > 0) {
+      return { kind: 'warn' as const, label: `${v.warnings.length} avertissement(s)` };
+    }
+    return { kind: 'ok' as const, label: 'Circuit conforme au règlement' };
+  });
+
+  legComplianceRows = computed(() =>
+    this.ruleValidation().legIssues.map(issue => {
+      const item = this.circuitListItems()[issue.legIndex];
+      return {
+        index: issue.legIndex,
+        name: item?.waypoint.name ?? `Point ${issue.legIndex + 1}`,
+        severity: issue.severity,
+        message: issue.message
+      };
+    })
+  );
+
+  pilotSummary = computed(() => {
+    const p = this.flarmProfile();
+    const parts = [
+      p.pilotName.trim(),
+      p.gliderType.trim(),
+      p.gliderId.trim() || p.compId.trim(),
+      p.compClass.trim() ? `cl. ${p.compClass.trim()}` : ''
+    ].filter(Boolean);
+    return parts.length > 0 ? parts.join(' · ') : null;
+  });
+
+  readonly exportFormatActions: {
+    format: TaskExportFormat;
+    label: string;
+    detail: string;
+    icon: string;
+    primary?: boolean;
+  }[] = [
+    {
+      format: 'flarm',
+      label: 'FLARM',
+      detail: 'flarmcfg.txt — SD/USB',
+      icon: 'pi pi-download',
+      primary: true
+    },
+    { format: 'cup', label: 'CUP', detail: 'Waypoints + tâche', icon: 'pi pi-file' },
+    { format: 'cupx', label: 'CUPX', detail: 'Archive POINTS.CUP', icon: 'pi pi-box' },
+    { format: 'tsk', label: 'XCSoar', detail: 'Fichier .tsk', icon: 'pi pi-code' },
+    { format: 'igc-crecords', label: 'IGC C-records', detail: 'Trace déclarée', icon: 'pi pi-list' }
+  ];
 
   circuitListItems = computed(() =>
     this.circuitLegs().flatMap((leg, index) => {
@@ -283,6 +362,19 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     ];
   });
 
+  circuitTabOptionsUi = computed(() => {
+    const errCount = this.ruleValidation().errors.length;
+    const blocked = this.exportBlocked();
+    return [
+      { label: 'Points', value: 'points' as CircuitTab },
+      {
+        label: errCount > 0 ? `Règlement (${errCount})` : 'Règlement',
+        value: 'regulation' as CircuitTab
+      },
+      { label: blocked ? 'Export · bloqué' : 'Export', value: 'export' as CircuitTab }
+    ];
+  });
+
   cupMenuItems = computed<MenuItem[]>(() => [
     {
       label: 'Importer .cup',
@@ -323,12 +415,16 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   }
 
   buildExportContext() {
+    const reg = this.resolvedRegulation();
     return {
       legs: this.circuitLegs(),
       waypoints: this.waypoints(),
       taskName: this.taskName(),
       flarmDeclaration: this.buildDeclaration(),
-      options: { defaultRadiusM: this.exportRadiusM() }
+      options: {
+        defaultRadiusM: reg.radiiM.turnpointM,
+        regulation: reg
+      }
     };
   }
 
@@ -355,19 +451,51 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   ];
 
   readonly observationZoneShortLabel = observationZoneShortLabel;
-  legZoneSummary = (item: CircuitListItem): string => {
+
+  legZoneShort(item: CircuitListItem): string {
     const leg = item.leg;
     const zone = leg.obsZone;
     const zoneTxt = zone ? observationZoneShortLabel(zone) : '—';
     const elev = formatElevationDisplay(resolveLegElevationM(item.waypoint, leg));
     return `${zoneTxt} · ${elev}`;
-  };
+  }
+
+  legIssueMessage(index: number): string | null {
+    const issue = this.ruleEngine.getLegIssue(index, this.ruleValidation());
+    return issue?.message ?? null;
+  }
+
+  legComplianceSeverity(index: number): 'ok' | 'warn' | 'error' | null {
+    const issue = this.ruleEngine.getLegIssue(index, this.ruleValidation());
+    if (!issue) return 'ok';
+    return issue.severity === 'warning' ? 'warn' : issue.severity;
+  }
+
+  legComplianceIcon(index: number): string | null {
+    const sev = this.legComplianceSeverity(index);
+    if (sev === 'error') return 'pi pi-times-circle';
+    if (sev === 'warn') return 'pi pi-exclamation-triangle';
+    return null;
+  }
+
+  legComplianceTooltip(index: number): string {
+    return this.legIssueMessage(index) ?? 'Conforme au règlement';
+  }
+
+  allowedPresetsForLeg(index: number) {
+    const leg = this.circuitLegs()[index];
+    if (!leg) return null;
+    return this.ruleEngine.allowedPresetsForRole(this.resolvedRegulation(), leg.role);
+  }
 
   ngOnInit(): void {
-    this.taskState.setDefaultZoneRadiusM(this.exportRadiusM());
     this.cupPanelExpanded.set(this.waypoints().length === 0);
     if (!this.isDisclaimerSeen() && this.disclaimer()) {
       this.disclaimerAccordionIndex.set(0);
+    }
+    const storedTab = sessionStorage.getItem(CIRCUIT_TAB_STORAGE_KEY);
+    if (storedTab === 'points' || storedTab === 'regulation' || storedTab === 'export') {
+      this.circuitTab.set(storedTab);
     }
     void this.initCupSources();
   }
@@ -510,17 +638,6 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     if (i < 0) return;
     this.taskState.updateLegObsZone(i, data.obsZone);
     this.taskState.updateLegElevation(i, data.elevationM);
-  }
-
-  onExportRadiusChange(value: number): void {
-    const v = Math.round(value) || DEFAULT_TASK_EXPORT_RADIUS_M;
-    this.exportRadiusM.set(v);
-    this.taskState.setDefaultZoneRadiusM(v);
-  }
-
-  applyDefaultRadiusToAllZones(): void {
-    this.taskState.applyDefaultRadiusToAllLegZones();
-    this.uiFeedback.success('Zones mises à jour', `Rayon ${this.exportRadiusM()} m appliqué à tous les points.`);
   }
 
   removeCircuitItem(index: number): void {
@@ -754,6 +871,7 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
         taskName: this.taskName(),
         profile: this.flarmProfile(),
         circuitLegs: this.circuitLegs(),
+        regulation: this.taskState.regulation(),
         sourceUrl: this.cupDatabase.getSourceUrl(),
         notes: event.notes,
         updateId: event.updateId ?? undefined
@@ -771,7 +889,11 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     const applied = this.savedCircuitService.applyCircuit(circuitId);
     if (!applied) return;
     this.flarmProfileService.updateProfile(applied.profile);
-    this.taskState.loadTask(applied.circuitLegs, applied.taskName);
+    this.taskState.loadTask(
+      applied.circuitLegs,
+      applied.taskName,
+      applied.regulation
+    );
     this.calculateDistance();
     this.closeCircuitsDialog();
     this.setMobileTab('task');
@@ -787,6 +909,15 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
       setTimeout(() => this.mapView?.invalidateSize(), 50);
       setTimeout(() => this.mapView?.invalidateSize(), 300);
     }
+  }
+
+  setCircuitTab(tab: CircuitTab): void {
+    this.circuitTab.set(tab);
+    sessionStorage.setItem(CIRCUIT_TAB_STORAGE_KEY, tab);
+  }
+
+  goToRegulationTab(): void {
+    this.setCircuitTab('regulation');
   }
 
   getOccurrenceCount(id: string): number {

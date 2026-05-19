@@ -1,0 +1,173 @@
+.task-reg {
+  margin-bottom: 0.65rem;
+
+  &--compact {
+    margin-bottom: 0;
+    padding: 0 0.75rem 0.5rem;
+    overflow-y: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  &--embedded {
+    margin-bottom: 0;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+}
+
+.task-reg__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.task-reg__section {
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--gc-border);
+  border-radius: var(--gc-radius-sm);
+  background: #fff;
+}
+
+.task-reg__section-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gc-text-muted);
+}
+
+.task-reg__info-box {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--gc-radius-sm);
+  border: 1px solid color-mix(in srgb, var(--gc-primary) 25%, var(--gc-border));
+  background: var(--gc-primary-soft);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--gc-text-secondary);
+
+  .pi {
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+    color: var(--gc-primary);
+  }
+
+  p {
+    margin: 0;
+  }
+}
+
+.task-reg--embedded .task-reg__head {
+  margin-bottom: 0;
+}
+
+.task-reg--embedded .task-reg__grid--pev {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 360px) {
+  .task-reg--embedded .task-reg__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.task-reg__head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+:host ::ng-deep .task-reg__profile-select {
+  width: 100%;
+}
+
+.task-reg__profile-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  max-width: 18rem;
+}
+
+.task-reg__profile-desc {
+  font-size: 0.75rem;
+  color: var(--gc-text-muted);
+  font-weight: 400;
+}
+
+.task-reg__summary {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--gc-text-secondary);
+  line-height: 1.35;
+}
+
+.task-reg__hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--gc-text-muted);
+  line-height: 1.35;
+}
+
+.task-reg__accordion-title {
+  flex: 1 1 auto;
+}
+
+:host ::ng-deep .task-reg__info-btn.p-button {
+  flex-shrink: 0;
+  width: 2rem;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0;
+  margin-left: 0.25rem;
+}
+
+.task-reg__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+@media (max-width: 520px) {
+  .task-reg__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.task-reg__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.task-reg__row {
+  margin-bottom: 0.5rem;
+}
+
+.task-reg__pev {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+}
+
+:host ::ng-deep .task-reg__apply {
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+:host ::ng-deep .task-reg__info {
+  width: 100%;
+  margin: 0;
+}

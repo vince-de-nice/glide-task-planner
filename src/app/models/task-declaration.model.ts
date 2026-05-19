@@ -1,5 +1,10 @@
 import { ObservationZoneConfig } from './observation-zone.model';
 import { CircuitLegRole } from './circuit.model';
+import {
+  DEFAULT_TASK_REGULATION,
+  ResolvedTaskRegulation,
+  TaskRegulationState
+} from './task-rule-profile.model';
 
 /** Rôle d’un point dans une déclaration de tâche (formats IGC / TSK / CUP). */
 export type TaskDeclarationPointRole =
@@ -34,6 +39,10 @@ export interface TaskDeclaration {
 export interface TaskExportOptions {
   defaultRadiusM: number;
   declarationTimeUtc?: Date;
+  regulation?: ResolvedTaskRegulation;
 }
+
+export type { TaskRegulationState, ResolvedTaskRegulation };
+export { DEFAULT_TASK_REGULATION };
 
 export const DEFAULT_TASK_EXPORT_RADIUS_M = 400;

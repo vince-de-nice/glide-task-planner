@@ -11,11 +11,18 @@ import { Waypoint } from '../models/waypoint.model';
 import {
   ObservationZoneConfig,
   defaultObservationZoneForRole,
-  normalizeObservationZone
+  normalizeObservationZone,
+  observationZoneFromPreset
 } from '../models/observation-zone.model';
 import { WaypointService } from './waypoint.service';
 import { defaultTaskName } from './flarm-config.service';
 import { DEFAULT_TASK_EXPORT_RADIUS_M } from '../models/task-declaration.model';
+import {
+  DEFAULT_TASK_REGULATION,
+  TaskRegulationState,
+  TaskRuleRadiiM
+} from '../models/task-rule-profile.model';
+import { TaskRuleEngineService } from './task-rule-engine.service';
 
 import { readMigratedLocalStorage } from '../utils/local-storage-migrate.util';
 
@@ -27,6 +34,7 @@ interface PersistedTaskState {
   /** @deprecated migré vers circuitLegs */
   selectedWaypointIds?: string[];
   taskName: string;
+  regulation?: TaskRegulationState;
   /** @deprecated — source CUP gérée par CupDatabaseService */
   activeDatabaseId?: string | null;
 }
@@ -36,12 +44,19 @@ interface PersistedTaskState {
 })
 export class TaskStateService {
   private waypointService = inject(WaypointService);
+  private ruleEngine = inject(TaskRuleEngineService);
 
   circuitLegs = signal<CircuitLeg[]>([]);
   selectedWaypointIds = computed(() => this.circuitLegs().map(leg => leg.waypointId));
   taskName = signal<string>(defaultTaskName());
-  /** Rayon par défaut pour les nouvelles zones d’observation (m). */
-  defaultZoneRadiusM = signal(DEFAULT_TASK_EXPORT_RADIUS_M);
+  regulation = signal<TaskRegulationState>({ ...DEFAULT_TASK_REGULATION });
+
+  readonly resolvedRegulation = computed(() =>
+    this.ruleEngine.resolveRegulation(this.regulation())
+  );
+
+  /** Rayon par défaut pour les nouvelles zones (virage) — rétrocompat UI. */
+  defaultZoneRadiusM = computed(() => this.resolvedRegulation().radiiM.turnpointM);
 
   selectedCount = computed(() => this.circuitLegs().length);
 
@@ -60,6 +75,12 @@ export class TaskStateService {
         this.circuitLegs.set(this.inferLegsFromLegacyIds(data.selectedWaypointIds));
       }
       this.taskName.set(data.taskName ?? defaultTaskName());
+      if (data.regulation?.profileId) {
+        this.regulation.set({
+          profileId: data.regulation.profileId,
+          overrides: data.regulation.overrides ?? {}
+        });
+      }
     } catch {
       /* ignore corrupt state */
     }
@@ -68,7 +89,8 @@ export class TaskStateService {
   private saveToStorage(): void {
     const data: PersistedTaskState = {
       circuitLegs: this.circuitLegs(),
-      taskName: this.taskName()
+      taskName: this.taskName(),
+      regulation: this.regulation()
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   }
@@ -98,20 +120,49 @@ export class TaskStateService {
   }
 
   private ensureLegDefaults(leg: CircuitLeg): CircuitLeg {
-    const r = this.defaultZoneRadiusM();
+    const reg = this.resolvedRegulation();
+    const r = this.ruleEngine.radiusForLegRole(reg, leg.role);
+    const preset = reg.obsZonePresetByRole[leg.role];
+    const defaultZone =
+      leg.obsZone ?? observationZoneFromPreset(preset, r);
     return {
       ...leg,
-      obsZone: normalizeObservationZone(
-        leg.obsZone ?? defaultObservationZoneForRole(leg.role, r),
-        leg.role,
-        r
-      )
+      obsZone: normalizeObservationZone(defaultZone, leg.role, r)
     };
   }
 
   setDefaultZoneRadiusM(radiusM: number): void {
-    const v = Math.min(50000, Math.max(100, Math.round(radiusM)));
-    this.defaultZoneRadiusM.set(v);
+    this.setRadiiM({ turnpointM: radiusM });
+  }
+
+  setRadiiM(patch: Partial<TaskRuleRadiiM>): void {
+    const reg = this.resolvedRegulation();
+    this.regulation.update(s => ({
+      ...s,
+      overrides: {
+        ...s.overrides,
+        radiiM: { ...reg.radiiM, ...patch }
+      }
+    }));
+    this.saveToStorage();
+  }
+
+  setRegulation(state: TaskRegulationState): void {
+    this.regulation.set(state);
+    this.saveToStorage();
+  }
+
+  setRegulationProfile(profileId: TaskRegulationState['profileId']): void {
+    this.regulation.set({ profileId, overrides: {} });
+    this.saveToStorage();
+  }
+
+  applyRegulationToAllLegs(): void {
+    const legs = this.ruleEngine.applyProfileToLegs(
+      this.circuitLegs(),
+      this.resolvedRegulation()
+    );
+    this.setLegs(legs);
   }
 
   updateLegObsZone(index: number, obsZone: ObservationZoneConfig): void {
@@ -119,7 +170,11 @@ export class TaskStateService {
     if (index < 0 || index >= legs.length) return;
     legs[index] = {
       ...legs[index],
-      obsZone: normalizeObservationZone(obsZone, legs[index].role, this.defaultZoneRadiusM())
+      obsZone: normalizeObservationZone(
+        obsZone,
+        legs[index].role,
+        this.ruleEngine.radiusForLegRole(this.resolvedRegulation(), legs[index].role)
+      )
     };
     this.setLegs(legs);
   }
@@ -134,14 +189,7 @@ export class TaskStateService {
   }
 
   applyDefaultRadiusToAllLegZones(): void {
-    const r = this.defaultZoneRadiusM();
-    const legs = this.circuitLegs().map(leg =>
-      this.ensureLegDefaults({
-        ...leg,
-        obsZone: defaultObservationZoneForRole(leg.role, r)
-      })
-    );
-    this.setLegs(legs);
+    this.applyRegulationToAllLegs();
   }
 
   canSetDeparture(waypointId: string): boolean {
@@ -229,7 +277,10 @@ export class TaskStateService {
       this.ensureLegDefaults({
         waypointId,
         role: 'departure',
-        obsZone: defaultObservationZoneForRole('departure', this.defaultZoneRadiusM())
+        obsZone: observationZoneFromPreset(
+          this.resolvedRegulation().obsZonePresetByRole.departure,
+          this.ruleEngine.radiusForLegRole(this.resolvedRegulation(), 'departure')
+        )
       })
     );
     this.setLegs(legs);
@@ -246,7 +297,10 @@ export class TaskStateService {
       this.ensureLegDefaults({
         waypointId,
         role: 'arrival',
-        obsZone: defaultObservationZoneForRole('arrival', this.defaultZoneRadiusM())
+        obsZone: observationZoneFromPreset(
+          this.resolvedRegulation().obsZonePresetByRole.arrival,
+          this.ruleEngine.radiusForLegRole(this.resolvedRegulation(), 'arrival')
+        )
       })
     );
     this.setLegs(legs);
@@ -259,7 +313,10 @@ export class TaskStateService {
     const leg: CircuitLeg = this.ensureLegDefaults({
       waypointId,
       role: 'turnpoint',
-      obsZone: defaultObservationZoneForRole('turnpoint', this.defaultZoneRadiusM())
+      obsZone: observationZoneFromPreset(
+        this.resolvedRegulation().obsZonePresetByRole.turnpoint,
+        this.ruleEngine.radiusForLegRole(this.resolvedRegulation(), 'turnpoint')
+      )
     });
     if (arrivalIndex >= 0) {
       legs.splice(arrivalIndex, 0, leg);
@@ -334,9 +391,12 @@ export class TaskStateService {
     this.saveToStorage();
   }
 
-  loadTask(legs: CircuitLeg[], name: string): void {
+  loadTask(legs: CircuitLeg[], name: string, regulation?: TaskRegulationState): void {
     this.circuitLegs.set(this.sanitizeLegs([...legs]));
     this.taskName.set(name);
+    if (regulation) {
+      this.regulation.set(regulation);
+    }
     this.saveToStorage();
   }
 

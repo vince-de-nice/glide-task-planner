@@ -1,11 +1,17 @@
-import { describe, it, expect } from 'vitest';
+import { TestBed } from '@angular/core/testing';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { TskWriterService } from './tsk-writer.service';
 import { TaskDeclaration } from '../models/task-declaration.model';
 import { CircuitLeg } from '../models/circuit.model';
 import { Waypoint } from '../models/waypoint.model';
 
 describe('TskWriterService', () => {
-  const writer = new TskWriterService();
+  let writer: TskWriterService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({});
+    writer = TestBed.inject(TskWriterService);
+  });
 
   it('generates task from legs with altitude and line zone', () => {
     const wp: Waypoint = {

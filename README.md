@@ -37,8 +37,21 @@ Ouvrir [http://localhost:4200](http://localhost:4200) → page **Circuit**.
 ## Utilisation
 
 1. **Base CUP** — la base se charge depuis `default.cup` (ou la copie enregistrée dans le navigateur) ; importez un autre `.cup` ou une URL si besoin (barre repliable après chargement)
-2. **Circuit** — ajoutez les points via **Choisir des points** (tiroir latéral), réordonnez la liste par glisser-déposer, nommez la tâche
-3. **Export** — par point du circuit, icône engrenage : **type de zone** (cylindre, ligne départ/arrivée, secteur FAI…) et **altitude MSL** ; rayon par défaut + **Appliquer à tous** ; puis export via **Exporter FLARM** ▾
+2. **Circuit** — choisissez un **règlement** (Club, SeeYou, FAI ligne+PEV, FAI cylindre, Personnalisé), ajoutez les points, réordonnez, nommez la tâche
+3. **Zones** — par point, icône engrenage : type de zone et altitude MSL ; **Appliquer le règlement aux points** pour réinitialiser selon le profil
+4. **Export** — menu **Exporter FLARM** ▾ (CUP avec ligne `Options`, TSK avec PEV si profil FAI, etc.)
+
+## Règlements de tâche
+
+| Profil | Usage |
+|--------|--------|
+| **Club** | Libre ; export possible avec avertissements |
+| **SeeYou standard** | Lignes départ/arrivée, `WpDis=False` |
+| **FAI — Ligne + PEV** | Aérodromes obligatoires, PEV 5–10 min, validation stricte |
+| **FAI — Cylindre départ** | Cylindre ≥ 10 km au départ |
+| **Personnalisé** | Rayons, PEV, NoStart, contraintes ajustables |
+
+**Limites :** l’application prépare et valide les fichiers de déclaration. Le **scoring officiel** (trace IGC, PEV sur l’enregistreur principal, vitesses au départ) reste du ressort du scorer. **FLARM** : waypoints uniquement, sans zones d’observation.
 
 Le premier point **aérodrome** du circuit est le décollage, le dernier aérodrome l’atterrissage ; les points intermédiaires sont des points de virage.
 

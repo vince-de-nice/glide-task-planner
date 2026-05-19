@@ -3,9 +3,6 @@
     <p-toolbar styleClass="map-toolbar">
       <ng-template #start>
         <div class="map-toolbar__group">
-          @if (taskDistanceKm(); as km) {
-            <p-tag [value]="km" severity="info" />
-          }
           <p-button
             label="Centrer tâche"
             icon="pi pi-crosshairs"
@@ -14,24 +11,27 @@
             (onClick)="centerOnTask()"
           />
           <p-button
-            label="Tous les points"
-            icon="pi pi-globe"
+            icon="pi pi-ellipsis-v"
             size="small"
             severity="secondary"
-            (onClick)="centerOnAll()"
+            [text]="true"
+            (onClick)="toolbarMenu.toggle($event)"
+            ariaLabel="Plus d’actions carte"
           />
-          <p-button
-            label="Effacer"
-            icon="pi pi-trash"
-            size="small"
-            [outlined]="true"
-            severity="danger"
-            (onClick)="clearSelection()"
-          />
+          <p-menu #toolbarMenu [popup]="true" [model]="toolbarMenuItems" />
         </div>
       </ng-template>
       <ng-template #end>
         <div class="map-toolbar__controls">
+          <p-button
+            [label]="filtersExpanded() ? 'Filtres ▴' : 'Filtres ▾'"
+            icon="pi pi-filter"
+            size="small"
+            [outlined]="!filtersExpanded()"
+            severity="secondary"
+            (onClick)="toggleFilters()"
+            ariaLabel="Afficher les filtres de types"
+          />
           <label class="map-airspace-switch" for="map-obs-zones-toggle">
             <span class="map-airspace-switch__label">Zones tâche</span>
             <p-toggleswitch
@@ -71,14 +71,6 @@
               styleClass="map-region-select"
             />
           }
-          <p-button
-            icon="pi pi-info-circle"
-            [text]="true"
-            size="small"
-            [pTooltip]="mapHelpTooltip"
-            tooltipPosition="bottom"
-            ariaLabel="Aide carte"
-          />
         </div>
       </ng-template>
     </p-toolbar>
@@ -87,26 +79,28 @@
     }
   </div>
 
-  <div class="map-filters" role="group" aria-label="Afficher sur la carte">
-    @for (filter of typeFilterOptions; track filter.type) {
-      <label
-        class="map-filter-switch"
-        [class.map-filter-switch--off]="!isCatalogTypeVisible(filter.type)"
-        [for]="'map-filter-' + filter.type"
-        [style.--filter-color]="filter.color"
-      >
-        <i [class]="filter.icon" aria-hidden="true"></i>
-        <span class="map-filter-switch__label">{{ filter.label }}</span>
-        <p-toggleswitch
-          [inputId]="'map-filter-' + filter.type"
-          [ngModel]="isCatalogTypeVisible(filter.type)"
-          (ngModelChange)="onCatalogTypeToggle(filter.type, $event)"
-          size="small"
-          [ariaLabel]="'Afficher ' + filter.label"
-        />
-      </label>
-    }
-  </div>
+  @if (filtersExpanded()) {
+    <div class="map-filters" role="group" aria-label="Afficher sur la carte">
+      @for (filter of typeFilterOptions; track filter.type) {
+        <label
+          class="map-filter-switch"
+          [class.map-filter-switch--off]="!isCatalogTypeVisible(filter.type)"
+          [for]="'map-filter-' + filter.type"
+          [style.--filter-color]="filter.color"
+        >
+          <i [class]="filter.icon" aria-hidden="true"></i>
+          <span class="map-filter-switch__label">{{ filter.label }}</span>
+          <p-toggleswitch
+            [inputId]="'map-filter-' + filter.type"
+            [ngModel]="isCatalogTypeVisible(filter.type)"
+            (ngModelChange)="onCatalogTypeToggle(filter.type, $event)"
+            size="small"
+            [ariaLabel]="'Afficher ' + filter.label"
+          />
+        </label>
+      }
+    </div>
+  }
 
   <div
     class="map-container"

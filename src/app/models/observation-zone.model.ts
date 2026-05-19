@@ -31,6 +31,9 @@ export type ObsZonePresetId =
   | 'cylinder_symmetric'
   | 'start_line'
   | 'finish_line'
+  | 'departure_cylinder'
+  | 'arrival_cylinder'
+  | 'start_cylinder_fai'
   | 'sector_to_next'
   | 'sector_fai'
   | 'custom';
@@ -66,6 +69,24 @@ export const OBS_ZONE_PRESETS: ObsZonePresetOption[] = [
     label: 'Ligne d’arrivée',
     description: 'Style 3, Line=1 — vers le point précédent',
     forRoles: ['arrival']
+  },
+  {
+    id: 'departure_cylinder',
+    label: 'Cylindre départ',
+    description: 'Style 0 — cylindre sans ligne (décollage)',
+    forRoles: ['departure']
+  },
+  {
+    id: 'arrival_cylinder',
+    label: 'Cylindre arrivée',
+    description: 'Style 0 — cylindre sans ligne (atterrissage)',
+    forRoles: ['arrival']
+  },
+  {
+    id: 'start_cylinder_fai',
+    label: 'Cylindre FAI départ',
+    description: 'Style 0 — cylindre ≥ 10 km (championnat)',
+    forRoles: ['departure']
   },
   {
     id: 'sector_to_next',
@@ -123,6 +144,16 @@ export function observationZoneFromPreset(
       return { presetId, cupStyle: 2, r1M: r, a1Deg: 180, line: true };
     case 'finish_line':
       return { presetId, cupStyle: 3, r1M: r, a1Deg: 180, line: true };
+    case 'departure_cylinder':
+      return { presetId, cupStyle: 0, r1M: r };
+    case 'arrival_cylinder':
+      return { presetId, cupStyle: 0, r1M: r };
+    case 'start_cylinder_fai':
+      return {
+        presetId,
+        cupStyle: 0,
+        r1M: Math.max(r, 10_000)
+      };
     case 'sector_to_next':
       return { presetId, cupStyle: 2, r1M: r, a1Deg: 90 };
     case 'sector_fai':

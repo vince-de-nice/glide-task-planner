@@ -171,27 +171,30 @@
         } @else if (selectedWaypointIds().length > 0) {
           <p class="decl-circuit__stats">{{ selectedWaypointIds().length }} pt(s)</p>
         }
-        <label class="decl-circuit__task-name">
-          <span class="decl-circuit__task-name-head">
-            <span class="gc-label">Nom de tâche (NEWTASK)</span>
-            <span class="decl-circuit__char-count">{{ taskName().length }}/50</span>
-          </span>
-          <input
-            pInputText
-            fluid
-            pSize="small"
-            [ngModel]="taskName()"
-            (ngModelChange)="onTaskNameChange($event)"
-            placeholder="Circuit_500K"
-            maxlength="50"
-          />
-        </label>
-        <p class="decl-circuit__hint">
-          Décollage et atterrissage sur aérodromes (1<sup>er</sup> / dernier) · distance hors branches déco/attero
-        </p>
       </header>
 
-      <div class="decl-circuit__list-wrap">
+      <nav class="decl-circuit__tabs" aria-label="Sections du circuit">
+        <p-selectButton
+          class="decl-circuit__tabs-select"
+          [options]="circuitTabOptionsUi()"
+          optionLabel="label"
+          optionValue="value"
+          [ngModel]="circuitTab()"
+          (ngModelChange)="setCircuitTab($event)"
+          [allowEmpty]="false"
+          size="small"
+        />
+      </nav>
+
+      <div class="decl-circuit__tabs-body">
+        @if (circuitTab() === 'points') {
+          <div class="decl-circuit__tab-panel" role="tabpanel" aria-label="Points du circuit">
+            @if (circuitLegs().length === 0) {
+              <p class="decl-circuit__hint decl-circuit__hint--tab">
+                Décollage et atterrissage sur aérodromes (1<sup>er</sup> / dernier) · distance hors branches déco/attero
+              </p>
+            }
+            <div class="decl-circuit__list-wrap">
         @if (circuitListItems().length > 0) {
           <ol
             class="decl-circuit-list"
@@ -203,7 +206,25 @@
                 <span class="decl-circuit-list__handle" cdkDragHandle aria-label="Réordonner">
                   <i class="pi pi-arrows-v"></i>
                 </span>
-                <span class="decl-circuit-list__num" aria-hidden="true">{{ i + 1 }}</span>
+                @if (legComplianceIcon(i); as icon) {
+                  <span
+                    class="decl-circuit-list__compliance"
+                    [class.decl-circuit-list__compliance--error]="legComplianceSeverity(i) === 'error'"
+                    [class.decl-circuit-list__compliance--warn]="legComplianceSeverity(i) === 'warn'"
+                    [pTooltip]="legComplianceTooltip(i)"
+                    tooltipPosition="left"
+                  >
+                    <i [class]="icon" aria-hidden="true"></i>
+                  </span>
+                } @else {
+                  <span class="decl-circuit-list__compliance decl-circuit-list__compliance--ok" aria-hidden="true"></span>
+                }
+                <span
+                  class="decl-circuit-list__num"
+                  [class.decl-circuit-list__num--error]="legComplianceSeverity(i) === 'error'"
+                  [class.decl-circuit-list__num--warn]="legComplianceSeverity(i) === 'warn'"
+                  aria-hidden="true"
+                >{{ i + 1 }}</span>
                 <button
                   type="button"
                   class="decl-circuit-list__body"
@@ -235,9 +256,7 @@
                         </span>
                       }
                     </span>
-                    <span class="decl-circuit-list__zone" [title]="legZoneSummary(item)">
-                      {{ legZoneSummary(item) }}
-                    </span>
+                    <span class="decl-circuit-list__zone">{{ legZoneShort(item) }}</span>
                   </span>
                 </button>
                 <div class="decl-circuit-list__actions">
@@ -275,9 +294,9 @@
             Aucun point dans la tâche — ajoutez-en depuis la base ou la carte.
           </p>
         }
-      </div>
+            </div>
 
-      <div class="decl-circuit__add">
+            <div class="decl-circuit__add">
         <p-button
           label="Ajouter des points"
           icon="pi pi-plus"
@@ -288,69 +307,219 @@
           [pTooltip]="waypoints().length === 0 ? 'Chargez d\'abord une base CUP' : ''"
           tooltipPosition="top"
         />
-      </div>
-
-      <footer class="decl-circuit__foot">
-        <div class="decl-circuit__export-options">
-          <div class="decl-circuit__export-radius">
-            <div class="decl-circuit__radius-field">
-              <label class="decl-circuit__radius-label" for="export-radius">Rayon défaut (m)</label>
-              <p-inputNumber
-                inputId="export-radius"
-                styleClass="decl-circuit__radius-input"
-                [ngModel]="exportRadiusM()"
-                (ngModelChange)="onExportRadiusChange(+$event || 400)"
-                [min]="100"
-                [max]="50000"
-                [step]="50"
-                size="small"
-                [showButtons]="true"
-              />
             </div>
-            <p-button
-              styleClass="decl-circuit__apply-radius"
-              label="Appliquer à tous"
-              [outlined]="true"
-              size="small"
+          </div>
+        }
+
+        @if (circuitTab() === 'regulation') {
+          <div
+            class="decl-circuit__tab-panel decl-circuit__tab-panel--regulation"
+            role="tabpanel"
+            aria-label="Règlement"
+          >
+            <div
+              class="decl-circuit__status-card"
+              [class.decl-circuit__status-card--ok]="regulationStatus().kind === 'ok'"
+              [class.decl-circuit__status-card--warn]="regulationStatus().kind === 'warn'"
+              [class.decl-circuit__status-card--error]="regulationStatus().kind === 'error'"
+            >
+              <i
+                class="decl-circuit__status-icon pi"
+                [class.pi-check-circle]="regulationStatus().kind === 'ok'"
+                [class.pi-exclamation-triangle]="regulationStatus().kind === 'warn'"
+                [class.pi-times-circle]="regulationStatus().kind === 'error'"
+                aria-hidden="true"
+              ></i>
+              <span>{{ regulationStatus().label }}</span>
+            </div>
+
+            @if (ruleValidation().errors.length > 0) {
+              <section class="decl-circuit__issue-block decl-circuit__issue-block--error" aria-label="Erreurs">
+                <h3 class="decl-circuit__issue-title">Erreurs</h3>
+                <ul class="decl-circuit__issue-list">
+                  @for (err of ruleValidation().errors; track err) {
+                    <li>{{ err }}</li>
+                  }
+                </ul>
+              </section>
+            }
+
+            @if (ruleValidation().warnings.length > 0) {
+              <section class="decl-circuit__issue-block decl-circuit__issue-block--warn" aria-label="Avertissements">
+                <h3 class="decl-circuit__issue-title">Avertissements</h3>
+                <ul class="decl-circuit__issue-list">
+                  @for (warn of ruleValidation().warnings; track warn) {
+                    <li>{{ warn }}</li>
+                  }
+                </ul>
+              </section>
+            }
+
+            @if (legComplianceRows().length > 0) {
+              <section class="decl-circuit__leg-check" aria-label="Points concernés">
+                <h3 class="decl-circuit__issue-title">Points du circuit</h3>
+                <ul class="decl-circuit__leg-check-list">
+                  @for (row of legComplianceRows(); track row.index) {
+                    <li
+                      class="decl-circuit__leg-check-item"
+                      [class.decl-circuit__leg-check-item--error]="row.severity === 'error'"
+                      [class.decl-circuit__leg-check-item--warn]="row.severity === 'warning'"
+                    >
+                      <span class="decl-circuit__leg-check-num">{{ row.index + 1 }}</span>
+                      <span class="decl-circuit__leg-check-name">{{ row.name }}</span>
+                      <span class="decl-circuit__leg-check-msg">{{ row.message }}</span>
+                    </li>
+                  }
+                </ul>
+              </section>
+            }
+
+            <app-task-regulation-panel
+              [embeddedInTab]="true"
               [disabled]="circuitLegs().length === 0"
-              (onClick)="applyDefaultRadiusToAllZones()"
-              pTooltip="Réinitialise chaque point avec le préréglage de zone selon son rôle"
-              tooltipPosition="top"
             />
           </div>
-          <p-splitButton
-            styleClass="decl-circuit__download-split"
-            label="Exporter FLARM"
-            icon="pi pi-download"
-            severity="primary"
-            [model]="exportMenuItems()"
-            [disabled]="selectedWaypointIds().length === 0"
-            (onClick)="downloadFlarm()"
-          />
-        </div>
-        <p class="decl-circuit__flarm-hint">
-          FLARM : redémarrer l’appareil après copie sur SD/USB. Autres formats via le menu ▾.
-        </p>
-        <div class="decl-circuit__links">
-          <p-button label="Pilote & planeur" [text]="true" size="small" (onClick)="openPilotDialog()" />
-          <p-button label="Mes circuits" [text]="true" size="small" (onClick)="openCircuitsDialog()" />
-          <p-button
-            label="Aperçu export"
-            [text]="true"
-            size="small"
-            [disabled]="selectedWaypointIds().length === 0"
-            (onClick)="openPreviewDialog()"
-          />
-        </div>
-        <p-button
-          label="Vider la tâche"
-          [text]="true"
-          size="small"
-          severity="danger"
-          [disabled]="selectedWaypointIds().length === 0"
-          (onClick)="clearTaskWithConfirm()"
-        />
-      </footer>
+        }
+
+        @if (circuitTab() === 'export') {
+          <div class="decl-circuit__tab-panel decl-circuit__tab-panel--export" role="tabpanel" aria-label="Export">
+            <div class="decl-circuit__status-card"
+              [class.decl-circuit__status-card--ok]="!exportBlocked() && selectedWaypointIds().length > 0"
+              [class.decl-circuit__status-card--error]="exportBlocked()"
+              [class.decl-circuit__status-card--muted]="selectedWaypointIds().length === 0"
+            >
+              <i
+                class="decl-circuit__status-icon pi"
+                [class.pi-check-circle]="!exportBlocked() && selectedWaypointIds().length > 0"
+                [class.pi-times-circle]="exportBlocked()"
+                [class.pi-minus-circle]="selectedWaypointIds().length === 0 && !exportBlocked()"
+                aria-hidden="true"
+              ></i>
+              <span>
+                @if (selectedWaypointIds().length === 0) {
+                  Ajoutez des points pour exporter
+                } @else if (exportBlocked()) {
+                  Export bloqué — règlement non respecté
+                } @else {
+                  Prêt à exporter · {{ resolvedRegulation().label }}
+                }
+              </span>
+            </div>
+
+            @if (exportBlocked()) {
+              <p-button
+                label="Corriger le règlement"
+                icon="pi pi-sliders-h"
+                size="small"
+                [outlined]="true"
+                styleClass="decl-circuit__goto-reg"
+                (onClick)="goToRegulationTab()"
+              />
+            }
+
+            <section class="decl-circuit__export-section">
+              <h3 class="decl-circuit__export-section-title">Tâche</h3>
+              <label class="decl-circuit__task-name">
+                <span class="decl-circuit__task-name-head">
+                  <span class="gc-label">Nom de tâche (NEWTASK)</span>
+                  <span class="decl-circuit__char-count">{{ taskName().length }}/50</span>
+                </span>
+                <input
+                  pInputText
+                  fluid
+                  pSize="small"
+                  [ngModel]="taskName()"
+                  (ngModelChange)="onTaskNameChange($event)"
+                  placeholder="Circuit_500K"
+                  maxlength="50"
+                />
+              </label>
+              @if (distanceResult(); as d) {
+                <p class="decl-circuit__export-meta">
+                  {{ d.taskDistance.toFixed(1) }} km tâche
+                  @if (d.totalDistance > d.taskDistance + 0.05) {
+                    · {{ d.totalDistance.toFixed(1) }} km total
+                  }
+                  · {{ selectedWaypointIds().length }} point(s)
+                </p>
+              }
+            </section>
+
+            <section class="decl-circuit__export-section">
+              <div class="decl-circuit__export-section-head">
+                <h3 class="decl-circuit__export-section-title">Pilote et planeur</h3>
+                <p-button
+                  label="Modifier"
+                  icon="pi pi-user-edit"
+                  [text]="true"
+                  size="small"
+                  (onClick)="openPilotDialog()"
+                />
+              </div>
+              @if (pilotSummary(); as summary) {
+                <p class="decl-circuit__pilot-summary">{{ summary }}</p>
+                <p class="decl-circuit__export-meta">LOGINT {{ flarmProfile().logInterval }} s</p>
+              } @else {
+                <p class="decl-circuit__pilot-summary decl-circuit__pilot-summary--empty">
+                  Non renseigné — requis pour un export FLARM complet
+                </p>
+              }
+            </section>
+
+            <section class="decl-circuit__export-section">
+              <h3 class="decl-circuit__export-section-title">Formats de fichier</h3>
+              <div class="decl-circuit__export-grid">
+                @for (action of exportFormatActions; track action.format) {
+                  <button
+                    type="button"
+                    class="decl-circuit__export-card"
+                    [class.decl-circuit__export-card--primary]="action.primary"
+                    [disabled]="selectedWaypointIds().length === 0 || exportBlocked()"
+                    (click)="action.primary ? downloadFlarm() : exportTask(action.format)"
+                  >
+                    <i [class]="action.icon + ' decl-circuit__export-card-icon'" aria-hidden="true"></i>
+                    <span class="decl-circuit__export-card-label">{{ action.label }}</span>
+                    <span class="decl-circuit__export-card-detail">{{ action.detail }}</span>
+                  </button>
+                }
+              </div>
+              <p class="decl-circuit__flarm-hint">
+                FLARM : redémarrer l’appareil après copie sur SD/USB.
+              </p>
+            </section>
+
+            <section class="decl-circuit__export-section decl-circuit__export-section--actions">
+              <h3 class="decl-circuit__export-section-title">Bibliothèque</h3>
+              <div class="decl-circuit__export-actions">
+                <p-button
+                  label="Mes circuits"
+                  icon="pi pi-bookmark"
+                  size="small"
+                  [outlined]="true"
+                  (onClick)="openCircuitsDialog()"
+                />
+                <p-button
+                  label="Aperçu export"
+                  icon="pi pi-eye"
+                  size="small"
+                  [outlined]="true"
+                  [disabled]="selectedWaypointIds().length === 0"
+                  (onClick)="openPreviewDialog()"
+                />
+                <p-button
+                  label="Vider la tâche"
+                  icon="pi pi-trash"
+                  size="small"
+                  severity="danger"
+                  [outlined]="true"
+                  [disabled]="selectedWaypointIds().length === 0"
+                  (onClick)="clearTaskWithConfirm()"
+                />
+              </div>
+            </section>
+          </div>
+        }
+      </div>
     </section>
   </div>
 </div>
@@ -566,6 +735,10 @@
   [style]="{ width: 'min(100vw - 1rem, 640px)' }"
   [contentStyle]="{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }"
 >
+  <p class="decl-preview__reg">{{ resolvedRegulation().label }}</p>
+  @if (ruleValidation().errors.length > 0) {
+    <p-message severity="error">{{ ruleValidation().errors.join(' · ') }}</p-message>
+  }
   <p-select
     [options]="previewFormatOptions"
     optionLabel="label"
@@ -590,7 +763,7 @@
       label="Télécharger"
       icon="pi pi-download"
       (onClick)="exportTask(previewFormat()); closePreviewDialog()"
-      [disabled]="selectedWaypointIds().length === 0"
+      [disabled]="selectedWaypointIds().length === 0 || exportBlocked()"
     />
     <p-button label="Fermer" [outlined]="true" (onClick)="closePreviewDialog()" />
   </div>
@@ -602,7 +775,8 @@
   [leg]="legZoneEditLeg() ?? null"
   [waypoint]="legZoneEditWaypoint() ?? null"
   [legIndex]="legZoneEditIndex()"
-  [defaultRadiusM]="exportRadiusM()"
+  [defaultRadiusM]="legZoneDefaultRadiusM()"
+  [allowedPresetIds]="allowedPresetsForLeg(legZoneEditIndex())"
   (saved)="onLegZoneSaved($event)"
 />
 

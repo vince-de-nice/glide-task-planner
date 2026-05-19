@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { CircuitLeg, CircuitLegRole } from '../models/circuit.model';
 import {
   normalizeObservationZone,
@@ -11,21 +11,28 @@ import {
   formatTskObservationZoneTag,
   mapObservationZoneToTsk
 } from '../utils/obs-zone-tsk.util';
-import { DEFAULT_TASK_EXPORT_RADIUS_M } from '../models/task-declaration.model';
+import {
+  DEFAULT_TASK_EXPORT_RADIUS_M,
+  ResolvedTaskRegulation
+} from '../models/task-declaration.model';
+import { TaskRuleEngineService } from './task-rule-engine.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class TskWriterService {
+  private ruleEngine = inject(TaskRuleEngineService);
+
   /** Export aligné sur les jambes du circuit (une zone par point de tâche). */
   generateFromLegs(
     legs: CircuitLeg[],
     waypointsById: Map<string, Waypoint>,
     taskName: string,
-    defaultRadiusM = DEFAULT_TASK_EXPORT_RADIUS_M
+    defaultRadiusM = DEFAULT_TASK_EXPORT_RADIUS_M,
+    regulation?: ResolvedTaskRegulation
   ): string {
     const lines: string[] = ['<?xml version="1.0" encoding="UTF-8"?>'];
-    lines.push('<Task type="RT">');
+    lines.push(this.buildTaskOpenTag(regulation));
 
     for (const leg of legs) {
       const wp = waypointsById.get(leg.waypointId);
@@ -33,10 +40,14 @@ export class TskWriterService {
       const pointType = this.tskPointTypeFromLegRole(leg.role);
       if (!pointType) continue;
 
+      const r =
+        regulation != null
+          ? this.ruleEngine.radiusForLegRole(regulation, leg.role)
+          : defaultRadiusM;
       const obsZone = normalizeObservationZone(
-        leg.obsZone ?? defaultObservationZoneForRole(leg.role, defaultRadiusM),
+        leg.obsZone ?? defaultObservationZoneForRole(leg.role, r),
         leg.role,
-        defaultRadiusM
+        r
       );
       const elev = formatTskAltitude(resolveLegElevationM(wp, leg));
       const lat = this.formatCoord(wp.latitude);
@@ -179,5 +190,21 @@ export class TskWriterService {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  private buildTaskOpenTag(regulation?: ResolvedTaskRegulation): string {
+    if (!regulation) {
+      return '<Task type="RT">';
+    }
+    const attrs: string[] = ['type="RT"'];
+    const fai = regulation.startFai;
+    if (fai.pevEnabled) {
+      attrs.push(`pev_start_wait_minutes="${fai.pevWaitMin}"`);
+      attrs.push(`pev_start_window_minutes="${fai.pevWindowMin}"`);
+    }
+    if (regulation.cupOptions.noStart) {
+      attrs.push(`start_open_time="${this.escapeXml(regulation.cupOptions.noStart)}"`);
+    }
+    return `<Task ${attrs.join(' ')}>`;
   }
 }

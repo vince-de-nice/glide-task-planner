@@ -11,6 +11,7 @@ import { FlarmConfigService, flarmCfgFilename } from './flarm-config.service';
 import { CupDatabaseService } from './cup-database.service';
 import { TaskDeclarationResolver } from './task-declaration.resolver';
 import { TaskValidationService, TaskValidationResult } from './task-validation.service';
+import { TaskRuleEngineService } from './task-rule-engine.service';
 import { IgcCRecordWriterService } from './igc-c-record-writer.service';
 import { TskWriterService } from './tsk-writer.service';
 import { CupxWriterService } from './cupx-writer.service';
@@ -44,14 +45,21 @@ export class TaskExportService {
   private igcWriter = inject(IgcCRecordWriterService);
   private tskWriter = inject(TskWriterService);
   private cupxWriter = inject(CupxWriterService);
+  private ruleEngine = inject(TaskRuleEngineService);
 
   buildExport(
     format: TaskExportFormat,
     ctx: TaskExportContext
   ): TaskExportOutput | { error: string } {
+    const regulation =
+      ctx.options?.regulation ??
+      this.ruleEngine.resolveRegulation();
+
     const options: TaskExportOptions = {
-      defaultRadiusM: ctx.options?.defaultRadiusM ?? DEFAULT_TASK_EXPORT_RADIUS_M,
-      declarationTimeUtc: ctx.options?.declarationTimeUtc
+      defaultRadiusM:
+        ctx.options?.defaultRadiusM ?? regulation.radiiM.turnpointM,
+      declarationTimeUtc: ctx.options?.declarationTimeUtc,
+      regulation
     };
 
     const wpMap = new Map(ctx.waypoints.map(w => [w.id, w]));
@@ -70,6 +78,8 @@ export class TaskExportService {
     const validation = this.validation.validateForExport(
       ctx.legs,
       declaration,
+      wpMap,
+      regulation,
       format === 'cup' || format === 'cupx' ? cupNames : undefined
     );
 
@@ -77,7 +87,7 @@ export class TaskExportService {
       return { error: validation.errors.join(' ') };
     }
 
-    const extraWarnings: string[] = [];
+    const extraWarnings: string[] = [...this.ruleEngine.complianceSummary(regulation)];
     let content = '';
 
     switch (format) {
@@ -102,7 +112,8 @@ export class TaskExportService {
           ctx.legs,
           wpMap,
           ctx.taskName,
-          options.defaultRadiusM
+          options.defaultRadiusM,
+          regulation
         );
         break;
       case 'igc-crecords': {

@@ -1,0 +1,202 @@
+<section
+  class="task-reg"
+  [class.task-reg--compact]="compact()"
+  [class.task-reg--embedded]="embeddedInTab()"
+  aria-label="Règlement de la tâche"
+>
+  <div class="task-reg__head">
+    <label class="gc-label" for="task-reg-profile">Règlement appliqué</label>
+    <p-select
+      inputId="task-reg-profile"
+      styleClass="task-reg__profile-select"
+      [options]="profileOptions"
+      optionLabel="label"
+      optionValue="value"
+      [ngModel]="profileId()"
+      (ngModelChange)="onProfileChange($event)"
+      [disabled]="disabled()"
+      placeholder="Choisir un règlement"
+    >
+      <ng-template let-item pTemplate="item">
+        <div class="task-reg__profile-item">
+          <strong>{{ item.label }}</strong>
+          <span class="task-reg__profile-desc">{{ item.description }}</span>
+        </div>
+      </ng-template>
+    </p-select>
+    <p class="task-reg__summary">{{ regulationSummary() }}</p>
+    @if (embeddedInTab() || !compact()) {
+      <p class="task-reg__hint">{{ resolved().description }}</p>
+    }
+  </div>
+
+  @if (embeddedInTab()) {
+    <div class="task-reg__body">
+      <div class="task-reg__section">
+        <h3 class="task-reg__section-title">Rayons des zones (m)</h3>
+        <ng-container *ngTemplateOutlet="radiiFields" />
+      </div>
+
+      @if (canEditAdvanced()) {
+        <div class="task-reg__section">
+          <h3 class="task-reg__section-title">Départ et options CUP</h3>
+          <ng-container *ngTemplateOutlet="advancedFields" />
+        </div>
+      }
+
+      <p-button
+        label="Appliquer le règlement aux points"
+        icon="pi pi-sync"
+        size="small"
+        [outlined]="true"
+        [disabled]="disabled()"
+        (onClick)="applyRegulation()"
+        styleClass="task-reg__apply"
+      />
+
+      <aside class="task-reg__info-box" role="note">
+        <i class="pi pi-info-circle" aria-hidden="true"></i>
+        <p>{{ scoringInfoTooltip }}</p>
+      </aside>
+    </div>
+  } @else {
+    <p-accordion [multiple]="false" value="">
+      <p-accordion-panel value="0">
+        <p-accordion-header>
+          <span class="task-reg__accordion-title">Paramètres du règlement</span>
+          <p-button
+            icon="pi pi-info-circle"
+            [text]="true"
+            size="small"
+            styleClass="task-reg__info-btn"
+            [pTooltip]="scoringInfoTooltip"
+            tooltipPosition="left"
+            (onClick)="$event.stopPropagation()"
+            ariaLabel="Limites et scoring"
+          />
+        </p-accordion-header>
+        <p-accordion-content>
+          <ng-container *ngTemplateOutlet="radiiFields" />
+          @if (canEditAdvanced()) {
+            <ng-container *ngTemplateOutlet="advancedFields" />
+          }
+          <p-button
+            label="Appliquer le règlement aux points"
+            icon="pi pi-sync"
+            size="small"
+            [outlined]="true"
+            [disabled]="disabled()"
+            (onClick)="applyRegulation()"
+            styleClass="task-reg__apply"
+          />
+        </p-accordion-content>
+      </p-accordion-panel>
+    </p-accordion>
+  }
+</section>
+
+<ng-template #radiiFields>
+  <div class="task-reg__grid">
+    <div class="task-reg__field">
+      <span class="gc-label">Rayon départ (m)</span>
+      <p-inputNumber
+        [ngModel]="radiiDeparture()"
+        (ngModelChange)="onRadiiDeparture(+$event || 400)"
+        [min]="100"
+        [max]="50000"
+        [step]="50"
+        [disabled]="disabled() || !canEditAdvanced()"
+        size="small"
+      />
+    </div>
+    <div class="task-reg__field">
+      <span class="gc-label">Rayon virage (m)</span>
+      <p-inputNumber
+        [ngModel]="radiiTurn()"
+        (ngModelChange)="onRadiiTurn(+$event || 400)"
+        [min]="100"
+        [max]="50000"
+        [step]="50"
+        [disabled]="disabled()"
+        size="small"
+      />
+    </div>
+    <div class="task-reg__field">
+      <span class="gc-label">Rayon arrivée (m)</span>
+      <p-inputNumber
+        [ngModel]="radiiArrival()"
+        (ngModelChange)="onRadiiArrival(+$event || 400)"
+        [min]="100"
+        [max]="50000"
+        [step]="50"
+        [disabled]="disabled() || !canEditAdvanced()"
+        size="small"
+      />
+    </div>
+  </div>
+</ng-template>
+
+<ng-template #advancedFields>
+  <div class="task-reg__row">
+    <span class="gc-label">Type de départ</span>
+    <p-selectButton
+      [options]="startKindOptions"
+      optionLabel="label"
+      optionValue="value"
+      [ngModel]="startKind()"
+      (ngModelChange)="onStartKind($event)"
+      [disabled]="disabled()"
+      size="small"
+    />
+  </div>
+
+  <div class="task-reg__field">
+    <span class="gc-label">Ouverture start (NoStart, HH:MM:SS)</span>
+    <input
+      pInputText
+      class="gc-input gc-input--sm"
+      [ngModel]="noStart()"
+      (ngModelChange)="onNoStart($event)"
+      placeholder="12:30:00"
+      [disabled]="disabled()"
+    />
+  </div>
+
+  <div class="task-reg__pev">
+    <p-checkbox
+      [binary]="true"
+      [ngModel]="pevEnabled()"
+      (ngModelChange)="onPevEnabled($event)"
+      inputId="task-reg-pev"
+      [disabled]="disabled()"
+    />
+    <label for="task-reg-pev">PEV (Annexe A §7.4.3)</label>
+  </div>
+
+  @if (pevEnabled()) {
+    <div class="task-reg__grid task-reg__grid--pev">
+      <div class="task-reg__field">
+        <span class="gc-label">PEV wait (min)</span>
+        <p-inputNumber
+          [ngModel]="pevWait()"
+          (ngModelChange)="onPevWait(+$event || 5)"
+          [min]="5"
+          [max]="10"
+          [disabled]="disabled()"
+          size="small"
+        />
+      </div>
+      <div class="task-reg__field">
+        <span class="gc-label">PEV window (min)</span>
+        <p-inputNumber
+          [ngModel]="pevWindow()"
+          (ngModelChange)="onPevWindow(+$event || 10)"
+          [min]="5"
+          [max]="10"
+          [disabled]="disabled()"
+          size="small"
+        />
+      </div>
+    </div>
+  }
+</ng-template>

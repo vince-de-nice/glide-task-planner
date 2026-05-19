@@ -1,6 +1,7 @@
 import { CircuitLegRole } from './circuit.model';
 import { ObservationZoneConfig } from './observation-zone.model';
 import { FlarmProfile } from './flarm-profile.model';
+import { TaskRegulationState } from './task-rule-profile.model';
 import { WaypointType } from './waypoint.model';
 
 /** Point de passage figé dans un circuit (réutilisable sur un autre poste / pilote). */
@@ -24,6 +25,7 @@ export interface SavedCircuit {
   /** Nom affiché dans la bibliothèque (ex. « 500 km Vinon ») */
   label: string;
   taskName: string;
+  regulation?: TaskRegulationState;
   profile: FlarmProfile;
   waypoints: WaypointSnapshot[];
   /** @deprecated */
@@ -35,7 +37,7 @@ export interface SavedCircuit {
 }
 
 export interface SavedCircuitExport {
-  version: 1;
+  version: 1 | 2;
   exportedAt: string;
   circuits: SavedCircuit[];
 }

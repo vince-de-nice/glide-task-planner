@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { DEFAULT_FLARM_PROFILE, FlarmProfile } from '../models/flarm-profile.model';
 import { CircuitLeg } from '../models/circuit.model';
 import { SavedCircuit, SavedCircuitExport, WaypointSnapshot } from '../models/saved-circuit.model';
+import { TaskRegulationState } from '../models/task-rule-profile.model';
 import { Waypoint } from '../models/waypoint.model';
 import { TaskStateService } from './task-state.service';
 import { WaypointService } from './waypoint.service';
@@ -104,6 +105,7 @@ export class SavedCircuitService {
     circuitLegs: CircuitLeg[];
     sourceUrl?: string | null;
     notes?: string;
+    regulation?: TaskRegulationState;
     updateId?: string;
   }): SavedCircuit {
     const snapshots = input.circuitLegs
@@ -134,6 +136,7 @@ export class SavedCircuitService {
         waypoints: snapshots,
         sourceUrl: input.sourceUrl ?? existing.sourceUrl,
         notes: input.notes?.trim() || existing.notes,
+        regulation: input.regulation ?? existing.regulation,
         updatedAt: now
       };
 
@@ -151,6 +154,7 @@ export class SavedCircuitService {
       waypoints: snapshots,
       sourceUrl: input.sourceUrl ?? null,
       notes: input.notes?.trim(),
+      regulation: input.regulation,
       createdAt: now,
       updatedAt: now
     };
@@ -169,6 +173,7 @@ export class SavedCircuitService {
     circuitLegs: CircuitLeg[];
     taskName: string;
     profile: FlarmProfile;
+    regulation?: TaskRegulationState;
   } | null {
     const circuit = this.circuits().find(c => c.id === circuitId);
     if (!circuit) return null;
@@ -190,7 +195,8 @@ export class SavedCircuitService {
     return {
       circuitLegs,
       taskName: circuit.taskName,
-      profile: { ...circuit.profile }
+      profile: { ...circuit.profile },
+      regulation: circuit.regulation
     };
   }
 
