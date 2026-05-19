@@ -13,6 +13,7 @@ import { Waypoint } from '../../models/waypoint.model';
 import {
   applyCupZoneParamVisibility,
   CUP_STYLE_LABELS,
+  CupZoneParamKey,
   cupZoneParamVisibility,
   OBS_ZONE_PRESETS,
   ObsZonePresetId,
@@ -108,6 +109,31 @@ export class CircuitLegZoneDialogComponent {
       return formatElevationDisplay(this.elevationM()!);
     }
     return formatElevationDisplay(resolveLegElevationM(wp, leg));
+  });
+
+  private static readonly CUP_PARAM_LABELS: Record<CupZoneParamKey, string> = {
+    style: 'Style',
+    r1: 'R1',
+    a1: 'A1',
+    r2: 'R2',
+    a2: 'A2',
+    a12: 'A12',
+    line: 'Line'
+  };
+
+  readonly presetHint = computed(() => {
+    const opt = this.presetOptions().find(p => p.id === this.presetId());
+    if (!opt) return '';
+    if (this.presetId() !== 'custom') {
+      return opt.description;
+    }
+    const vis = this.paramVisibility();
+    const keys = (Object.keys(CircuitLegZoneDialogComponent.CUP_PARAM_LABELS) as CupZoneParamKey[])
+      .filter(k => vis[k])
+      .map(k => CircuitLegZoneDialogComponent.CUP_PARAM_LABELS[k]);
+    return keys.length
+      ? `Paramètres modifiables : ${keys.join(', ')}.`
+      : opt.description;
   });
 
   readonly paramVisibility = computed(() => {
@@ -219,7 +245,21 @@ export class CircuitLegZoneDialogComponent {
   }
 
   onA1Change(value: number | null | undefined): void {
-    this.a1Deg.set(value != null && Number.isFinite(value) ? Math.round(value) : null);
+    const a1 = value != null && Number.isFinite(value) ? Math.round(value) : null;
+    this.a1Deg.set(a1);
+    if (a1 == null || a1 <= 0) {
+      this.r2M.set(null);
+      this.a2Deg.set(null);
+      this.a12Deg.set(null);
+    }
+    this.presetId.set('custom');
+  }
+
+  onCupStyleChange(value: 0 | 1 | 2 | 3 | 4): void {
+    this.cupStyle.set(value);
+    if (value !== 0) {
+      this.a12Deg.set(null);
+    }
     this.presetId.set('custom');
   }
 
@@ -234,7 +274,11 @@ export class CircuitLegZoneDialogComponent {
   }
 
   onOptionalRadiusChange(value: number | null | undefined): void {
-    this.r2M.set(value != null && Number.isFinite(value) && value > 0 ? Math.round(value) : null);
+    const r2 = value != null && Number.isFinite(value) && value > 0 ? Math.round(value) : null;
+    this.r2M.set(r2);
+    if (r2 == null) {
+      this.a2Deg.set(null);
+    }
     this.presetId.set('custom');
   }
 

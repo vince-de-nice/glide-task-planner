@@ -52,18 +52,90 @@ export interface CupParamLegendItem {
   hint: string;
 }
 
+export interface CupDiagramLabel {
+  x: number;
+  y: number;
+  text: string;
+  anchor?: 'start' | 'middle' | 'end';
+  /** Libellé fixe (ex. « N ») — non déplacé par la séparation. */
+  pinned?: boolean;
+}
+
 export interface ObsZoneCupDiagramView {
   params: CupParamLegendItem[];
   circles: CupDiagramCircle[];
   arcs: CupDiagramArc[];
   lines: CupDiagramLine[];
-  labels: { x: number; y: number; text: string; anchor?: 'start' | 'middle' | 'end' }[];
+  labels: CupDiagramLabel[];
   styleArrow?: CupDiagramLine;
 }
+
+const VIEWBOX_BOUNDS = { minX: 10, maxX: 210, minY: 11, maxY: 142 };
+const LABEL_MIN_DISTANCE = 20;
 
 function polar(bearingDeg: number, radius: number): [number, number] {
   const rad = (bearingDeg * Math.PI) / 180;
   return [CX + radius * Math.sin(rad), CY - radius * Math.cos(rad)];
+}
+
+function offsetFrom(x: number, y: number, bearingDeg: number, distance: number): [number, number] {
+  const rad = (bearingDeg * Math.PI) / 180;
+  return [x + distance * Math.sin(rad), y - distance * Math.cos(rad)];
+}
+
+/** Empile des libellés le long du cap (du centre vers l’extérieur). */
+function pushLabelsAlongBearing(
+  labels: CupDiagramLabel[],
+  bearingDeg: number,
+  startRadius: number,
+  texts: string[],
+  step = 11
+): void {
+  texts.forEach((text, i) => {
+    const [x, y] = polar(bearingDeg, startRadius + i * step);
+    labels.push({ x, y, text, anchor: 'middle' });
+  });
+}
+
+/** Écarte les libellés qui se chevauchent (sauf libellés épinglés). */
+export function separateDiagramLabels(
+  labels: CupDiagramLabel[],
+  minDistance = LABEL_MIN_DISTANCE,
+  bounds = VIEWBOX_BOUNDS
+): void {
+  const movable = labels.filter(l => !l.pinned);
+  const maxIter = 16;
+
+  for (let iter = 0; iter < maxIter; iter++) {
+    let moved = false;
+    for (let i = 0; i < movable.length; i++) {
+      for (let j = i + 1; j < movable.length; j++) {
+        const a = movable[i];
+        const b = movable[j];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const d = Math.hypot(dx, dy);
+        if (d >= minDistance || d < 0.01) {
+          continue;
+        }
+        const push = (minDistance - d) / 2;
+        const nx = dx / d;
+        const ny = dy / d;
+        a.x -= nx * push;
+        a.y -= ny * push;
+        b.x += nx * push;
+        b.y += ny * push;
+        moved = true;
+      }
+    }
+    for (const l of movable) {
+      l.x = Math.max(bounds.minX, Math.min(bounds.maxX, l.x));
+      l.y = Math.max(bounds.minY, Math.min(bounds.maxY, l.y));
+    }
+    if (!moved) {
+      break;
+    }
+  }
 }
 
 function sectorPathD(
@@ -173,11 +245,13 @@ export function buildObsZoneCupDiagram(
 ): ObsZoneCupDiagramView {
   const axisBearing = referenceBearingDeg;
   const visibility = cupZoneParamVisibility(zone, { legRole });
-  const params = buildLegend(zone, axisBearing).filter(p => visibility[p.key]);
+  const params = buildLegend(zone, axisBearing)
+    .filter(p => visibility[p.key])
+    .filter(p => p.active || p.key === 'style' || p.key === 'r1');
   const circles: CupDiagramCircle[] = [];
   const arcs: CupDiagramArc[] = [];
   const lines: CupDiagramLine[] = [];
-  const labels: ObsZoneCupDiagramView['labels'] = [];
+  const labels: CupDiagramLabel[] = [];
 
   const hasA1 = zone.a1Deg != null && zone.a1Deg > 0 && zone.a1Deg < 360;
   const hasR2 = zone.r2M != null && zone.r2M > 0;
@@ -221,14 +295,10 @@ export function buildObsZoneCupDiagram(
       label: `A1 ${zone.a1Deg}°`,
       paramKey: 'a1'
     });
-    const [ax, ay] = polar(axisBearing, R1_DRAW + 10);
-    labels.push({ x: ax, y: ay, text: `axe ${Math.round(axisBearing)}°`, anchor: 'middle' });
-    labels.push({
-      x: CX,
-      y: CY + R1_DRAW + 12,
-      text: `A1=${zone.a1Deg}° (±${halfA1}°)`,
-      anchor: 'middle'
-    });
+    pushLabelsAlongBearing(labels, axisBearing, R1_DRAW + 10, [
+      `axe ${Math.round(axisBearing)}°`,
+      `A1=${zone.a1Deg}° (±${halfA1}°)`
+    ]);
   }
 
   if (hasR2 && !isSector) {
@@ -264,9 +334,10 @@ export function buildObsZoneCupDiagram(
       strokeDasharray: '3 2',
       paramKey: 'a12'
     });
+    const [lx, ly] = offsetFrom(a12x, a12y, (zone.a12Deg + 90) % 360, 12);
     labels.push({
-      x: a12x,
-      y: a12y - 6,
+      x: lx,
+      y: ly,
       text: `A12=${zone.a12Deg}°`,
       anchor: 'middle'
     });
@@ -299,7 +370,7 @@ export function buildObsZoneCupDiagram(
     paramKey: 'style'
   };
 
-  labels.push({ x: CX, y: 12, text: 'N', anchor: 'middle' });
+  labels.push({ x: CX, y: 12, text: 'N', anchor: 'middle', pinned: true });
   lines.push({
     x1: CX,
     y1: CY - 62,
@@ -317,6 +388,8 @@ export function buildObsZoneCupDiagram(
       anchor: 'start'
     });
   }
+
+  separateDiagramLabels(labels);
 
   return {
     params,

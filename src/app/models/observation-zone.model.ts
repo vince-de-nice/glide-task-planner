@@ -103,7 +103,7 @@ export const OBS_ZONE_PRESETS: ObsZonePresetOption[] = [
   {
     id: 'custom',
     label: 'Personnalisé',
-    description: 'Tous les paramètres CUP (Style, R1, A1, R2, A2, A12, Line)'
+    description: 'Réglage manuel — seuls les paramètres utiles sont proposés'
   }
 ];
 

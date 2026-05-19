@@ -71,7 +71,6 @@
       @for (p of d.params; track p.key) {
         <li
           class="cup-diagram__param"
-          [class.cup-diagram__param--active]="p.active"
           [attr.data-param]="p.key"
         >
           <span class="cup-diagram__param-key">{{ p.cupLabel }}</span>

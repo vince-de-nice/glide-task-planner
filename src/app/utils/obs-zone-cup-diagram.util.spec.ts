@@ -60,6 +60,24 @@ describe('obs-zone-cup-diagram.util', () => {
     expect(view.params.some(p => p.key === 'a12')).toBe(false);
   });
 
+  it('keeps axis and A1 labels separated along the bearing', () => {
+    const view = buildObsZoneCupDiagram(
+      {
+        cupStyle: 2,
+        r1M: 2000,
+        a1Deg: 180,
+        presetId: 'custom'
+      },
+      164
+    );
+    const axis = view.labels.find(l => l.text.startsWith('axe'));
+    const a1 = view.labels.find(l => l.text.startsWith('A1='));
+    expect(axis).toBeDefined();
+    expect(a1).toBeDefined();
+    const dist = Math.hypot(axis!.x - a1!.x, axis!.y - a1!.y);
+    expect(dist).toBeGreaterThanOrEqual(18);
+  });
+
   it('draws line when Line=1', () => {
     const view = buildObsZoneCupDiagram({
       cupStyle: 2,
