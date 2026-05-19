@@ -2,8 +2,15 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { CupApplyMeta, CupDatabaseState } from '../models/cup-database.model';
 import { Waypoint } from '../models/waypoint.model';
+import { CircuitLeg } from '../models/circuit.model';
+import {
+  TaskExportOptions,
+  DEFAULT_TASK_EXPORT_RADIUS_M
+} from '../models/task-declaration.model';
 import { CupParserService } from './cup-parser.service';
 import { CupWriterService } from './cup-writer.service';
+import { CupTaskWriterService } from './cup-task-writer.service';
+import { TaskDeclarationResolver } from './task-declaration.resolver';
 import { decodeCupFileBytes } from '../utils/cup-text-encoding.util';
 
 const STORAGE_KEY = 'vav_cup_database';
@@ -22,6 +29,8 @@ export const DEFAULT_EMBEDDED_CUP_URL = '/assets/cup/default.cup';
 export class CupDatabaseService {
   private cupParser = inject(CupParserService);
   private cupWriter = inject(CupWriterService);
+  private cupTaskWriter = inject(CupTaskWriterService);
+  private taskResolver = inject(TaskDeclarationResolver);
 
   private sourceUrl = signal<string | null>(null);
   private sourceLabel = signal<string>('Aucune base');
@@ -137,6 +146,30 @@ export class CupDatabaseService {
 
   exportCup(): string {
     return this.cupWriter.generateCupFile(this.cupHeaderLine(), this.waypoints());
+  }
+
+  exportCupWithTask(
+    legs: CircuitLeg[],
+    taskName: string,
+    options?: Partial<TaskExportOptions>
+  ): string {
+    const body = this.exportCup();
+    if (legs.length === 0) {
+      return body;
+    }
+    const wpMap = new Map(this.waypoints().map(w => [w.id, w]));
+    const namesById = new Map(
+      [...wpMap.entries()].map(([id, w]) => [id, w.name] as const)
+    );
+    const declaration = this.taskResolver.resolve(legs, wpMap, taskName, options);
+    const defaultRadiusM = options?.defaultRadiusM ?? DEFAULT_TASK_EXPORT_RADIUS_M;
+    return this.cupTaskWriter.appendTaskSection(
+      body,
+      legs,
+      namesById,
+      declaration,
+      defaultRadiusM
+    );
   }
 
   addWaypoint(waypoint: Omit<Waypoint, 'id'>): Waypoint {

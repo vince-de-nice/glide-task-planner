@@ -32,6 +32,19 @@
       </ng-template>
       <ng-template #end>
         <div class="map-toolbar__controls">
+          <label class="map-airspace-switch" for="map-obs-zones-toggle">
+            <span class="map-airspace-switch__label">Zones tâche</span>
+            <p-toggleswitch
+              inputId="map-obs-zones-toggle"
+              [ngModel]="obsZonesVisible()"
+              (ngModelChange)="onObsZonesToggle($event)"
+              size="small"
+              [disabled]="!mapReady() || circuitLegs().length === 0"
+              [pTooltip]="circuitLegs().length === 0 ? 'Composez un circuit' : 'Cylindres / lignes / secteurs à l’échelle (m)'"
+              tooltipPosition="bottom"
+              ariaLabel="Afficher les zones d’observation"
+            />
+          </label>
           <label class="map-airspace-switch" for="map-airspace-toggle">
             <span class="map-airspace-switch__label">Espaces aériens</span>
             <p-toggleswitch

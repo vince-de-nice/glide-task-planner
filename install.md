@@ -47,7 +47,7 @@ C’est ce ZIP que vous décompresserez et placerez sur votre hébergement (voir
    cd chemin/vers/vav-angular
    ```
 
-4. **Installer les dépendances** (une seule fois, ou après une mise à jour du projet) :
+4. **Installer les dépendances** (une seule fois, ou après une mise à jour du projet) — inclut notamment **Leaflet**, **PrimeNG** et **JSZip** (export `.cupx`) :
 
    ```bash
    npm install

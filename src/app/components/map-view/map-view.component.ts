@@ -17,14 +17,24 @@ import {
   layerGroup,
   marker,
   polyline,
+  circle,
+  polygon,
   divIcon,
   popup,
-  Map,
+  Map as LeafletMap,
   MapOptions,
   LeafletMouseEvent,
   LayerGroup,
   Layer
 } from 'leaflet';
+import {
+  buildCircuitObsZoneShapes,
+  extendBoundsWithShape,
+  obsZoneMapColors,
+  ringSectorPolygonLatLngs,
+  sectorPolygonLatLngs
+} from '../../utils/obs-zone-map.util';
+import { DEFAULT_TASK_EXPORT_RADIUS_M } from '../../models/task-declaration.model';
 import { WaypointService } from '../../services/waypoint.service';
 import { TaskStateService } from '../../services/task-state.service';
 import { DistanceService } from '../../services/distance.service';
@@ -101,10 +111,13 @@ export class MapViewComponent implements OnInit {
   waypoints = this.waypointService.waypoints;
   selectedWaypointIds = this.taskState.selectedWaypointIds;
   circuitLegs = this.taskState.circuitLegs;
+  defaultZoneRadiusM = this.taskState.defaultZoneRadiusM;
 
   readonly typeFilterOptions = MAP_TYPE_FILTERS;
   readonly poaffRegions = this.airspaceLayerService.poaffRegions;
 
+  /** Aperçu à l’échelle des zones d’observation (CUP / tâche). */
+  obsZonesVisible = signal(true);
   airspaceVisible = signal(false);
   airspaceRegionId = signal(DEFAULT_POAFF_REGION_ID);
   airspaceStatus = signal<string | null>(null);
@@ -116,13 +129,14 @@ export class MapViewComponent implements OnInit {
   catalogTypeFilter = signal<WaypointType[]>(['turnpoint', 'airfield', 'landable', 'custom']);
 
   readonly mapHelpTooltip =
-    'Espaces aériens : POAFF/SIA (France) ou OpenAIP avec clé · pastilles · noms au zoom ≥ 11 · double-clic : nouveau point · clic : menu';
+    'Zones tâche : cylindres/secteurs/lignes en mètres réels · espaces aériens POAFF/OpenAIP · noms au zoom ≥ 11 · double-clic : point · clic : menu';
 
   mapOptions!: MapOptions;
 
-  private map: Map | null = null;
+  private map: LeafletMap | null = null;
   private markersLayer: LayerGroup | null = null;
   private taskLinesLayer: LayerGroup | null = null;
+  private obsZonesLayer: LayerGroup | null = null;
   private airspaceLayer: Layer | null = null;
   mapReady = signal(false);
 
@@ -138,10 +152,14 @@ export class MapViewComponent implements OnInit {
     effect(() => {
       this.waypoints();
       this.selectedWaypointIds();
+      this.circuitLegs();
+      this.defaultZoneRadiusM();
+      this.obsZonesVisible();
       this.catalogTypeFilter();
       if (this.mapReady() && this.map && this.markersLayer) {
         this.refreshMarkers();
         this.updateTaskLines();
+        this.updateObsZones();
         this.updateTaskDistanceLabel();
       }
     });
@@ -248,11 +266,16 @@ export class MapViewComponent implements OnInit {
     await this.enableAirspaceLayer();
   }
 
-  private initAirspacePane(map: Map): void {
+  private initAirspacePane(map: LeafletMap): void {
     if (!map.getPane('airspace')) {
       map.createPane('airspace');
       const pane = map.getPane('airspace');
       if (pane) pane.style.zIndex = '350';
+    }
+    if (!map.getPane('obsZones')) {
+      map.createPane('obsZones');
+      const pane = map.getPane('obsZones');
+      if (pane) pane.style.zIndex = '420';
     }
   }
 
@@ -289,7 +312,7 @@ export class MapViewComponent implements OnInit {
     };
   }
 
-  onMapReady(map: Map): void {
+  onMapReady(map: LeafletMap): void {
     this.map = map;
     map.doubleClickZoom.disable();
     this.initAirspacePane(map);
@@ -297,10 +320,12 @@ export class MapViewComponent implements OnInit {
     this.mapReady.set(true);
     this.refreshMarkers();
     this.updateTaskLines();
+    this.updateObsZones();
     this.updateTaskDistanceLabel();
     requestAnimationFrame(() => {
       map.invalidateSize();
       this.refreshMarkers();
+      this.updateObsZones();
       this.syncLabelVisibility();
     });
     this.syncLabelVisibility();
@@ -447,6 +472,87 @@ export class MapViewComponent implements OnInit {
     }
   }
 
+  onObsZonesToggle(visible: boolean): void {
+    this.obsZonesVisible.set(visible);
+    this.updateObsZones();
+  }
+
+  private updateObsZones(): void {
+    if (!this.map) return;
+
+    if (!this.obsZonesLayer) {
+      this.obsZonesLayer = layerGroup([], { pane: 'obsZones' }).addTo(this.map);
+    }
+    this.obsZonesLayer.clearLayers();
+
+    if (!this.obsZonesVisible() || this.circuitLegs().length === 0) {
+      return;
+    }
+
+    const wpById = new Map(this.waypoints().map(w => [w.id, w]));
+    const shapes = buildCircuitObsZoneShapes(
+      this.circuitLegs(),
+      wpById,
+      this.defaultZoneRadiusM() || DEFAULT_TASK_EXPORT_RADIUS_M
+    );
+
+    for (const shape of shapes) {
+      const colors = obsZoneMapColors(shape.role);
+      const style = {
+        color: colors.stroke,
+        weight: 2,
+        opacity: 0.9,
+        fillColor: colors.fill,
+        fillOpacity: 0.14
+      };
+
+      let layer: Layer;
+      if (shape.kind === 'line' && shape.linePoints?.length === 2) {
+        layer = polyline(shape.linePoints, {
+          ...style,
+          weight: 4,
+          fill: false,
+          fillOpacity: 0
+        });
+      } else if (
+        (shape.kind === 'sector' || shape.kind === 'ring-sector') &&
+        shape.radiusM != null &&
+        shape.startBearingDeg != null &&
+        shape.endBearingDeg != null
+      ) {
+        const pts =
+          shape.kind === 'ring-sector' && shape.innerRadiusM
+            ? ringSectorPolygonLatLngs(
+                shape.center,
+                shape.radiusM,
+                shape.innerRadiusM,
+                shape.startBearingDeg,
+                shape.endBearingDeg
+              )
+            : sectorPolygonLatLngs(
+                shape.center,
+                shape.radiusM,
+                shape.startBearingDeg,
+                shape.endBearingDeg
+              );
+        layer = polygon(pts, style);
+      } else if (shape.kind === 'circle' && shape.radiusM != null) {
+        layer = circle(shape.center, {
+          ...style,
+          radius: shape.radiusM
+        });
+      } else {
+        continue;
+      }
+
+      layer.bindTooltip(`Pt ${shape.legIndex + 1} · ${shape.label}`, {
+        sticky: true,
+        opacity: 0.92
+      });
+      layer.addTo(this.obsZonesLayer);
+    }
+  }
+
   private updateTaskLines(): void {
     if (!this.map) return;
 
@@ -489,19 +595,45 @@ export class MapViewComponent implements OnInit {
     const map = this.getMap();
     if (!map) return;
 
-    const points = this.selectedWaypointIds()
-      .map(id => this.waypointService.getWaypoint(id))
+    const legs = this.circuitLegs();
+    const wpById = new Map(this.waypoints().map(w => [w.id, w]));
+    if (legs.length === 0) return;
+
+    let bounds: [[number, number], [number, number]] | null = null;
+    for (const leg of legs) {
+      const wp = wpById.get(leg.waypointId);
+      if (wp) {
+        bounds = extendBoundsWithShape(bounds, {
+          kind: 'circle',
+          legIndex: 0,
+          role: leg.role,
+          center: [wp.latitude, wp.longitude],
+          radiusM: leg.obsZone?.r1M ?? this.defaultZoneRadiusM(),
+          label: ''
+        });
+      }
+    }
+    if (this.obsZonesVisible()) {
+      const shapes = buildCircuitObsZoneShapes(
+        legs,
+        wpById,
+        this.defaultZoneRadiusM() || DEFAULT_TASK_EXPORT_RADIUS_M
+      );
+      for (const shape of shapes) {
+        bounds = extendBoundsWithShape(bounds, shape);
+      }
+    }
+
+    if (bounds) {
+      map.fitBounds(bounds, { padding: [48, 48], maxZoom: 14 });
+      return;
+    }
+
+    const points = legs
+      .map(l => wpById.get(l.waypointId))
       .filter((wp): wp is Waypoint => wp !== undefined);
-
-    if (points.length === 0) return;
-
     if (points.length === 1) {
       map.setView([points[0].latitude, points[0].longitude], 11);
-    } else {
-      map.fitBounds(
-        points.map(wp => [wp.latitude, wp.longitude]),
-        { padding: [40, 40] }
-      );
     }
   }
 
@@ -634,7 +766,7 @@ export class MapViewComponent implements OnInit {
     this.leaflet?.getMap()?.invalidateSize();
   }
 
-  private getMap(): Map | null {
+  private getMap(): LeafletMap | null {
     return this.map ?? this.leaflet?.getMap() ?? null;
   }
 }

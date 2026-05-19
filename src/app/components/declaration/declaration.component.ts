@@ -25,9 +25,10 @@ import {
   TaskLegDistance
 } from '../../services/distance.service';
 import {
-  FlarmConfigService,
-  flarmCfgFilename
-} from '../../services/flarm-config.service';
+  TaskExportFormat,
+  TaskExportService
+} from '../../services/task-export.service';
+import { DEFAULT_TASK_EXPORT_RADIUS_M } from '../../models/task-declaration.model';
 import { MapViewComponent } from '../map-view/map-view.component';
 import { CircuitLibraryComponent } from '../circuit-library/circuit-library.component';
 import { SavedCircuitService } from '../../services/saved-circuit.service';
@@ -37,6 +38,12 @@ import { Waypoint, WaypointTypeFilter } from '../../models/waypoint.model';
 import { FlarmProfileService } from '../../services/flarm-profile.service';
 import { UiFeedbackService } from '../../services/ui-feedback.service';
 import { CircuitListItem } from '../../models/circuit-list-item.model';
+import {
+  CircuitLegZoneDialogComponent,
+  CircuitLegZoneDialogSave
+} from '../circuit-leg-zone-dialog/circuit-leg-zone-dialog.component';
+import { observationZoneShortLabel } from '../../models/observation-zone.model';
+import { formatElevationDisplay, resolveLegElevationM } from '../../utils/elevation.util';
 import {
   waypointTypeDisplay,
   WAYPOINT_TYPE_DISPLAY,
@@ -54,6 +61,8 @@ import { Tag } from 'primeng/tag';
 import { Message } from 'primeng/message';
 import { Accordion, AccordionPanel, AccordionHeader, AccordionContent } from 'primeng/accordion';
 import { Menu } from 'primeng/menu';
+import { SplitButton } from 'primeng/splitbutton';
+import { InputNumber } from 'primeng/inputnumber';
 import { MenuItem } from 'primeng/api';
 
 const DISCLAIMER_SEEN_KEY = 'vav_disclaimer_seen';
@@ -89,7 +98,10 @@ interface WorkflowStepUi {
     AccordionHeader,
     AccordionContent,
     DragDropModule,
-    Menu
+    Menu,
+    SplitButton,
+    InputNumber,
+    CircuitLegZoneDialogComponent
   ],
   templateUrl: './declaration.component.html',
   styleUrls: ['./declaration.component.scss']
@@ -104,7 +116,7 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   private cupDatabase = inject(CupDatabaseService);
   private cupSourcesConfig = inject(CupSourcesConfigService);
   private distanceService = inject(DistanceService);
-  private flarmConfigService = inject(FlarmConfigService);
+  private taskExportService = inject(TaskExportService);
   flarmProfileService = inject(FlarmProfileService);
   private savedCircuitService = inject(SavedCircuitService);
   private uiFeedback = inject(UiFeedbackService);
@@ -137,6 +149,20 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   circuitMessage = signal<string | null>(null);
   cupPanelExpanded = signal(false);
   disclaimerAccordionIndex = signal<number | number[] | string | string[] | null>(-1);
+  exportRadiusM = signal(DEFAULT_TASK_EXPORT_RADIUS_M);
+  previewFormat = signal<TaskExportFormat>('flarm');
+  legZoneDialogOpen = signal(false);
+  legZoneEditIndex = signal(-1);
+
+  legZoneEditLeg = computed(() => {
+    const i = this.legZoneEditIndex();
+    return i >= 0 ? this.circuitLegs()[i] : undefined;
+  });
+
+  legZoneEditWaypoint = computed(() => {
+    const leg = this.legZoneEditLeg();
+    return leg ? this.waypointService.getWaypoint(leg.waypointId) : undefined;
+  });
 
   circuitListItems = computed(() =>
     this.circuitLegs().flatMap((leg, index) => {
@@ -161,13 +187,59 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   );
 
   flarmPreview = computed(() => {
-    const wps = this.selectedWaypoints();
-    const declaration = this.buildDeclaration();
-    if (wps.length === 0 && !this.hasProfileInput()) {
+    if (this.selectedWaypointIds().length === 0 && !this.hasProfileInput()) {
       return '';
     }
-    return this.flarmConfigService.generateFlarmCfgTxt(wps, declaration);
+    return this.taskExportService.preview('flarm', this.buildExportContext());
   });
+
+  exportPreview = computed(() => {
+    if (this.selectedWaypointIds().length === 0) {
+      return '';
+    }
+    const fmt = this.previewFormat();
+    if (fmt === 'cupx') {
+      const cup = this.taskExportService.preview('cup', this.buildExportContext());
+      if (!cup) return '';
+      return `[Contenu POINTS.CUP — le fichier .cupx est une archive binaire]\n\n${cup}`;
+    }
+    return this.taskExportService.preview(fmt, this.buildExportContext());
+  });
+
+  readonly previewFormatOptions: { label: string; value: TaskExportFormat }[] = [
+    { label: 'FLARM (flarmcfg.txt)', value: 'flarm' },
+    { label: 'CUP avec tâche', value: 'cup' },
+    { label: 'CUPX (POINTS.CUP)', value: 'cupx' },
+    { label: 'XCSoar (.tsk)', value: 'tsk' },
+    { label: 'IGC C-records', value: 'igc-crecords' }
+  ];
+
+  exportMenuItems = computed<MenuItem[]>(() => [
+    {
+      label: 'CUP avec tâche (.cup)',
+      icon: 'pi pi-file',
+      disabled: this.selectedWaypointIds().length === 0,
+      command: () => void this.exportTask('cup')
+    },
+    {
+      label: 'CUPX (.cupx)',
+      icon: 'pi pi-box',
+      disabled: this.selectedWaypointIds().length === 0,
+      command: () => void this.exportTask('cupx')
+    },
+    {
+      label: 'XCSoar (.tsk)',
+      icon: 'pi pi-code',
+      disabled: this.selectedWaypointIds().length === 0,
+      command: () => void this.exportTask('tsk')
+    },
+    {
+      label: 'IGC C-records (.txt)',
+      icon: 'pi pi-list',
+      disabled: this.selectedWaypointIds().length === 0,
+      command: () => void this.exportTask('igc-crecords')
+    }
+  ]);
 
   filteredWaypoints = computed(() => {
     const q = this.searchQuery().trim().toLowerCase();
@@ -219,11 +291,10 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   workflowSteps = computed((): WorkflowStepUi[] => {
     const hasBase = this.waypoints().length > 0;
     const hasCircuit = this.selectedWaypointIds().length >= 2;
-    const canExport = hasCircuit && Boolean(this.flarmPreview());
     return [
       { label: 'Base', done: hasBase, active: !hasBase },
       { label: 'Circuit', done: hasCircuit, active: hasBase && !hasCircuit },
-      { label: 'Export', done: canExport, active: hasCircuit && !canExport }
+      { label: 'Export', done: hasCircuit, active: hasBase && hasCircuit }
     ];
   });
 
@@ -266,6 +337,16 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     };
   }
 
+  buildExportContext() {
+    return {
+      legs: this.circuitLegs(),
+      waypoints: this.waypoints(),
+      taskName: this.taskName(),
+      flarmDeclaration: this.buildDeclaration(),
+      options: { defaultRadiusM: this.exportRadiusM() }
+    };
+  }
+
   hasProfileInput(): boolean {
     const p = this.flarmProfile();
     return Boolean(
@@ -288,7 +369,17 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     }))
   ];
 
+  readonly observationZoneShortLabel = observationZoneShortLabel;
+  legZoneSummary = (item: CircuitListItem): string => {
+    const leg = item.leg;
+    const zone = leg.obsZone;
+    const zoneTxt = zone ? observationZoneShortLabel(zone) : '—';
+    const elev = formatElevationDisplay(resolveLegElevationM(item.waypoint, leg));
+    return `${zoneTxt} · ${elev}`;
+  };
+
   ngOnInit(): void {
+    this.taskState.setDefaultZoneRadiusM(this.exportRadiusM());
     this.cupPanelExpanded.set(this.waypoints().length === 0);
     if (!localStorage.getItem(DISCLAIMER_SEEN_KEY) && this.disclaimer()) {
       this.disclaimerAccordionIndex.set(0);
@@ -338,7 +429,7 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   }
 
   openPreviewDialog(): void {
-    if (!this.flarmPreview()) return;
+    if (this.selectedWaypointIds().length === 0) return;
     this.previewDialogOpen.set(true);
   }
 
@@ -406,6 +497,37 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
 
   onCircuitItemClick(item: CircuitListItem): void {
     this.mapView?.centerOnWaypoint(item.waypoint.id);
+  }
+
+  openLegZoneDialog(index: number, event?: Event): void {
+    event?.stopPropagation();
+    this.legZoneEditIndex.set(index);
+    this.legZoneDialogOpen.set(true);
+  }
+
+  onLegZoneDialogVisible(v: boolean): void {
+    this.legZoneDialogOpen.set(v);
+    if (!v) {
+      this.legZoneEditIndex.set(-1);
+    }
+  }
+
+  onLegZoneSaved(data: CircuitLegZoneDialogSave): void {
+    const i = this.legZoneEditIndex();
+    if (i < 0) return;
+    this.taskState.updateLegObsZone(i, data.obsZone);
+    this.taskState.updateLegElevation(i, data.elevationM);
+  }
+
+  onExportRadiusChange(value: number): void {
+    const v = Math.round(value) || DEFAULT_TASK_EXPORT_RADIUS_M;
+    this.exportRadiusM.set(v);
+    this.taskState.setDefaultZoneRadiusM(v);
+  }
+
+  applyDefaultRadiusToAllZones(): void {
+    this.taskState.applyDefaultRadiusToAllLegZones();
+    this.uiFeedback.success('Zones mises à jour', `Rayon ${this.exportRadiusM()} m appliqué à tous les points.`);
   }
 
   removeCircuitItem(index: number): void {
@@ -597,15 +719,29 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   }
 
   downloadFlarm(): void {
-    const wps = this.selectedWaypoints();
-    if (wps.length === 0) return;
-    const declaration = this.buildDeclaration();
-    const filename = flarmCfgFilename(declaration.taskName);
-    this.flarmConfigService.downloadFlarmCfg(wps, declaration, filename);
+    void this.exportTask('flarm');
+  }
+
+  async exportTask(format: TaskExportFormat): Promise<void> {
+    if (this.selectedWaypointIds().length === 0) return;
+    const result = await this.taskExportService.download(format, this.buildExportContext());
+    if ('error' in result) {
+      this.uiFeedback.error('Export impossible', result.error);
+      return;
+    }
+    const warn = result.warnings;
+    if (warn.length > 0) {
+      this.uiFeedback.info(
+        'Export terminé',
+        warn.slice(0, 3).join(' ') + (warn.length > 3 ? '…' : '')
+      );
+    } else {
+      this.uiFeedback.success('Fichier exporté');
+    }
   }
 
   async copyPreview(): Promise<void> {
-    const text = this.flarmPreview();
+    const text = this.exportPreview();
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);

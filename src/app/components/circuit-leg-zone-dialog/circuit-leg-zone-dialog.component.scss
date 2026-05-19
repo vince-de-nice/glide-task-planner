@@ -1,0 +1,53 @@
+.leg-zone-dialog__meta {
+  margin: 0 0 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--vav-text-muted);
+}
+
+.leg-zone-dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.65rem;
+
+  label {
+    font-size: 0.75rem;
+    color: var(--vav-text-muted);
+  }
+
+  &--row {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+  }
+}
+
+.leg-zone-dialog__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 0.75rem;
+}
+
+.leg-zone-dialog__hint {
+  font-size: 0.6875rem;
+  color: var(--vav-text-muted);
+  line-height: 1.35;
+}
+
+.leg-zone-dialog__preview {
+  margin: 0.5rem 0;
+  font-size: 0.8125rem;
+}
+
+.leg-zone-dialog__sep {
+  border: none;
+  border-top: 1px solid var(--vav-border);
+  margin: 0.75rem 0;
+}
+
+.leg-zone-dialog__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}

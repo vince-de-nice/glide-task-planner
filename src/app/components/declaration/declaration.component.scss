@@ -513,10 +513,10 @@
 
 .decl-circuit-list__item {
   display: grid;
-  grid-template-columns: 1.25rem 1.1rem minmax(0, 1fr) 2.25rem;
+  grid-template-columns: 1.25rem 1.1rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.35rem 0.4rem;
-  padding: 0.3rem 0.35rem 0.3rem 0.25rem;
+  padding: 0.35rem 0.35rem 0.35rem 0.25rem;
   border-bottom: 1px solid var(--vav-border);
   background: var(--vav-surface);
   transition: background 0.12s;
@@ -578,11 +578,45 @@
 
 .decl-circuit-list__line {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.3rem 0.45rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.2rem;
   width: 100%;
   min-width: 0;
+}
+
+.decl-circuit-list__main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.4rem;
+  min-width: 0;
+}
+
+.decl-circuit-list__zone {
+  display: block;
+  font-size: 0.625rem;
+  color: var(--vav-text-muted);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.decl-circuit-list__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+  flex-shrink: 0;
+}
+
+:host ::ng-deep .decl-circuit-list__action-btn.p-button {
+  width: 2rem;
+  min-width: 2rem;
+  height: 2rem;
+  min-height: 2rem;
+  padding: 0;
+  margin: 0;
 }
 
 .decl-circuit-list__role {
@@ -599,8 +633,8 @@
 }
 
 .decl-circuit-list__name {
-  flex: 1 1 8rem;
-  min-width: 0;
+  flex: 1 1 auto;
+  min-width: 3rem;
   font-weight: 600;
   font-size: 0.8125rem;
   line-height: 1.25;
@@ -611,10 +645,12 @@
 
 .decl-circuit-list__leg {
   flex-shrink: 0;
+  margin-left: auto;
   font-size: 0.6875rem;
   font-weight: 600;
   color: var(--vav-primary);
   line-height: 1.2;
+  white-space: nowrap;
 
   &--off {
     color: var(--vav-text-muted);
@@ -632,15 +668,6 @@
   border-radius: 3px;
   background: #f1f5f9;
   color: var(--vav-text-muted);
-}
-
-:host ::ng-deep .decl-circuit-list__remove.p-button {
-  width: 2.25rem;
-  min-width: 2.25rem;
-  height: 2.25rem;
-  min-height: 2.25rem;
-  padding: 0;
-  margin: 0;
 }
 
 .decl-circuit__empty {
@@ -662,9 +689,65 @@
   background: #f8fafc;
 }
 
-.decl-circuit__download {
-  width: 100%;
+.decl-circuit__export-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
   margin-bottom: 0.35rem;
+}
+
+.decl-circuit__export-radius {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.decl-circuit__radius-field {
+  flex: 1 1 8.5rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.decl-circuit__radius-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--vav-text-muted);
+}
+
+:host ::ng-deep .decl-circuit__radius-input {
+  width: 100%;
+  max-width: 9.5rem;
+}
+
+:host ::ng-deep .decl-circuit__radius-input .p-inputnumber-input {
+  width: 100%;
+}
+
+:host ::ng-deep .decl-circuit__apply-radius {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+:host ::ng-deep .decl-circuit__download-split {
+  display: flex;
+  width: 100%;
+}
+
+:host ::ng-deep .decl-circuit__download-split.p-splitbutton {
+  width: 100%;
+}
+
+:host ::ng-deep .decl-circuit__download-split .p-splitbutton-button,
+:host ::ng-deep .decl-circuit__download-split .p-splitbutton-dropdown {
+  flex: 1 1 auto;
+}
+
+:host ::ng-deep .decl-circuit__download-split .p-splitbutton-button {
+  justify-content: center;
+  min-width: 0;
 }
 
 .decl-circuit__flarm-hint {
@@ -961,11 +1044,12 @@
     display: flex;
   }
 
-  .decl-circuit__download {
+  .decl-circuit__export-options {
     position: sticky;
     bottom: 0;
     z-index: 2;
-    margin-bottom: 0;
+    padding-bottom: 0.35rem;
+    background: #f8fafc;
     box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.08);
   }
 

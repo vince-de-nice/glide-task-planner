@@ -8,8 +8,14 @@ import {
   circuitRoleMapToken
 } from '../models/circuit.model';
 import { Waypoint } from '../models/waypoint.model';
+import {
+  ObservationZoneConfig,
+  defaultObservationZoneForRole,
+  normalizeObservationZone
+} from '../models/observation-zone.model';
 import { WaypointService } from './waypoint.service';
 import { defaultTaskName } from './flarm-config.service';
+import { DEFAULT_TASK_EXPORT_RADIUS_M } from '../models/task-declaration.model';
 
 const STORAGE_KEY = 'vav_task_state';
 
@@ -31,6 +37,8 @@ export class TaskStateService {
   circuitLegs = signal<CircuitLeg[]>([]);
   selectedWaypointIds = computed(() => this.circuitLegs().map(leg => leg.waypointId));
   taskName = signal<string>(defaultTaskName());
+  /** Rayon par défaut pour les nouvelles zones d’observation (m). */
+  defaultZoneRadiusM = signal(DEFAULT_TASK_EXPORT_RADIUS_M);
 
   selectedCount = computed(() => this.circuitLegs().length);
 
@@ -72,16 +80,65 @@ export class TaskStateService {
     const last = legs.length - 1;
     return legs.map((leg, index) => {
       const wp = this.waypointService.getWaypoint(leg.waypointId);
+      let role = leg.role;
       if (leg.role === 'departure') {
-        if (index === 0 && canWaypointBeDeparture(wp)) return leg;
-        return { ...leg, role: 'turnpoint' as const };
+        if (!(index === 0 && canWaypointBeDeparture(wp))) {
+          role = 'turnpoint';
+        }
+      } else if (leg.role === 'arrival') {
+        if (!(index === last && last > 0 && canWaypointBeArrival(wp))) {
+          role = 'turnpoint';
+        }
       }
-      if (leg.role === 'arrival') {
-        if (index === last && last > 0 && canWaypointBeArrival(wp)) return leg;
-        return { ...leg, role: 'turnpoint' as const };
-      }
-      return leg;
+      return this.ensureLegDefaults({ ...leg, role });
     });
+  }
+
+  private ensureLegDefaults(leg: CircuitLeg): CircuitLeg {
+    const r = this.defaultZoneRadiusM();
+    return {
+      ...leg,
+      obsZone: normalizeObservationZone(
+        leg.obsZone ?? defaultObservationZoneForRole(leg.role, r),
+        leg.role,
+        r
+      )
+    };
+  }
+
+  setDefaultZoneRadiusM(radiusM: number): void {
+    const v = Math.min(50000, Math.max(100, Math.round(radiusM)));
+    this.defaultZoneRadiusM.set(v);
+  }
+
+  updateLegObsZone(index: number, obsZone: ObservationZoneConfig): void {
+    const legs = [...this.circuitLegs()];
+    if (index < 0 || index >= legs.length) return;
+    legs[index] = {
+      ...legs[index],
+      obsZone: normalizeObservationZone(obsZone, legs[index].role, this.defaultZoneRadiusM())
+    };
+    this.setLegs(legs);
+  }
+
+  updateLegElevation(index: number, elevationM: number | undefined): void {
+    const legs = [...this.circuitLegs()];
+    if (index < 0 || index >= legs.length) return;
+    const elev =
+      elevationM != null && Number.isFinite(elevationM) ? Math.round(elevationM) : undefined;
+    legs[index] = { ...legs[index], elevationM: elev };
+    this.setLegs(legs);
+  }
+
+  applyDefaultRadiusToAllLegZones(): void {
+    const r = this.defaultZoneRadiusM();
+    const legs = this.circuitLegs().map(leg =>
+      this.ensureLegDefaults({
+        ...leg,
+        obsZone: defaultObservationZoneForRole(leg.role, r)
+      })
+    );
+    this.setLegs(legs);
   }
 
   canSetDeparture(waypointId: string): boolean {
@@ -94,10 +151,12 @@ export class TaskStateService {
 
   /** Migration : 1er = décollage si aérodrome, dernier = atterrissage si aérodrome, sinon virage. */
   private inferLegsFromLegacyIds(ids: string[]): CircuitLeg[] {
-    return ids.map((waypointId, index) => ({
-      waypointId,
-      role: this.inferLegacyRole(waypointId, index, ids.length)
-    }));
+    return ids.map((waypointId, index) =>
+      this.ensureLegDefaults({
+        waypointId,
+        role: this.inferLegacyRole(waypointId, index, ids.length)
+      })
+    );
   }
 
   private inferLegacyRole(waypointId: string, index: number, count: number): CircuitLegRole {
@@ -163,7 +222,13 @@ export class TaskStateService {
     legs = legs.filter(
       leg => !(leg.waypointId === waypointId && leg.role === 'turnpoint')
     );
-    legs.unshift({ waypointId, role: 'departure' });
+    legs.unshift(
+      this.ensureLegDefaults({
+        waypointId,
+        role: 'departure',
+        obsZone: defaultObservationZoneForRole('departure', this.defaultZoneRadiusM())
+      })
+    );
     this.setLegs(legs);
     return true;
   }
@@ -174,7 +239,13 @@ export class TaskStateService {
     legs = legs.filter(
       leg => !(leg.waypointId === waypointId && leg.role === 'turnpoint')
     );
-    legs.push({ waypointId, role: 'arrival' });
+    legs.push(
+      this.ensureLegDefaults({
+        waypointId,
+        role: 'arrival',
+        obsZone: defaultObservationZoneForRole('arrival', this.defaultZoneRadiusM())
+      })
+    );
     this.setLegs(legs);
     return true;
   }
@@ -182,7 +253,11 @@ export class TaskStateService {
   addTurnpoint(waypointId: string): void {
     const legs = [...this.circuitLegs()];
     const arrivalIndex = legs.findIndex(leg => leg.role === 'arrival');
-    const leg: CircuitLeg = { waypointId, role: 'turnpoint' };
+    const leg: CircuitLeg = this.ensureLegDefaults({
+      waypointId,
+      role: 'turnpoint',
+      obsZone: defaultObservationZoneForRole('turnpoint', this.defaultZoneRadiusM())
+    });
     if (arrivalIndex >= 0) {
       legs.splice(arrivalIndex, 0, leg);
     } else {

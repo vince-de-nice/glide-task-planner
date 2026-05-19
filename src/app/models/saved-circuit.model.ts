@@ -1,4 +1,5 @@
 import { CircuitLegRole } from './circuit.model';
+import { ObservationZoneConfig } from './observation-zone.model';
 import { FlarmProfile } from './flarm-profile.model';
 import { WaypointType } from './waypoint.model';
 
@@ -13,6 +14,9 @@ export interface WaypointSnapshot {
   type: WaypointType;
   /** Rôle dans le circuit au moment de l'enregistrement */
   role?: CircuitLegRole;
+  obsZone?: ObservationZoneConfig;
+  /** Altitude MSL (m) pour la tâche */
+  elevationM?: number;
 }
 
 export interface SavedCircuit {

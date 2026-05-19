@@ -1,4 +1,5 @@
 import { Waypoint } from './waypoint.model';
+import { ObservationZoneConfig } from './observation-zone.model';
 
 /** Rôle d'un point dans le circuit (ordre de la liste). */
 export type CircuitLegRole = 'departure' | 'arrival' | 'turnpoint';
@@ -15,6 +16,10 @@ export function canWaypointBeArrival(wp: Waypoint | undefined): boolean {
 export interface CircuitLeg {
   waypointId: string;
   role: CircuitLegRole;
+  /** Zone d’observation pour export CUP / XCSoar (défaut selon le rôle). */
+  obsZone?: ObservationZoneConfig;
+  /** Altitude MSL (m) pour la tâche ; sinon altitude du waypoint CUP. */
+  elevationM?: number;
 }
 
 export function circuitRoleLabel(role: CircuitLegRole): string {

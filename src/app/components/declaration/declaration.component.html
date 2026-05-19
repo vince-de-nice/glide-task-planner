@@ -227,42 +227,59 @@
                   (click)="onCircuitItemClick(item)"
                 >
                   <span class="decl-circuit-list__line">
-                    <span
-                      class="vav-wp-type-badge"
-                      [style.--wp-type-color]="waypointTypeDisplay(item.waypoint.type).color"
-                      [attr.title]="waypointTypeDisplay(item.waypoint.type).description"
-                    >
-                      <i [class]="waypointTypeDisplay(item.waypoint.type).icon" aria-hidden="true"></i>
-                      <span>{{ waypointTypeDisplay(item.waypoint.type).shortLabel }}</span>
-                    </span>
-                    @if (item.leg.role === 'departure' || item.leg.role === 'arrival') {
-                      <span class="decl-circuit-list__role">{{ circuitRoleLabel(item.leg.role) }}</span>
-                    }
-                    <span class="decl-circuit-list__name">{{ item.waypoint.name }}</span>
-                    @if (legFromIndex(i); as leg) {
+                    <span class="decl-circuit-list__main">
                       <span
-                        class="decl-circuit-list__leg"
-                        [class.decl-circuit-list__leg--off]="!leg.counted"
+                        class="vav-wp-type-badge"
+                        [style.--wp-type-color]="waypointTypeDisplay(item.waypoint.type).color"
+                        [attr.title]="waypointTypeDisplay(item.waypoint.type).description"
                       >
-                        {{ leg.distance.toFixed(1) }} km
-                        @if (!leg.counted) {
-                          <span class="decl-circuit-list__leg-badge">hors tâche</span>
-                        }
+                        <i [class]="waypointTypeDisplay(item.waypoint.type).icon" aria-hidden="true"></i>
+                        <span>{{ waypointTypeDisplay(item.waypoint.type).shortLabel }}</span>
                       </span>
-                    }
+                      @if (item.leg.role === 'departure' || item.leg.role === 'arrival') {
+                        <span class="decl-circuit-list__role">{{ circuitRoleLabel(item.leg.role) }}</span>
+                      }
+                      <span class="decl-circuit-list__name">{{ item.waypoint.name }}</span>
+                      @if (legFromIndex(i); as leg) {
+                        <span
+                          class="decl-circuit-list__leg"
+                          [class.decl-circuit-list__leg--off]="!leg.counted"
+                        >
+                          {{ leg.distance.toFixed(1) }} km
+                          @if (!leg.counted) {
+                            <span class="decl-circuit-list__leg-badge">hors tâche</span>
+                          }
+                        </span>
+                      }
+                    </span>
+                    <span class="decl-circuit-list__zone" [title]="legZoneSummary(item)">
+                      {{ legZoneSummary(item) }}
+                    </span>
                   </span>
                 </button>
-                <p-button
-                  icon="pi pi-times"
-                  [text]="true"
-                  size="small"
-                  severity="danger"
-                  styleClass="decl-circuit-list__remove"
-                  (onClick)="removeCircuitItem(i)"
-                  pTooltip="Retirer"
-                  tooltipPosition="left"
-                  ariaLabel="Retirer"
-                />
+                <div class="decl-circuit-list__actions">
+                  <p-button
+                    icon="pi pi-cog"
+                    [text]="true"
+                    size="small"
+                    styleClass="decl-circuit-list__action-btn"
+                    (onClick)="openLegZoneDialog(i, $event)"
+                    pTooltip="Zone et altitude"
+                    tooltipPosition="left"
+                    ariaLabel="Zone et altitude"
+                  />
+                  <p-button
+                    icon="pi pi-times"
+                    [text]="true"
+                    size="small"
+                    severity="danger"
+                    styleClass="decl-circuit-list__action-btn decl-circuit-list__action-btn--danger"
+                    (onClick)="removeCircuitItem(i)"
+                    pTooltip="Retirer"
+                    tooltipPosition="left"
+                    ariaLabel="Retirer"
+                  />
+                </div>
               </li>
             }
           </ol>
@@ -291,23 +308,54 @@
       </div>
 
       <footer class="decl-circuit__foot">
-        <p-button
-          class="decl-circuit__download"
-          label="Télécharger flarmcfg.txt"
-          icon="pi pi-download"
-          severity="primary"
-          [disabled]="selectedWaypointIds().length === 0"
-          (onClick)="downloadFlarm()"
-        />
-        <p class="decl-circuit__flarm-hint">Redémarrer le FLARM après copie sur SD/USB.</p>
+        <div class="decl-circuit__export-options">
+          <div class="decl-circuit__export-radius">
+            <div class="decl-circuit__radius-field">
+              <label class="decl-circuit__radius-label" for="export-radius">Rayon défaut (m)</label>
+              <p-inputNumber
+                inputId="export-radius"
+                styleClass="decl-circuit__radius-input"
+                [ngModel]="exportRadiusM()"
+                (ngModelChange)="onExportRadiusChange(+$event || 400)"
+                [min]="100"
+                [max]="50000"
+                [step]="50"
+                size="small"
+                [showButtons]="true"
+              />
+            </div>
+            <p-button
+              styleClass="decl-circuit__apply-radius"
+              label="Appliquer à tous"
+              [outlined]="true"
+              size="small"
+              [disabled]="circuitLegs().length === 0"
+              (onClick)="applyDefaultRadiusToAllZones()"
+              pTooltip="Réinitialise chaque point avec le préréglage de zone selon son rôle"
+              tooltipPosition="top"
+            />
+          </div>
+          <p-splitButton
+            styleClass="decl-circuit__download-split"
+            label="Exporter FLARM"
+            icon="pi pi-download"
+            severity="primary"
+            [model]="exportMenuItems()"
+            [disabled]="selectedWaypointIds().length === 0"
+            (onClick)="downloadFlarm()"
+          />
+        </div>
+        <p class="decl-circuit__flarm-hint">
+          FLARM : redémarrer l’appareil après copie sur SD/USB. Autres formats via le menu ▾.
+        </p>
         <div class="decl-circuit__links">
           <p-button label="Pilote & planeur" [text]="true" size="small" (onClick)="openPilotDialog()" />
           <p-button label="Mes circuits" [text]="true" size="small" (onClick)="openCircuitsDialog()" />
           <p-button
-            label="Aperçu FLARM"
+            label="Aperçu export"
             [text]="true"
             size="small"
-            [disabled]="!flarmPreview()"
+            [disabled]="selectedWaypointIds().length === 0"
             (onClick)="openPreviewDialog()"
           />
         </div>
@@ -522,11 +570,11 @@
   </div>
 </p-dialog>
 
-<!-- Dialog : aperçu FLARM -->
+<!-- Dialog : aperçu export -->
 <p-dialog
   [visible]="previewDialogOpen()"
   (visibleChange)="onPreviewDialogVisible($event)"
-  header="Aperçu flarmcfg.txt"
+  header="Aperçu export"
   [modal]="true"
   [closable]="true"
   [dismissableMask]="true"
@@ -535,25 +583,45 @@
   [style]="{ width: 'min(100vw - 1rem, 640px)' }"
   [contentStyle]="{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }"
 >
+  <p-select
+    [options]="previewFormatOptions"
+    optionLabel="label"
+    optionValue="value"
+    [ngModel]="previewFormat()"
+    (ngModelChange)="previewFormat.set($event)"
+    size="small"
+    fluid
+    ariaLabel="Format d’aperçu"
+  />
   <p-button
     [label]="copyFeedback() ? 'Copié' : 'Copier'"
     icon="pi pi-copy"
     size="small"
     severity="secondary"
     (onClick)="copyPreview()"
-    [disabled]="!flarmPreview()"
+    [disabled]="!exportPreview()"
   />
-  <textarea pTextarea fluid pSize="small" readonly [value]="flarmPreview()" rows="14"></textarea>
+  <textarea pTextarea fluid pSize="small" readonly [value]="exportPreview()" rows="14"></textarea>
   <div class="decl-wp-dialog__foot decl-wp-dialog__foot--split">
     <p-button
       label="Télécharger"
       icon="pi pi-download"
-      (onClick)="downloadFlarm(); closePreviewDialog()"
+      (onClick)="exportTask(previewFormat()); closePreviewDialog()"
       [disabled]="selectedWaypointIds().length === 0"
     />
     <p-button label="Fermer" [outlined]="true" (onClick)="closePreviewDialog()" />
   </div>
 </p-dialog>
+
+<app-circuit-leg-zone-dialog
+  [visible]="legZoneDialogOpen()"
+  (visibleChange)="onLegZoneDialogVisible($event)"
+  [leg]="legZoneEditLeg() ?? null"
+  [waypoint]="legZoneEditWaypoint() ?? null"
+  [legIndex]="legZoneEditIndex()"
+  [defaultRadiusM]="exportRadiusM()"
+  (saved)="onLegZoneSaved($event)"
+/>
 
 <!-- Dialog : bibliothèque de circuits -->
 <p-dialog

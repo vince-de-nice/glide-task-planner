@@ -108,7 +108,7 @@ export class SavedCircuitService {
       .map(leg => {
         const wp = this.waypointService.getWaypoint(leg.waypointId);
         if (!wp) return null;
-        return this.waypointToSnapshot(wp, leg.role);
+        return this.waypointToSnapshot(wp, leg.role, leg);
       })
       .filter((snap): snap is WaypointSnapshot => snap !== null);
 
@@ -180,7 +180,9 @@ export class SavedCircuitService {
     );
     const circuitLegs: CircuitLeg[] = resolved.map((row, index) => ({
       waypointId: row.waypointId,
-      role: row.snap.role ?? inferred[index]?.role ?? 'turnpoint'
+      role: row.snap.role ?? inferred[index]?.role ?? 'turnpoint',
+      obsZone: row.snap.obsZone,
+      elevationM: row.snap.elevationM
     }));
     this.activeCircuitId.set(circuitId);
     return {
@@ -306,16 +308,22 @@ export class SavedCircuitService {
     );
   }
 
-  private waypointToSnapshot(wp: Waypoint, role?: CircuitLeg['role']): WaypointSnapshot {
+  private waypointToSnapshot(
+    wp: Waypoint,
+    role?: CircuitLeg['role'],
+    leg?: CircuitLeg
+  ): WaypointSnapshot {
     return {
       sourceId: wp.id,
       name: wp.name,
       code: wp.code,
       latitude: wp.latitude,
       longitude: wp.longitude,
-      elevation: wp.elevation,
+      elevation: leg?.elevationM ?? wp.elevation,
       type: wp.type,
-      role
+      role,
+      obsZone: leg?.obsZone,
+      elevationM: leg?.elevationM
     };
   }
 

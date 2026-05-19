@@ -3,6 +3,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TaskStateService } from './task-state.service';
 import { WaypointService } from './waypoint.service';
 import { CupParserService } from './cup-parser.service';
+import { CircuitLeg } from '../models/circuit.model';
+
+function legsCore(legs: CircuitLeg[]) {
+  return legs.map(l => ({ waypointId: l.waypointId, role: l.role }));
+}
 
 describe('TaskStateService circuit roles', () => {
   let service: TaskStateService;
@@ -39,10 +44,11 @@ describe('TaskStateService circuit roles', () => {
     const tp1 = addWp('tp1');
     service.addTurnpoint(tp1);
     service.setDeparture(home);
-    expect(service.circuitLegs()).toEqual([
+    expect(legsCore(service.circuitLegs())).toEqual([
       { waypointId: home, role: 'departure' },
       { waypointId: tp1, role: 'turnpoint' }
     ]);
+    expect(service.circuitLegs()[0].obsZone?.line).toBe(true);
   });
 
   it('setArrival places waypoint at end with arrival role', () => {
@@ -51,7 +57,7 @@ describe('TaskStateService circuit roles', () => {
     service.setDeparture(home);
     service.addTurnpoint(tp1);
     service.setArrival(home);
-    expect(service.circuitLegs()).toEqual([
+    expect(legsCore(service.circuitLegs())).toEqual([
       { waypointId: home, role: 'departure' },
       { waypointId: tp1, role: 'turnpoint' },
       { waypointId: home, role: 'arrival' }
@@ -67,7 +73,7 @@ describe('TaskStateService circuit roles', () => {
     service.addTurnpoint(mid);
     service.setArrival(ad);
     service.addTurnpoint(a);
-    expect(service.circuitLegs()).toEqual([
+    expect(legsCore(service.circuitLegs())).toEqual([
       { waypointId: ad, role: 'departure' },
       { waypointId: mid, role: 'turnpoint' },
       { waypointId: a, role: 'turnpoint' },
