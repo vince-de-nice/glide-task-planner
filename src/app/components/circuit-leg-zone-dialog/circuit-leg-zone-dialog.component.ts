@@ -11,7 +11,9 @@ import { ObsZoneCupDiagramComponent } from '../obs-zone-cup-diagram/obs-zone-cup
 import { CircuitLeg, circuitRoleShortLabel } from '../../models/circuit.model';
 import { Waypoint } from '../../models/waypoint.model';
 import {
+  applyCupZoneParamVisibility,
   CUP_STYLE_LABELS,
+  cupZoneParamVisibility,
   OBS_ZONE_PRESETS,
   ObsZonePresetId,
   ObservationZoneConfig,
@@ -23,6 +25,7 @@ import { formatElevationDisplay, resolveLegElevationM } from '../../utils/elevat
 import { TaskStateService } from '../../services/task-state.service';
 import { WaypointService } from '../../services/waypoint.service';
 import { buildObsZonePreview } from '../../utils/obs-zone-preview.util';
+import { cupZoneReferenceBearingDeg, ObsZoneLegContext } from '../../utils/obs-zone-map.util';
 
 export interface CircuitLegZoneDialogSave {
   obsZone: ObservationZoneConfig;
@@ -107,11 +110,27 @@ export class CircuitLegZoneDialogComponent {
     return formatElevationDisplay(resolveLegElevationM(wp, leg));
   });
 
+  readonly paramVisibility = computed(() => {
+    const leg = this.leg();
+    if (!leg) {
+      return cupZoneParamVisibility(
+        { cupStyle: 0, r1M: this.defaultRadiusM() },
+        undefined
+      );
+    }
+    const zone = normalizeObservationZone(
+      this.buildZoneFromForm(),
+      leg.role,
+      this.defaultRadiusM()
+    );
+    return cupZoneParamVisibility(zone, { legRole: leg.role });
+  });
+
   readonly normalizedZoneFromForm = computed(() => {
     const leg = this.leg();
     if (!leg) return null;
     return normalizeObservationZone(
-      this.buildZoneFromForm(),
+      applyCupZoneParamVisibility(this.buildZoneFromForm(), leg.role),
       leg.role,
       this.defaultRadiusM()
     );
@@ -122,16 +141,11 @@ export class CircuitLegZoneDialogComponent {
     return zone ? observationZoneShortLabel(zone) : '—';
   });
 
-  readonly previewView = computed(() => {
+  readonly obsZoneLegContext = computed((): ObsZoneLegContext | null => {
     const leg = this.leg();
     const wp = this.waypoint();
     const zone = this.normalizedZoneFromForm();
     if (!leg || !wp || !zone) return null;
-
-    const draftLeg: CircuitLeg = {
-      ...leg,
-      obsZone: zone
-    };
 
     const legs = this.taskState.circuitLegs();
     const i = this.legIndex();
@@ -140,17 +154,31 @@ export class CircuitLegZoneDialogComponent {
       ? (this.waypointService.getWaypoint(depLeg.waypointId) ?? null)
       : null;
 
-    return buildObsZonePreview({
+    return {
       legIndex: i,
-      leg: draftLeg,
+      leg: { ...leg, obsZone: zone },
       waypoint: wp,
       prev: i > 0 ? (this.waypointService.getWaypoint(legs[i - 1]?.waypointId) ?? null) : null,
-      next: i < legs.length - 1
-        ? (this.waypointService.getWaypoint(legs[i + 1]?.waypointId) ?? null)
-        : null,
+      next:
+        i < legs.length - 1
+          ? (this.waypointService.getWaypoint(legs[i + 1]?.waypointId) ?? null)
+          : null,
       departure: departureWp,
       defaultRadiusM: this.defaultRadiusM()
-    });
+    };
+  });
+
+  readonly cupDiagramRefBearing = computed(() => {
+    const ctx = this.obsZoneLegContext();
+    const zone = this.normalizedZoneFromForm();
+    if (!ctx || !zone) return 0;
+    return cupZoneReferenceBearingDeg(zone, ctx);
+  });
+
+  readonly previewView = computed(() => {
+    const ctx = this.obsZoneLegContext();
+    if (!ctx) return null;
+    return buildObsZonePreview(ctx);
   });
 
   constructor() {
@@ -243,7 +271,7 @@ export class CircuitLegZoneDialogComponent {
     const leg = this.leg();
     if (!leg) return;
     const obsZone = normalizeObservationZone(
-      this.buildZoneFromForm(),
+      applyCupZoneParamVisibility(this.buildZoneFromForm(), leg.role),
       leg.role,
       this.defaultRadiusM()
     );

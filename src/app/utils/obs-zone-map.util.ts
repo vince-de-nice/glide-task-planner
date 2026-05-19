@@ -145,7 +145,19 @@ function ringSectorPolygon(
   return [...outer, ...inner.reverse()];
 }
 
-function referenceBearingDeg(
+/**
+ * Axe du secteur en style fixe (0) : cap opposé à A12, comme SeeYou / XCSoar (Reciprocal).
+ * @see https://github.com/XCSoar/XCSoar/blob/master/src/Task/TaskFileSeeYou.cpp CalcIntermediateAngle
+ */
+export function cupFixedAxisBearingDeg(a12Deg: number | undefined): number {
+  if (a12Deg == null || !Number.isFinite(a12Deg)) {
+    return 0;
+  }
+  return (Math.round(a12Deg) + 180) % 360;
+}
+
+/** Cap central du secteur / ligne (° vrai, horaire depuis le nord). */
+export function cupZoneReferenceBearingDeg(
   zone: ObservationZoneConfig,
   ctx: ObsZoneLegContext
 ): number {
@@ -163,6 +175,28 @@ function referenceBearingDeg(
     return 0;
   }
   switch (zone.cupStyle) {
+    case 0:
+      return cupFixedAxisBearingDeg(zone.a12Deg);
+    case 1:
+      if (prev && next) {
+        const fromPrev = bearingDegrees(
+          prev.latitude,
+          prev.longitude,
+          wp.latitude,
+          wp.longitude
+        );
+        const toNext = bearingDegrees(
+          wp.latitude,
+          wp.longitude,
+          next.latitude,
+          next.longitude
+        );
+        let diff = toNext - fromPrev;
+        if (diff > 180) diff -= 360;
+        if (diff < -180) diff += 360;
+        return (fromPrev + diff / 2 + 360) % 360;
+      }
+      return cupFixedAxisBearingDeg(zone.a12Deg);
     case 2:
       return next
         ? bearingDegrees(wp.latitude, wp.longitude, next.latitude, next.longitude)
@@ -176,7 +210,7 @@ function referenceBearingDeg(
         ? bearingDegrees(wp.latitude, wp.longitude, departure.latitude, departure.longitude)
         : 0;
     default:
-      return 0;
+      return cupFixedAxisBearingDeg(zone.a12Deg);
   }
 }
 
@@ -195,7 +229,7 @@ export function buildObsZoneMapShapes(ctx: ObsZoneLegContext): ObsZoneMapShape[]
   };
 
   if (zone.line) {
-    const brg = referenceBearingDeg(zone, ctx);
+    const brg = cupZoneReferenceBearingDeg(zone, ctx);
     const perp = (brg + 90) % 360;
     const half =
       zone.a1Deg != null && zone.a1Deg >= 170 ? zone.r1M : Math.max(zone.r1M / 2, 50);
@@ -213,7 +247,7 @@ export function buildObsZoneMapShapes(ctx: ObsZoneLegContext): ObsZoneMapShape[]
   }
 
   if (zone.r2M != null && zone.r2M > 0 && zone.a1Deg != null) {
-    const brg = referenceBearingDeg(zone, ctx);
+    const brg = cupZoneReferenceBearingDeg(zone, ctx);
     const half = zone.a1Deg / 2;
     return [
       {
@@ -229,7 +263,7 @@ export function buildObsZoneMapShapes(ctx: ObsZoneLegContext): ObsZoneMapShape[]
   }
 
   if (zone.a1Deg != null && zone.a1Deg > 0 && zone.a1Deg < 360) {
-    const brg = referenceBearingDeg(zone, ctx);
+    const brg = cupZoneReferenceBearingDeg(zone, ctx);
     const half = zone.a1Deg / 2;
     return [
       {

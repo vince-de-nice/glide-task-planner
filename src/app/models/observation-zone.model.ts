@@ -20,7 +20,7 @@ export interface ObservationZoneConfig {
   r2M?: number;
   /** Angle A2 (°) */
   a2Deg?: number;
-  /** Angle A12 (°) — secteur combiné SeeYou */
+  /** Angle A12 (°) — cap de référence en Style 0 ; axe du secteur ≈ A12 + 180° (SeeYou/XCSoar) */
   a12Deg?: number;
   /** Ligne de départ / arrivée (CUP `Line=1`) */
   line?: boolean;
@@ -114,6 +114,71 @@ export const CUP_STYLE_LABELS: Record<ObservationZoneConfig['cupStyle'], string>
   3: 'Vers point précédent (3)',
   4: 'Vers départ (4)'
 };
+
+export type CupZoneParamKey = 'style' | 'r1' | 'a1' | 'r2' | 'a2' | 'a12' | 'line';
+
+export interface CupZoneParamVisibility {
+  style: boolean;
+  r1: boolean;
+  a1: boolean;
+  r2: boolean;
+  a2: boolean;
+  a12: boolean;
+  line: boolean;
+}
+
+/** Champs CUP pertinents selon la géométrie (cylindre / secteur / ligne) et le style. */
+export function cupZoneParamVisibility(
+  zone: ObservationZoneConfig,
+  options?: { legRole?: CircuitLegRole }
+): CupZoneParamVisibility {
+  const isLine = Boolean(zone.line);
+  const hasSector = zone.a1Deg != null && zone.a1Deg > 0 && zone.a1Deg < 360;
+  const hasInner = zone.r2M != null && zone.r2M > 0;
+  const lineField =
+    options?.legRole === 'departure' ||
+    options?.legRole === 'arrival' ||
+    isLine;
+
+  return {
+    style: true,
+    r1: true,
+    a1: isLine || hasSector,
+    r2: hasSector,
+    a2: hasSector && hasInner,
+    a12: zone.cupStyle === 0 && hasSector,
+    line: lineField
+  };
+}
+
+/** Retire les paramètres CUP non utilisés pour ce point (export / sauvegarde). */
+export function applyCupZoneParamVisibility(
+  zone: ObservationZoneConfig,
+  legRole?: CircuitLegRole
+): ObservationZoneConfig {
+  const vis = cupZoneParamVisibility(zone, { legRole });
+  const out: ObservationZoneConfig = {
+    presetId: zone.presetId,
+    cupStyle: zone.cupStyle,
+    r1M: zone.r1M
+  };
+  if (vis.line && zone.line) {
+    out.line = true;
+  }
+  if (vis.a1 && zone.a1Deg != null && Number.isFinite(zone.a1Deg)) {
+    out.a1Deg = zone.a1Deg;
+  }
+  if (vis.r2 && zone.r2M != null && zone.r2M > 0) {
+    out.r2M = zone.r2M;
+  }
+  if (vis.a2 && zone.a2Deg != null && Number.isFinite(zone.a2Deg)) {
+    out.a2Deg = zone.a2Deg;
+  }
+  if (vis.a12 && zone.a12Deg != null && Number.isFinite(zone.a12Deg)) {
+    out.a12Deg = zone.a12Deg;
+  }
+  return out;
+}
 
 export function defaultObservationZoneForRole(
   role: CircuitLegRole,

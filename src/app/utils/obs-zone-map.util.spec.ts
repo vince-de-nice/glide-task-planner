@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   bearingDegrees,
+  cupFixedAxisBearingDeg,
+  cupZoneReferenceBearingDeg,
   destinationPoint,
   buildObsZoneMapShapes
 } from './obs-zone-map.util';
@@ -71,5 +73,39 @@ describe('obs-zone-map.util', () => {
     });
     expect(shapes[0].kind).toBe('circle');
     expect(shapes[0].radiusM).toBe(400);
+  });
+
+  it('cupFixedAxisBearingDeg applies XCSoar reciprocal (A12 + 180°)', () => {
+    expect(cupFixedAxisBearingDeg(90)).toBe(270);
+    expect(cupFixedAxisBearingDeg(undefined)).toBe(0);
+  });
+
+  it('style 0 sector uses A12 axis on the map', () => {
+    const wp: Waypoint = {
+      id: 't',
+      name: 'TP',
+      latitude: 45,
+      longitude: 6,
+      type: 'turnpoint'
+    };
+    const leg: CircuitLeg = {
+      waypointId: 't',
+      role: 'turnpoint',
+      obsZone: { cupStyle: 0, r1M: 400, a1Deg: 45, a12Deg: 90, presetId: 'custom' }
+    };
+    const ctx = {
+      legIndex: 0,
+      leg,
+      waypoint: wp,
+      prev: null,
+      next: null,
+      departure: null,
+      defaultRadiusM: 400
+    };
+    expect(cupZoneReferenceBearingDeg(leg.obsZone!, ctx)).toBe(270);
+    const shapes = buildObsZoneMapShapes(ctx);
+    expect(shapes[0].kind).toBe('sector');
+    expect(shapes[0].startBearingDeg).toBeCloseTo(247.5, 5);
+    expect(shapes[0].endBearingDeg).toBeCloseTo(292.5, 5);
   });
 });

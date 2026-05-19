@@ -34,7 +34,7 @@
   <div class="leg-zone-dialog__cup-layout">
     <div class="leg-zone-dialog__cup-fields">
       @if (zoneFormMounted()) {
-      <div class="leg-zone-dialog__grid">
+      <div class="leg-zone-dialog__fields-col">
         <div class="leg-zone-dialog__field">
           <label for="zone-style">Style CUP</label>
           <p-select
@@ -61,68 +61,93 @@
             fluid
           />
         </div>
-        <div class="leg-zone-dialog__field">
-          <label for="zone-a1">A1 (°)</label>
-          <p-inputNumber
-            inputId="zone-a1"
-            [ngModel]="a1Deg()"
-            (ngModelChange)="onA1Change($event)"
-            [min]="0"
-            [max]="360"
-            [showClear]="true"
-            size="small"
-            fluid
-          />
-        </div>
-        <div class="leg-zone-dialog__field">
-          <label for="zone-r2">R2 (m)</label>
-          <p-inputNumber
-            inputId="zone-r2"
-            [ngModel]="r2M()"
-            (ngModelChange)="onOptionalRadiusChange($event)"
-            [showClear]="true"
-            [min]="0"
-            [max]="100000"
-            size="small"
-            fluid
-          />
-        </div>
-        <div class="leg-zone-dialog__field">
-          <label for="zone-a2">A2 (°)</label>
-          <p-inputNumber
-            inputId="zone-a2"
-            [ngModel]="a2Deg()"
-            (ngModelChange)="onA2Change($event)"
-            [showClear]="true"
-            [min]="0"
-            [max]="360"
-            size="small"
-            fluid
-          />
-        </div>
-        <div class="leg-zone-dialog__field">
-          <label for="zone-a12">A12 (°)</label>
-          <p-inputNumber
-            inputId="zone-a12"
-            [ngModel]="a12Deg()"
-            (ngModelChange)="onA12Change($event)"
-            [showClear]="true"
-            [min]="0"
-            [max]="360"
-            size="small"
-            fluid
-          />
-        </div>
-      </div>
-
-      <div class="leg-zone-dialog__field leg-zone-dialog__field--row">
-        <p-checkbox
-          [ngModel]="line()"
-          (ngModelChange)="line.set($event); presetId.set('custom')"
-          [binary]="true"
-          inputId="zone-line"
-        />
-        <label for="zone-line">Ligne (CUP Line=1)</label>
+        @if (paramVisibility().a1) {
+          <div class="leg-zone-dialog__field">
+            <label for="zone-a1">A1 (°)</label>
+            <p-inputNumber
+              inputId="zone-a1"
+              [ngModel]="a1Deg()"
+              (ngModelChange)="onA1Change($event)"
+              [min]="0"
+              [max]="360"
+              [showClear]="true"
+              size="small"
+              fluid
+            />
+            <p class="leg-zone-dialog__hint leg-zone-dialog__field-hint">
+              @if (line()) {
+                Ouverture de la ligne (souvent 180°).
+              } @else {
+                Largeur du secteur (°) autour de l’axe d’orientation.
+              }
+            </p>
+          </div>
+        }
+        @if (paramVisibility().r2) {
+          <div class="leg-zone-dialog__field">
+            <label for="zone-r2">R2 (m)</label>
+            <p-inputNumber
+              inputId="zone-r2"
+              [ngModel]="r2M()"
+              (ngModelChange)="onOptionalRadiusChange($event)"
+              [showClear]="true"
+              [min]="0"
+              [max]="100000"
+              size="small"
+              fluid
+            />
+            <p class="leg-zone-dialog__hint leg-zone-dialog__field-hint">
+              Rayon intérieur (trou / keyhole FAI).
+            </p>
+          </div>
+        }
+        @if (paramVisibility().a2) {
+          <div class="leg-zone-dialog__field">
+            <label for="zone-a2">A2 (°)</label>
+            <p-inputNumber
+              inputId="zone-a2"
+              [ngModel]="a2Deg()"
+              (ngModelChange)="onA2Change($event)"
+              [showClear]="true"
+              [min]="0"
+              [max]="360"
+              size="small"
+              fluid
+            />
+            <p class="leg-zone-dialog__hint leg-zone-dialog__field-hint">
+              Ouverture du secteur intérieur sur R2 (même axe que A1).
+            </p>
+          </div>
+        }
+        @if (paramVisibility().a12) {
+          <div class="leg-zone-dialog__field">
+            <label for="zone-a12">A12 (°)</label>
+            <p-inputNumber
+              inputId="zone-a12"
+              [ngModel]="a12Deg()"
+              (ngModelChange)="onA12Change($event)"
+              [showClear]="true"
+              [min]="0"
+              [max]="360"
+              size="small"
+              fluid
+            />
+            <p class="leg-zone-dialog__hint leg-zone-dialog__field-hint">
+              Style fixe : cap dans le CUP ; axe du secteur sur la carte ≈ A12 + 180°.
+            </p>
+          </div>
+        }
+        @if (paramVisibility().line) {
+          <div class="leg-zone-dialog__field leg-zone-dialog__field--row">
+            <p-checkbox
+              [ngModel]="line()"
+              (ngModelChange)="line.set($event); presetId.set('custom')"
+              [binary]="true"
+              inputId="zone-line"
+            />
+            <label for="zone-line">Ligne (CUP Line=1)</label>
+          </div>
+        }
       </div>
       }
     </div>
@@ -132,9 +157,13 @@
         Schéma des paramètres CUP
       </h3>
       <p class="leg-zone-dialog__hint leg-zone-dialog__cup-visual-lead">
-        Vue de dessus (nord en haut). Les paramètres actifs sont mis en évidence.
+        Vue de dessus (nord en haut). Paramètres utiles pour la configuration actuelle.
       </p>
-      <app-obs-zone-cup-diagram [zone]="normalizedZoneFromForm()" />
+      <app-obs-zone-cup-diagram
+        [zone]="normalizedZoneFromForm()"
+        [referenceBearingDeg]="cupDiagramRefBearing()"
+        [legRole]="leg()?.role ?? null"
+      />
 
       <div class="leg-zone-dialog__preview-block leg-zone-dialog__preview-block--compact">
         <p class="leg-zone-dialog__preview">

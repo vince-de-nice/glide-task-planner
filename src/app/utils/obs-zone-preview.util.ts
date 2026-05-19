@@ -8,7 +8,8 @@ import {
   ObsZoneMapShape,
   ObsZoneMapShapeKind,
   bearingDegrees,
-  buildObsZoneMapShapes
+  buildObsZoneMapShapes,
+  cupZoneReferenceBearingDeg
 } from './obs-zone-map.util';
 
 /** ViewBox normalisé pour les miniatures de liste. */
@@ -76,38 +77,6 @@ function sectorPathD(
     `A ${innerR} ${innerR} 0 ${large} 0 ${xi1} ${yi1}`,
     'Z'
   ].join(' ');
-}
-
-function referenceBearingDeg(zone: ObservationZoneConfig, ctx: ObsZoneLegContext): number {
-  const { waypoint: wp, prev, next, departure } = ctx;
-  if (zone.line) {
-    if (zone.cupStyle === 3 && prev) {
-      return bearingDegrees(prev.latitude, prev.longitude, wp.latitude, wp.longitude);
-    }
-    if (next) {
-      return bearingDegrees(wp.latitude, wp.longitude, next.latitude, next.longitude);
-    }
-    if (prev) {
-      return bearingDegrees(prev.latitude, prev.longitude, wp.latitude, wp.longitude);
-    }
-    return 0;
-  }
-  switch (zone.cupStyle) {
-    case 2:
-      return next
-        ? bearingDegrees(wp.latitude, wp.longitude, next.latitude, next.longitude)
-        : 0;
-    case 3:
-      return prev
-        ? bearingDegrees(prev.latitude, prev.longitude, wp.latitude, wp.longitude)
-        : 0;
-    case 4:
-      return departure
-        ? bearingDegrees(wp.latitude, wp.longitude, departure.latitude, departure.longitude)
-        : 0;
-    default:
-      return 0;
-  }
 }
 
 function lineSegmentFromShape(shape: ObsZoneMapShape): ObsZonePreviewLine {
@@ -192,7 +161,7 @@ function orientationMarkers(
       }
       break;
     default:
-      markers.push(segment(referenceBearingDeg(zone, ctx), MAX_R - 2));
+      markers.push(segment(cupZoneReferenceBearingDeg(zone, ctx), MAX_R - 2));
   }
 
   return markers;

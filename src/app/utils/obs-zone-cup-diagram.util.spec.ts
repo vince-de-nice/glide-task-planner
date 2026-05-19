@@ -2,21 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { buildObsZoneCupDiagram } from './obs-zone-cup-diagram.util';
 
 describe('obs-zone-cup-diagram.util', () => {
-  it('returns all seven CUP parameters in legend', () => {
+  it('lists only applicable CUP parameters for plain cylinder', () => {
     const view = buildObsZoneCupDiagram({
       cupStyle: 0,
       r1M: 400,
       presetId: 'cylinder_fixed'
     });
-    expect(view.params.map(p => p.key)).toEqual([
-      'style',
-      'r1',
-      'a1',
-      'r2',
-      'a2',
-      'a12',
-      'line'
-    ]);
+    expect(view.params.map(p => p.key)).toEqual(['style', 'r1']);
     expect(view.params.filter(p => p.active).map(p => p.key)).toEqual(['style', 'r1']);
   });
 
@@ -37,6 +29,35 @@ describe('obs-zone-cup-diagram.util', () => {
     expect(active).toContain('a12');
     expect(view.arcs.length).toBeGreaterThan(0);
     expect(view.circles.length).toBe(2);
+  });
+
+  it('rotates schematic axis with referenceBearingDeg', () => {
+    const zone = {
+      cupStyle: 0 as const,
+      r1M: 400,
+      a1Deg: 90,
+      a12Deg: 0,
+      presetId: 'custom' as const
+    };
+    const northAxis = buildObsZoneCupDiagram(zone, 180);
+    const eastAxis = buildObsZoneCupDiagram(zone, 270);
+    const northStyle = northAxis.lines.find(l => l.paramKey === 'style');
+    const eastStyle = eastAxis.lines.find(l => l.paramKey === 'style');
+    expect(northStyle?.x2).not.toBeCloseTo(eastStyle?.x2 ?? 0, 0);
+  });
+
+  it('omits A12 from legend when style is not fixed', () => {
+    const view = buildObsZoneCupDiagram(
+      {
+        cupStyle: 2,
+        r1M: 500,
+        a1Deg: 90,
+        a12Deg: 45,
+        presetId: 'custom'
+      },
+      90
+    );
+    expect(view.params.some(p => p.key === 'a12')).toBe(false);
   });
 
   it('draws line when Line=1', () => {

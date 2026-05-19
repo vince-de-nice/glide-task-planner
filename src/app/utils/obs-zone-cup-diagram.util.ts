@@ -1,8 +1,10 @@
+import { CircuitLegRole } from '../models/circuit.model';
 import {
   CUP_STYLE_LABELS,
-  ObservationZoneConfig
+  CupZoneParamKey,
+  ObservationZoneConfig,
+  cupZoneParamVisibility
 } from '../models/observation-zone.model';
-
 export const OBS_ZONE_CUP_DIAGRAM_VIEWBOX = '0 0 220 150';
 
 const CX = 110;
@@ -40,7 +42,7 @@ export interface CupDiagramCircle {
   paramKey: CupParamKey;
 }
 
-export type CupParamKey = 'style' | 'r1' | 'a1' | 'r2' | 'a2' | 'a12' | 'line';
+export type CupParamKey = CupZoneParamKey;
 
 export interface CupParamLegendItem {
   key: CupParamKey;
@@ -94,7 +96,10 @@ function formatMeters(m: number): string {
   return m >= 1000 ? `${(m / 1000).toFixed(m % 1000 === 0 ? 0 : 1)} km` : `${m} m`;
 }
 
-function buildLegend(zone: ObservationZoneConfig): CupParamLegendItem[] {
+function buildLegend(
+  zone: ObservationZoneConfig,
+  axisBearingDeg: number
+): CupParamLegendItem[] {
   const hasA1 = zone.a1Deg != null && zone.a1Deg > 0;
   const hasR2 = zone.r2M != null && zone.r2M > 0;
   const hasA2 = zone.a2Deg != null && Number.isFinite(zone.a2Deg);
@@ -120,28 +125,35 @@ function buildLegend(zone: ObservationZoneConfig): CupParamLegendItem[] {
       cupLabel: 'A1',
       value: hasA1 ? `${zone.a1Deg}°` : '—',
       active: hasA1,
-      hint: 'Ouverture du secteur (°)'
+      hint: 'Largeur angulaire du secteur extérieur (±A1 autour de l’axe)'
     },
     {
       key: 'r2',
       cupLabel: 'R2',
       value: hasR2 ? formatMeters(zone.r2M!) : '—',
       active: hasR2,
-      hint: 'Rayon intérieur (secteur FAI)'
+      hint: 'Rayon intérieur (trou / keyhole FAI)'
     },
     {
       key: 'a2',
       cupLabel: 'A2',
       value: hasA2 ? `${zone.a2Deg}°` : '—',
       active: hasA2,
-      hint: 'Angle secondaire (°)'
+      hint: 'Ouverture du secteur intérieur sur R2 (même axe que A1)'
     },
     {
       key: 'a12',
       cupLabel: 'A12',
       value: hasA12 ? `${zone.a12Deg}°` : '—',
-      active: hasA12,
-      hint: 'Angle combiné SeeYou (°)'
+      active: zone.cupStyle === 0 && hasA12,
+      hint:
+        zone.cupStyle === 0
+          ? hasA12
+            ? `Style fixe : cap dans le CUP ; axe du secteur ≈ ${axisBearingDeg}° (A12+180°)`
+            : 'Style fixe : cap d’orientation (sinon nord)'
+          : hasA12
+            ? 'Ignoré si Style ≠ 0 (orientation par Style + circuit)'
+            : 'Utilisé seulement en Style 0 (fixe)'
     },
     {
       key: 'line',
@@ -154,8 +166,14 @@ function buildLegend(zone: ObservationZoneConfig): CupParamLegendItem[] {
 }
 
 /** Schéma pédagogique des paramètres CUP (vue de dessus, nord en haut). */
-export function buildObsZoneCupDiagram(zone: ObservationZoneConfig): ObsZoneCupDiagramView {
-  const params = buildLegend(zone);
+export function buildObsZoneCupDiagram(
+  zone: ObservationZoneConfig,
+  referenceBearingDeg = 0,
+  legRole?: CircuitLegRole
+): ObsZoneCupDiagramView {
+  const axisBearing = referenceBearingDeg;
+  const visibility = cupZoneParamVisibility(zone, { legRole });
+  const params = buildLegend(zone, axisBearing).filter(p => visibility[p.key]);
   const circles: CupDiagramCircle[] = [];
   const arcs: CupDiagramArc[] = [];
   const lines: CupDiagramLine[] = [];
@@ -167,9 +185,8 @@ export function buildObsZoneCupDiagram(zone: ObservationZoneConfig): ObsZoneCupD
   const isSector = hasA1 && !isLine;
   const isRing = isSector && hasR2;
 
-  const refBearing = 0;
   const halfA1 = hasA1 ? zone.a1Deg! / 2 : 0;
-  const startBrg = refBearing - halfA1;
+  const startBrg = axisBearing - halfA1;
 
   circles.push({
     cx: CX,
@@ -182,7 +199,7 @@ export function buildObsZoneCupDiagram(zone: ObservationZoneConfig): ObsZoneCupD
     paramKey: 'r1'
   });
 
-  if (isRing) {
+  if (visibility.r2 && isRing) {
     const innerR = Math.max(12, (zone.r2M! / zone.r1M) * R1_DRAW);
     circles.push({
       cx: CX,
@@ -196,7 +213,7 @@ export function buildObsZoneCupDiagram(zone: ObservationZoneConfig): ObsZoneCupD
     });
   }
 
-  if (isSector) {
+  if (visibility.a1 && isSector) {
     arcs.push({
       pathD: sectorPathD(startBrg, zone.a1Deg!, R1_DRAW, isRing ? Math.max(12, (zone.r2M! / zone.r1M) * R1_DRAW) : 0),
       stroke: '#7c3aed',
@@ -204,8 +221,14 @@ export function buildObsZoneCupDiagram(zone: ObservationZoneConfig): ObsZoneCupD
       label: `A1 ${zone.a1Deg}°`,
       paramKey: 'a1'
     });
-    const [ax, ay] = polar(refBearing, R1_DRAW + 10);
-    labels.push({ x: ax, y: ay, text: `A1=${zone.a1Deg}°`, anchor: 'middle' });
+    const [ax, ay] = polar(axisBearing, R1_DRAW + 10);
+    labels.push({ x: ax, y: ay, text: `axe ${Math.round(axisBearing)}°`, anchor: 'middle' });
+    labels.push({
+      x: CX,
+      y: CY + R1_DRAW + 12,
+      text: `A1=${zone.a1Deg}° (±${halfA1}°)`,
+      anchor: 'middle'
+    });
   }
 
   if (hasR2 && !isSector) {
@@ -217,28 +240,39 @@ export function buildObsZoneCupDiagram(zone: ObservationZoneConfig): ObsZoneCupD
     });
   }
 
-  if (zone.a2Deg != null && zone.a2Deg > 0) {
-    const a2Sweep = Math.min(zone.a2Deg, 60);
+  if (visibility.a2 && zone.a2Deg != null && zone.a2Deg > 0 && isRing) {
+    const innerR = Math.max(12, (zone.r2M! / zone.r1M) * R1_DRAW);
+    const halfA2 = zone.a2Deg / 2;
     arcs.push({
-      pathD: sectorPathD(30, a2Sweep, 22, 0),
+      pathD: sectorPathD(axisBearing - halfA2, zone.a2Deg, innerR, 0),
       stroke: '#db2777',
-      fill: 'rgba(244, 114, 182, 0.2)',
+      fill: 'rgba(244, 114, 182, 0.25)',
       label: `A2 ${zone.a2Deg}°`,
       paramKey: 'a2'
     });
-    labels.push({ x: CX + 38, y: CY - 42, text: `A2=${zone.a2Deg}°`, anchor: 'start' });
   }
 
-  if (zone.a12Deg != null && zone.a12Deg > 0) {
+  if (visibility.a12 && zone.a12Deg != null && zone.a12Deg > 0) {
+    const [a12x, a12y] = polar(zone.a12Deg, R1_DRAW - 4);
+    lines.push({
+      x1: CX,
+      y1: CY,
+      x2: a12x,
+      y2: a12y,
+      stroke: '#64748b',
+      strokeWidth: 1.5,
+      strokeDasharray: '3 2',
+      paramKey: 'a12'
+    });
     labels.push({
-      x: CX - 48,
-      y: CY + R1_DRAW + 14,
+      x: a12x,
+      y: a12y - 6,
       text: `A12=${zone.a12Deg}°`,
       anchor: 'middle'
     });
   }
 
-  if (isLine) {
+  if (visibility.line && isLine) {
     const halfLen = 58;
     lines.push({
       x1: CX - halfLen,
@@ -254,8 +288,7 @@ export function buildObsZoneCupDiagram(zone: ObservationZoneConfig): ObsZoneCupD
   }
 
   const styleColors = ['#2563eb', '#2563eb', '#16a34a', '#ca8a04', '#9333ea'];
-  const styleBrg = [0, 45, 0, 180, 225][zone.cupStyle] ?? 0;
-  const [sx, sy] = polar(styleBrg, R1_DRAW - 6);
+  const [sx, sy] = polar(axisBearing, R1_DRAW - 6);
   const styleArrow: CupDiagramLine = {
     x1: CX,
     y1: CY,

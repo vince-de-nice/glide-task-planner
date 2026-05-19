@@ -1,4 +1,5 @@
 import { Component, computed, input } from '@angular/core';
+import { CircuitLegRole } from '../../models/circuit.model';
 import { ObservationZoneConfig } from '../../models/observation-zone.model';
 import {
   OBS_ZONE_CUP_DIAGRAM_VIEWBOX,
@@ -14,11 +15,15 @@ import {
 })
 export class ObsZoneCupDiagramComponent {
   zone = input<ObservationZoneConfig | null>(null);
+  /** Axe du secteur (° vrai) — même logique que la carte / l’aperçu. */
+  referenceBearingDeg = input(0);
+  legRole = input<CircuitLegRole | null>(null);
 
   readonly viewBox = OBS_ZONE_CUP_DIAGRAM_VIEWBOX;
 
   diagram = computed((): ObsZoneCupDiagramView | null => {
     const z = this.zone();
-    return z ? buildObsZoneCupDiagram(z) : null;
+    const role = this.legRole();
+    return z ? buildObsZoneCupDiagram(z, this.referenceBearingDeg(), role ?? undefined) : null;
   });
 }
