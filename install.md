@@ -91,6 +91,8 @@ Si vous hébergez dans un **sous-dossier** du site (ex. `monsite.fr/app/`) et no
 
 ## Partie C — Règle importante pour les adresses (pages « Déclaration », « Waypoints »)
 
+Sur la page **Déclaration**, le parcours pilote suit trois étapes affichées en haut : **Base** (fichier CUP), **Circuit** (points et ordre), **Export** (téléchargement `flarmcfg.txt`).
+
 L’application utilise des **adresses dans la barre d’URL** (par exemple `/declaration`). Si un visiteur met un favori sur une telle adresse ou actualise la page, le serveur doit **renvoyer la même application** et non une page « 404 introuvable ».
 
 Sur un hébergement **statique** moderne (Netlify, Vercel, Cloudflare Pages, etc.), c’est souvent **automatique**.

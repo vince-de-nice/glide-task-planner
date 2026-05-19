@@ -9,6 +9,7 @@ import { Waypoint, WaypointType } from '../../models/waypoint.model';
 import { Button } from 'primeng/button';
 import { InputText } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
+import { UiFeedbackService } from '../../services/ui-feedback.service';
 
 @Component({
   selector: 'app-waypoint-manager',
@@ -21,13 +22,12 @@ export class WaypointManagerComponent {
   private waypointService = inject(WaypointService);
   private cupDatabase = inject(CupDatabaseService);
   private cupLoader = inject(CupLoaderService);
+  private uiFeedback = inject(UiFeedbackService);
 
   waypoints = this.waypointService.waypoints;
 
   showAddForm = signal(false);
   editingWaypoint = signal<Waypoint | null>(null);
-  importMessage = signal<string | null>(null);
-
   newWaypoint = signal<Partial<Waypoint>>({
     name: '',
     latitude: 0,
@@ -73,10 +73,16 @@ export class WaypointManagerComponent {
     this.showAddForm.set(true);
   }
 
-  deleteWaypoint(id: string): void {
-    if (confirm('Supprimer ce waypoint ?')) {
-      this.waypointService.deleteWaypoint(id);
-    }
+  async deleteWaypoint(id: string): Promise<void> {
+    const ok = await this.uiFeedback.confirm({
+      header: 'Supprimer le waypoint',
+      message: 'Supprimer ce waypoint ?',
+      acceptLabel: 'Supprimer',
+      acceptButtonStyleClass: 'p-button-danger'
+    });
+    if (!ok) return;
+    this.waypointService.deleteWaypoint(id);
+    this.uiFeedback.success('Waypoint supprimé');
   }
 
   cancelEdit(): void {
@@ -94,7 +100,7 @@ export class WaypointManagerComponent {
     link.download = `${this.cupDatabase.getSourceLabel().replace(/[^\w.-]+/g, '_') || 'export'}.cup`;
     link.click();
     URL.revokeObjectURL(url);
-    this.importMessage.set('Export CUP téléchargé.');
+    this.uiFeedback.success('Export CUP téléchargé');
   }
 
   async onCupFileSelected(event: Event): Promise<void> {
@@ -103,9 +109,11 @@ export class WaypointManagerComponent {
     if (!file) return;
 
     if (this.waypoints().length > 0) {
-      const ok = confirm(
-        `Importer « ${file.name} » remplacera les points actuels. Continuer ?`
-      );
+      const ok = await this.uiFeedback.confirm({
+        header: 'Importer la base CUP',
+        message: `Importer « ${file.name} » remplacera les points actuels. Continuer ?`,
+        acceptLabel: 'Importer'
+      });
       if (!ok) {
         input.value = '';
         return;
@@ -114,18 +122,23 @@ export class WaypointManagerComponent {
 
     try {
       await this.cupLoader.loadFromFile(file, true);
-      this.importMessage.set('Base CUP importée.');
+      this.uiFeedback.success('Base CUP importée');
     } catch {
-      this.importMessage.set('Fichier CUP invalide ou illisible.');
+      this.uiFeedback.error('Fichier CUP invalide ou illisible');
     }
     input.value = '';
   }
 
-  clearAll(): void {
-    if (confirm('Effacer tous les waypoints ? Cette action est irréversible.')) {
-      this.waypointService.clearWaypoints();
-      this.importMessage.set('Tous les waypoints ont été effacés.');
-    }
+  async clearAll(): Promise<void> {
+    const ok = await this.uiFeedback.confirm({
+      header: 'Effacer tous les waypoints',
+      message: 'Effacer tous les waypoints ? Cette action est irréversible.',
+      acceptLabel: 'Tout effacer',
+      acceptButtonStyleClass: 'p-button-danger'
+    });
+    if (!ok) return;
+    this.waypointService.clearWaypoints();
+    this.uiFeedback.success('Tous les waypoints ont été effacés');
   }
 
   typeLabel(type: WaypointType): string {

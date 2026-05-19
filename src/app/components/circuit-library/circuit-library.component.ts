@@ -6,6 +6,7 @@ import { SavedCircuit } from '../../models/saved-circuit.model';
 import { Button } from 'primeng/button';
 import { InputText } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
+import { UiFeedbackService } from '../../services/ui-feedback.service';
 
 @Component({
   selector: 'app-circuit-library',
@@ -16,6 +17,7 @@ import { Select } from 'primeng/select';
 })
 export class CircuitLibraryComponent {
   private savedCircuitService = inject(SavedCircuitService);
+  private uiFeedback = inject(UiFeedbackService);
 
   canSave = input(false);
   selectedCircuitId = input<string | null>(null);
@@ -105,12 +107,18 @@ export class CircuitLibraryComponent {
     this.saveNotes.set('');
   }
 
-  deleteCircuit(id: string, e?: unknown): void {
+  async deleteCircuit(id: string, e?: unknown): Promise<void> {
     (e as Event | undefined)?.stopPropagation?.();
-    if (confirm('Supprimer ce circuit de la bibliothèque ?')) {
-      this.savedCircuitService.deleteCircuit(id);
-      if (this.editingId() === id) this.cancelUpdate();
-    }
+    const ok = await this.uiFeedback.confirm({
+      header: 'Supprimer le circuit',
+      message: 'Supprimer ce circuit de la bibliothèque ?',
+      acceptLabel: 'Supprimer',
+      acceptButtonStyleClass: 'p-button-danger'
+    });
+    if (!ok) return;
+    this.savedCircuitService.deleteCircuit(id);
+    if (this.editingId() === id) this.cancelUpdate();
+    this.uiFeedback.success('Circuit supprimé');
   }
 
   duplicateCircuit(id: string, e?: unknown): void {
@@ -136,18 +144,25 @@ export class CircuitLibraryComponent {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
-      try {
-        const merge = confirm(
-          'Fusionner avec les circuits existants ?\nOK = fusionner · Annuler = remplacer tout'
-        );
-        const count = this.savedCircuitService.importFromJson(reader.result as string, merge);
-        this.importMessage.set(`${count} circuit(s) importé(s).`);
-      } catch {
-        this.importMessage.set('Fichier JSON invalide.');
-      }
+      void this.finishImport(reader.result as string);
     };
     reader.readAsText(file);
     (event.target as HTMLInputElement).value = '';
+  }
+
+  private async finishImport(json: string): Promise<void> {
+    const merge = await this.uiFeedback.confirm({
+      header: 'Importer les circuits',
+      message: 'Fusionner avec les circuits existants ?',
+      acceptLabel: 'Fusionner',
+      rejectLabel: 'Remplacer tout'
+    });
+    try {
+      const count = this.savedCircuitService.importFromJson(json, merge);
+      this.uiFeedback.success(`${count} circuit(s) importé(s)`);
+    } catch {
+      this.uiFeedback.error('Fichier JSON invalide');
+    }
   }
 
   circuitSummary(c: SavedCircuit): string {

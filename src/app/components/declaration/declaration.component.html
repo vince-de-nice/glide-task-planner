@@ -1,75 +1,114 @@
 <div class="declaration">
   <header class="decl-hero">
-    <div class="decl-hero__text">
-      <h1>Déclaration FLARM</h1>
-      <p class="decl-hero__sub">Base CUP → circuit → <code>flarmcfg.txt</code></p>
-    </div>
+    <h1>Déclaration FLARM</h1>
   </header>
 
+  <nav class="decl-workflow" aria-label="Étapes">
+    @for (step of workflowSteps(); track step.label; let i = $index) {
+      <div
+        class="decl-workflow__step"
+        [class.decl-workflow__step--done]="step.done"
+        [class.decl-workflow__step--active]="step.active"
+      >
+        <span class="decl-workflow__num">{{ i + 1 }}</span>
+        <span class="decl-workflow__label">{{ step.label }}</span>
+      </div>
+    }
+  </nav>
+
   <section class="decl-db vav-card" aria-label="Base de points">
-    <div class="decl-db__toolbar">
-      <span class="decl-db__step" aria-hidden="true">1</span>
-      <p-select
-        class="decl-db__quick-src"
-        [options]="cupSources()"
-        optionLabel="label"
-        optionValue="url"
-        placeholder="Source connue…"
-        [showClear]="true"
-        [filter]="cupSources().length > 8"
-        filterPlaceholder="Filtrer…"
-        [ngModel]="cupQuickSourcePick()"
-        (ngModelChange)="onCupQuickPickChange($event)"
-        [disabled]="loading()"
-        size="small"
-      />
-      <div class="decl-db__url-row">
-        <input
-          pInputText
-          fluid
-          pSize="small"
-          class="decl-db__url-input"
-          type="url"
-          placeholder="URL du fichier .cup"
-          [ngModel]="cupUrlInput()"
-          (ngModelChange)="cupUrlInput.set($event)"
-          [disabled]="loading()"
+    @if (!cupPanelExpanded()) {
+      <div class="decl-db__summary">
+        <p-tag [value]="cupMeta().sourceLabel || 'Aucune base'" severity="info" />
+        @if (waypoints().length > 0) {
+          <p-tag [value]="waypoints().length + ' pts'" />
+        }
+        @if (selectedWaypointIds().length > 0) {
+          <p-tag [value]="selectedWaypointIds().length + ' en tâche'" severity="success" />
+        }
+        @if (loading()) {
+          <p-tag value="Chargement…" severity="warn" />
+        }
+        <p-button
+          label="Changer de base"
+          icon="pi pi-database"
+          size="small"
+          [outlined]="true"
+          (onClick)="toggleCupPanel()"
         />
         <p-button
-          label="Charger"
-          icon="pi pi-download"
+          icon="pi pi-ellipsis-v"
           size="small"
-          [disabled]="loading() || !cupUrlInput().trim()"
-          (onClick)="loadFromUrlInput()"
+          [text]="true"
+          (onClick)="cupMenu.toggle($event)"
+          ariaLabel="Actions base"
         />
+        <p-menu #cupMenu [model]="cupMenuItems()" [popup]="true" appendTo="body" />
       </div>
-      <input #cupFileInput type="file" accept=".cup" (change)="onCupFileSelected($event)" hidden />
-      <p-button
-        label="Importer .cup"
-        icon="pi pi-upload"
-        size="small"
-        severity="secondary"
-        [disabled]="loading()"
-        (onClick)="cupFileInput.click()"
-      />
-      <p-button
-        label="Exporter .cup"
-        icon="pi pi-file-export"
-        size="small"
-        [outlined]="true"
-        [disabled]="waypoints().length === 0"
-        (onClick)="exportCup()"
-      />
-      @if (loading()) {
-        <span class="decl-db__pill">…</span>
-      } @else if (waypoints().length > 0) {
-        <span class="decl-db__pill decl-db__pill--ok">{{ waypoints().length }} pts</span>
-      }
-      @if (selectedWaypointIds().length > 0) {
-        <span class="decl-db__pill decl-db__pill--task">{{ selectedWaypointIds().length }} en tâche</span>
-      }
-    </div>
-    @if (cupMeta().sourceLabel) {
+    } @else {
+      <div class="decl-db__expanded">
+        <div class="decl-db__expanded-head">
+          <h2 class="decl-section-title">Base de points</h2>
+          <p-button icon="pi pi-times" size="small" [text]="true" (onClick)="toggleCupPanel()" ariaLabel="Replier" />
+        </div>
+        <div class="decl-db__form">
+        <p-select
+          styleClass="decl-db__select"
+          [options]="cupSources()"
+          optionLabel="label"
+          optionValue="url"
+          placeholder="Source connue…"
+          [showClear]="true"
+          [filter]="cupSources().length > 8"
+          filterPlaceholder="Filtrer…"
+          [ngModel]="cupQuickSourcePick()"
+          (ngModelChange)="onCupQuickPickChange($event)"
+          [disabled]="loading()"
+          size="small"
+        />
+        <div class="decl-db__url-row">
+          <input
+            pInputText
+            fluid
+            pSize="small"
+            class="decl-db__url-input"
+            type="url"
+            placeholder="URL du fichier .cup"
+            [ngModel]="cupUrlInput()"
+            (ngModelChange)="cupUrlInput.set($event)"
+            [disabled]="loading()"
+          />
+          <p-button
+            label="Charger"
+            icon="pi pi-download"
+            size="small"
+            [disabled]="loading() || !cupUrlInput().trim()"
+            (onClick)="loadFromUrlInput()"
+          />
+        </div>
+        <input #cupFileInput type="file" accept=".cup" (change)="onCupFileSelected($event)" hidden />
+        <div class="decl-db__actions">
+          <p-button
+            label="Importer .cup"
+            icon="pi pi-upload"
+            size="small"
+            severity="secondary"
+            [disabled]="loading()"
+            (onClick)="cupFileInput.click()"
+          />
+          <p-button
+            label="Exporter .cup"
+            icon="pi pi-file-export"
+            size="small"
+            [outlined]="true"
+            [disabled]="waypoints().length === 0"
+            (onClick)="exportCup()"
+          />
+        </div>
+        </div>
+      </div>
+    }
+    @if (cupMeta().sourceLabel && cupPanelExpanded()) {
       <p class="decl-db__source">
         Base : <strong>{{ cupMeta().sourceLabel }}</strong>
         @if (cupMeta().sourceUrl) {
@@ -78,22 +117,26 @@
       </p>
     }
     @if (loadError()) {
-      <p class="vav-alert vav-alert--error decl-db__alert">{{ loadError() }}</p>
+      <p-message severity="error" [text]="loadError()!" styleClass="decl-db__message" />
     }
     @if (disclaimer()) {
-      <details class="decl-db__disclaimer">
-        <summary>Avertissement données</summary>
-        <p>{{ disclaimer() }}</p>
-      </details>
+      <p-accordion
+        [value]="disclaimerAccordionIndex()"
+        (valueChange)="onDisclaimerToggle($event)"
+        styleClass="decl-db__disclaimer-acc"
+      >
+        <p-accordionpanel [value]="0">
+          <p-accordionheader>Avertissement données</p-accordionheader>
+          <p-accordioncontent>
+            <p class="decl-db__disclaimer-text">{{ disclaimer() }}</p>
+          </p-accordioncontent>
+        </p-accordionpanel>
+      </p-accordion>
     }
   </section>
 
-  @if (addToast()) {
-    <p class="decl-toast" role="status">{{ addToast() }}</p>
-  }
-
   @if (circuitMessage()) {
-    <p class="vav-alert vav-alert--success decl-flash">{{ circuitMessage() }}</p>
+    <p-message severity="success" [text]="circuitMessage()!" styleClass="decl-flash-msg" />
   }
 
   <nav class="decl-tabs" aria-label="Panneaux">
@@ -124,22 +167,36 @@
       <header class="decl-circuit__head">
         <div class="decl-circuit__title-row">
           <h2 class="decl-section-title">Circuit</h2>
-          @if (distanceResult(); as d) {
-            <span class="decl-circuit__stats" title="Hors branches décollage / atterrissage">
-              {{ d.taskDistance.toFixed(1) }} km
-              @if (d.totalDistance > d.taskDistance + 0.05) {
-                <span class="decl-circuit__stats-total"> / {{ d.totalDistance.toFixed(1) }} total</span>
-              }
-              · {{ selectedWaypointIds().length }} pt(s)
-            </span>
-          } @else if (selectedWaypointIds().length > 0) {
-            <span class="decl-circuit__stats">{{ selectedWaypointIds().length }} pt(s)</span>
-          }
         </div>
+        @if (distanceResult(); as d) {
+          <div class="decl-circuit__metrics">
+            <div class="decl-circuit__metric decl-circuit__metric--primary">
+              <span class="decl-circuit__metric-label">Distance tâche</span>
+              <span class="decl-circuit__metric-value">{{ d.taskDistance.toFixed(1) }} km</span>
+            </div>
+            @if (d.totalDistance > d.taskDistance + 0.05) {
+              <div class="decl-circuit__metric">
+                <span class="decl-circuit__metric-label">Total</span>
+                <span class="decl-circuit__metric-value">{{ d.totalDistance.toFixed(1) }} km</span>
+              </div>
+            }
+            <div class="decl-circuit__metric">
+              <span class="decl-circuit__metric-label">Points</span>
+              <span class="decl-circuit__metric-value">{{ selectedWaypointIds().length }}</span>
+            </div>
+          </div>
+        } @else if (selectedWaypointIds().length > 0) {
+          <p class="decl-circuit__stats">{{ selectedWaypointIds().length }} pt(s)</p>
+        }
         <label class="decl-circuit__task-name">
-          <span class="vav-label">Nom de tâche (NEWTASK)</span>
+          <span class="decl-circuit__task-name-head">
+            <span class="vav-label">Nom de tâche (NEWTASK)</span>
+            <span class="decl-circuit__char-count">{{ taskName().length }}/50</span>
+          </span>
           <input
-            class="vav-input vav-input--sm"
+            pInputText
+            fluid
+            pSize="small"
             [ngModel]="taskName()"
             (ngModelChange)="onTaskNameChange($event)"
             placeholder="Circuit_500K"
@@ -151,66 +208,77 @@
         </p>
       </header>
 
-      <ol class="decl-circuit__list vav-scroll">
-        @for (leg of circuitLegs(); track $index; let i = $index) {
-          @if (waypointService.getWaypoint(leg.waypointId); as wp) {
-            <li class="decl-task-item">
-              <span class="decl-task-item__num">{{ i + 1 }}</span>
-              <div class="decl-task-item__body">
-                <span class="decl-task-item__role">{{ circuitRoleLabel(leg.role) }}</span>
-                <strong>{{ wp.name }}</strong>
-                @if (wp.code) {
-                  <small>{{ wp.code }}</small>
-                } @else {
-                  <small>{{ wp.latitude.toFixed(4) }}, {{ wp.longitude.toFixed(4) }}</small>
-                }
-                @if (legFromIndex(i); as leg) {
-                  <small
-                    class="decl-task-item__leg"
-                    [class.decl-task-item__leg--excluded]="!leg.counted"
-                  >
-                    → {{ leg.distance.toFixed(1) }} km
-                    @if (!leg.counted) {
-                      <span class="decl-task-item__leg-tag">hors tâche</span>
-                    }
-                  </small>
-                }
-              </div>
-              <div class="decl-task-item__actions">
-                <p-button icon="pi pi-angle-up" [text]="true" size="small" (onClick)="moveWaypoint(i, 'up')" [disabled]="i === 0" title="Monter" />
-                <p-button
-                  icon="pi pi-angle-down"
-                  [text]="true"
-                  size="small"
-                  (onClick)="moveWaypoint(i, 'down')"
-                  [disabled]="i === selectedWaypointIds().length - 1"
-                  title="Descendre"
+      <div class="decl-circuit__list-wrap">
+        @if (circuitListItems().length > 0) {
+          <ol
+            class="decl-circuit-list"
+            cdkDropList
+            (cdkDropListDropped)="onCircuitDrop($event)"
+          >
+            @for (item of circuitListItems(); track item.key; let i = $index) {
+              <li class="decl-circuit-list__item" cdkDrag>
+                <span class="decl-circuit-list__handle" cdkDragHandle aria-label="Réordonner">
+                  <i class="pi pi-arrows-v"></i>
+                </span>
+                <span class="decl-circuit-list__num" aria-hidden="true">{{ i + 1 }}</span>
+                <p-tag
+                  [value]="circuitRoleLabel(item.leg.role)"
+                  [severity]="item.leg.role === 'departure' || item.leg.role === 'arrival' ? 'success' : 'info'"
+                  styleClass="decl-circuit-list__role"
                 />
+                <button
+                  type="button"
+                  class="decl-circuit-list__body"
+                  (click)="onCircuitItemClick(item)"
+                >
+                  <span class="decl-circuit-list__name">{{ item.waypoint.name }}</span>
+                  @if (legFromIndex(i); as leg) {
+                    <span
+                      class="decl-circuit-list__leg"
+                      [class.decl-circuit-list__leg--off]="!leg.counted"
+                    >
+                      {{ leg.distance.toFixed(1) }} km
+                      @if (!leg.counted) {
+                        <span class="decl-circuit-list__leg-badge">hors tâche</span>
+                      }
+                    </span>
+                  }
+                </button>
                 <p-button
                   icon="pi pi-times"
                   [text]="true"
                   size="small"
                   severity="danger"
-                  class="decl-task-item__remove"
-                  (onClick)="removeFromTask(i)"
-                  title="Retirer"
+                  styleClass="decl-circuit-list__remove"
+                  (onClick)="removeCircuitItem(i)"
+                  pTooltip="Retirer"
+                  tooltipPosition="left"
+                  ariaLabel="Retirer"
                 />
-              </div>
-            </li>
-          }
-        } @empty {
-          <li class="decl-empty">Circuit vide.</li>
+              </li>
+            }
+          </ol>
+        } @else if (circuitLegs().length > 0) {
+          <p class="decl-empty decl-circuit__empty">
+            Points en cours de chargement depuis la base…
+          </p>
+        } @else {
+          <p class="decl-empty decl-circuit__empty">
+            Aucun point dans la tâche — ajoutez-en depuis la base ou la carte.
+          </p>
         }
-      </ol>
+      </div>
 
       <div class="decl-circuit__add">
         <p-button
-          label="Choisir des points"
+          label="Ajouter des points"
           icon="pi pi-plus"
           size="small"
-          severity="secondary"
+          [outlined]="true"
           [disabled]="waypoints().length === 0"
           (onClick)="openWaypointDialog()"
+          [pTooltip]="waypoints().length === 0 ? 'Chargez d\'abord une base CUP' : ''"
+          tooltipPosition="top"
         />
       </div>
 
@@ -223,42 +291,42 @@
           [disabled]="selectedWaypointIds().length === 0"
           (onClick)="downloadFlarm()"
         />
-        <div class="decl-circuit__actions">
-          <p-button
-            label="Vider"
-            size="small"
-            [outlined]="true"
-            [disabled]="selectedWaypointIds().length === 0"
-            (onClick)="clearTask()"
-          />
-          <p-button label="Pilote & planeur" size="small" severity="secondary" (onClick)="openPilotDialog()" />
-          <p-button label="Mes circuits" size="small" severity="secondary" (onClick)="openCircuitsDialog()" />
+        <p class="decl-circuit__flarm-hint">Redémarrer le FLARM après copie sur SD/USB.</p>
+        <div class="decl-circuit__links">
+          <p-button label="Pilote & planeur" [text]="true" size="small" (onClick)="openPilotDialog()" />
+          <p-button label="Mes circuits" [text]="true" size="small" (onClick)="openCircuitsDialog()" />
           <p-button
             label="Aperçu FLARM"
+            [text]="true"
             size="small"
-            [outlined]="true"
             [disabled]="!flarmPreview()"
             (onClick)="openPreviewDialog()"
           />
         </div>
+        <p-button
+          label="Vider la tâche"
+          [text]="true"
+          size="small"
+          severity="danger"
+          [disabled]="selectedWaypointIds().length === 0"
+          (onClick)="clearTaskWithConfirm()"
+        />
       </footer>
     </section>
   </div>
 </div>
 
-<!-- Dialog : choix des waypoints -->
-<p-dialog
+<!-- Drawer : choix des waypoints -->
+<p-drawer
   [visible]="waypointDialogOpen()"
-  (visibleChange)="onWaypointDialogVisible($event)"
+  (visibleChange)="onWaypointDrawerVisible($event)"
   header="Choisir des points"
+  position="right"
+  styleClass="decl-wp-drawer"
+  [style]="{ width: 'min(100vw, 480px)' }"
   [modal]="true"
-  [closable]="true"
-  [dismissableMask]="true"
-  [draggable]="false"
-  [resizable]="false"
-  styleClass="decl-wp-dialog"
-  [style]="{ width: 'min(100vw - 1rem, 880px)' }"
-  [contentStyle]="{ display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }"
+  [dismissible]="true"
+  [closeOnEscape]="true"
 >
   @if (filteredCount() > 0) {
     <p class="decl-panel__meta decl-wp-dialog__meta">{{ filteredCount() }} résultat(s)</p>
@@ -279,7 +347,6 @@
           size="small"
           [text]="true"
           [severity]="typeFilter() === f.id ? 'primary' : 'secondary'"
-          [class.is-active]="typeFilter() === f.id"
           (onClick)="setTypeFilter(f.id)"
           [label]="f.label"
         />
@@ -288,7 +355,7 @@
   </div>
   <div class="decl-list-body">
     <ul class="decl-wp-list vav-scroll" aria-label="Page {{ currentPage() }}">
-      @for (wp of paginatedWaypoints(); track $index) {
+      @for (wp of paginatedWaypoints(); track wp.id) {
         <li>
           <button
             type="button"
@@ -352,7 +419,7 @@
   <div class="decl-wp-dialog__foot">
     <p-button label="Terminé" icon="pi pi-check" (onClick)="closeWaypointDialog()" />
   </div>
-</p-dialog>
+</p-drawer>
 
 <!-- Dialog : pilote & planeur -->
 <p-dialog

@@ -247,6 +247,10 @@ export class TaskStateService {
     legs.splice(0, legs.length, ...ordered);
   }
 
+  setCircuitLegs(legs: CircuitLeg[]): void {
+    this.setLegs(legs);
+  }
+
   clearSelection(): void {
     this.circuitLegs.set([]);
     this.saveToStorage();

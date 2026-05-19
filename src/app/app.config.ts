@@ -2,18 +2,21 @@ import { ApplicationConfig, inject, provideAppInitializer, provideBrowserGlobalE
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideRouter, Router } from '@angular/router';
 import { providePrimeNG } from 'primeng/config';
-import Aura from '@primeuix/themes/aura';
+import { ConfirmationService, MessageService } from 'primeng/api';
 
 import { routes } from './app.routes';
+import { VavTheme } from './config/vav-theme.preset';
 import { CupDatabaseService } from './services/cup-database.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideAnimationsAsync(),
+    MessageService,
+    ConfirmationService,
     providePrimeNG({
       theme: {
-        preset: Aura,
+        preset: VavTheme,
         options: {
           darkModeSelector: false
         }

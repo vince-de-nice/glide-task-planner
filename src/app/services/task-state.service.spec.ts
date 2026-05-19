@@ -82,6 +82,21 @@ describe('TaskStateService circuit roles', () => {
     expect(service.circuitLegs()).toEqual([]);
   });
 
+  it('setCircuitLegs replaces leg order', () => {
+    const a = addWp('a');
+    const b = addWp('b');
+    const c = addWp('c');
+    service.addTurnpoint(a);
+    service.addTurnpoint(b);
+    service.addTurnpoint(c);
+    service.setCircuitLegs([
+      { waypointId: c, role: 'turnpoint' },
+      { waypointId: a, role: 'turnpoint' },
+      { waypointId: b, role: 'turnpoint' }
+    ]);
+    expect(service.circuitLegs().map(l => l.waypointId)).toEqual([c, a, b]);
+  });
+
   it('removeLastOccurrence and removeAllOccurrences', () => {
     const a = addWp('a');
     const b = addWp('b');

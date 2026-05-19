@@ -10,7 +10,7 @@ Application web pour composer une tâche à partir de waypoints (fichiers SeeYou
 - Composition de tâche sur liste et carte (Leaflet)
 - Aperçu et téléchargement du fichier FLARM
 - Bibliothèque de circuits (localStorage + export/import JSON, profil FLARM inclus)
-- Interface **PrimeNG** (thème Aura) : boutons, champs, listes déroulantes, dialogues
+- Interface **PrimeNG** (thème Aura) : parcours en 3 étapes (Base → Circuit → Export), barre CUP repliable, panneau circuit avec réordonnancement, drawer de sélection des points, toasts et confirmations homogènes
 
 ## Prérequis
 
@@ -30,11 +30,9 @@ Ouvrir [http://localhost:4200](http://localhost:4200) → page **Déclaration**.
 
 ## Utilisation pilote
 
-1. La **base de points** se charge depuis `default.cup` (ou depuis la copie déjà enregistrée dans le navigateur) ; vous pouvez importer un autre `.cup` ou charger une URL
-2. Ajouter les points à la tâche via **Choisir des points** sous la liste du circuit, dans l’ordre souhaité
-3. Nommer la tâche, vérifier l’**aperçu** du fichier
-4. **Télécharger** `flarmcfg.txt` et le copier sur carte SD / clé USB FLARM
-5. **Redémarrer** l’appareil FLARM
+1. **Base** — la base CUP se charge depuis `default.cup` (ou la copie enregistrée dans le navigateur) ; importez un autre `.cup` ou une URL si besoin (barre repliable après chargement)
+2. **Circuit** — ajoutez les points via **Choisir des points** (tiroir latéral), réordonnez la liste par glisser-déposer, nommez la tâche
+3. **Export** — vérifiez l’**aperçu** FLARM, **téléchargez** `flarmcfg.txt`, copiez-le sur carte SD / clé USB FLARM, puis **redémarrez** l’appareil FLARM
 
 Le premier waypoint déclaré correspond au décollage, le dernier à l’atterrissage.
 

@@ -36,10 +36,6 @@
     </div>
   </header>
 
-  @if (importMessage()) {
-    <p class="vav-alert vav-alert--success">{{ importMessage() }}</p>
-  }
-
   @if (showAddForm()) {
     <section class="wp-form vav-card">
       <h3>{{ editingWaypoint() ? 'Modifier le waypoint' : 'Nouveau waypoint' }}</h3>

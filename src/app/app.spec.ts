@@ -1,10 +1,12 @@
 import { TestBed } from '@angular/core/testing';
+import { MessageService, ConfirmationService } from 'primeng/api';
 import { App } from './app';
 
 describe('App', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [App]
+      imports: [App],
+      providers: [MessageService, ConfirmationService]
     }).compileComponents();
   });
 

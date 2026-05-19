@@ -16,18 +16,91 @@
   height: 100%;
 }
 
-.map-toolbar {
+.map-toolbar-wrap {
+  flex-shrink: 0;
+  margin-bottom: 0.35rem;
+  border: 1px solid var(--vav-border);
+  border-radius: var(--vav-radius-sm);
+  background: var(--vav-surface);
+  overflow: hidden;
+}
+
+:host ::ng-deep .map-toolbar.p-toolbar {
+  margin: 0;
+  padding: 0.4rem 0.5rem;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+
+  .p-toolbar-start,
+  .p-toolbar-end {
+    margin: 0;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .p-toolbar-start {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .p-toolbar-end {
+    flex: 0 1 auto;
+  }
+}
+
+.map-toolbar__group {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.4rem;
-  margin-bottom: 0.35rem;
-  flex-shrink: 0;
+  gap: 0.5rem;
+}
 
-  .vav-btn {
-    flex: 1 1 auto;
-    min-width: fit-content;
-  }
+.map-toolbar__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+:host ::ng-deep .map-region-select {
+  min-width: 9rem;
+  max-width: 12rem;
+}
+
+:host ::ng-deep .map-toolbar__controls .p-select .p-select-label {
+  line-height: 1.25;
+}
+
+.map-airspace-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.map-airspace-switch__label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--vav-text-secondary);
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.map-airspace-status {
+  margin: 0;
+  padding: 0.35rem 0.5rem 0.4rem;
+  font-size: 0.68rem;
+  line-height: 1.35;
+  color: var(--vav-text-muted);
+  border-top: 1px solid var(--vav-border);
+  background: #f8fafc;
 }
 
 .map-task-distance {
@@ -93,49 +166,57 @@
 .map-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-bottom: 0.45rem;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.35rem;
+  padding: 0.35rem 0.45rem;
   flex-shrink: 0;
+  border: 1px solid var(--vav-border);
+  border-radius: var(--vav-radius-sm);
+  background: var(--vav-surface);
 }
 
-.map-filter-chip {
+.map-filter-switch {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.2rem 0.5rem;
+  gap: 0.35rem;
+  padding: 0.2rem 0.45rem 0.2rem 0.35rem;
   border-radius: 999px;
-  border: 1px solid var(--vav-border);
-  background: var(--vav-surface);
-  color: var(--vav-text);
-  font-size: 0.7rem;
-  font-weight: 600;
-  line-height: 1.2;
+  border: 1px solid color-mix(in srgb, var(--filter-color, #ea580c) 40%, var(--vav-border));
+  background: color-mix(in srgb, var(--filter-color, #ea580c) 8%, #fff);
   cursor: pointer;
+  user-select: none;
   transition:
     opacity 0.15s,
-    border-color 0.15s;
+    border-color 0.15s,
+    background 0.15s;
 
-  &__dot {
-    width: 0.55rem;
-    height: 0.55rem;
-    border-radius: 50%;
-    background: var(--chip-color, #ea580c);
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+  .pi {
+    font-size: 0.75rem;
+    color: var(--filter-color, var(--vav-primary));
   }
 
   &--off {
-    opacity: 0.45;
-    text-decoration: line-through;
+    opacity: 0.55;
     background: var(--vav-bg);
-  }
+    border-color: var(--vav-border);
 
-  &:not(&--off) {
-    border-color: color-mix(in srgb, var(--chip-color) 55%, var(--vav-border));
-  }
+    .pi {
+      color: var(--vav-text-muted);
+    }
 
-  &:hover {
-    opacity: 1;
+    .map-filter-switch__label {
+      color: var(--vav-text-muted);
+    }
   }
+}
+
+.map-filter-switch__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--vav-text);
+  line-height: 1;
+  white-space: nowrap;
 }
 
 /* ngx-leaflet applique .leaflet-container sur cet élément */

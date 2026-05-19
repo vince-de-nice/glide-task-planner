@@ -6,9 +6,11 @@ import {
   effect,
   OnInit,
   ViewChild,
+  ElementRef,
   AfterViewInit,
   HostListener
 } from '@angular/core';
+import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { WaypointService } from '../../services/waypoint.service';
@@ -33,15 +35,31 @@ import { FlarmDeclaration } from '../../models/flarm-profile.model';
 import { circuitRoleShortLabel } from '../../models/circuit.model';
 import { Waypoint, WaypointTypeFilter } from '../../models/waypoint.model';
 import { FlarmProfileService } from '../../services/flarm-profile.service';
+import { UiFeedbackService } from '../../services/ui-feedback.service';
+import { CircuitListItem } from '../../models/circuit-list-item.model';
 import { Button } from 'primeng/button';
 import { Select } from 'primeng/select';
 import { InputText } from 'primeng/inputtext';
 import { SelectButton } from 'primeng/selectbutton';
 import { Dialog } from 'primeng/dialog';
+import { Drawer } from 'primeng/drawer';
 import { Tooltip } from 'primeng/tooltip';
 import { Textarea } from 'primeng/textarea';
+import { Tag } from 'primeng/tag';
+import { Message } from 'primeng/message';
+import { Accordion, AccordionPanel, AccordionHeader, AccordionContent } from 'primeng/accordion';
+import { Menu } from 'primeng/menu';
+import { MenuItem } from 'primeng/api';
+
+const DISCLAIMER_SEEN_KEY = 'vav_disclaimer_seen';
 
 type MobileTab = 'map' | 'task';
+
+interface WorkflowStepUi {
+  label: string;
+  done: boolean;
+  active: boolean;
+}
 
 @Component({
   selector: 'app-declaration',
@@ -56,8 +74,17 @@ type MobileTab = 'map' | 'task';
     InputText,
     SelectButton,
     Dialog,
+    Drawer,
     Tooltip,
-    Textarea
+    Textarea,
+    Tag,
+    Message,
+    Accordion,
+    AccordionPanel,
+    AccordionHeader,
+    AccordionContent,
+    DragDropModule,
+    Menu
   ],
   templateUrl: './declaration.component.html',
   styleUrls: ['./declaration.component.scss']
@@ -75,6 +102,7 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   private flarmConfigService = inject(FlarmConfigService);
   flarmProfileService = inject(FlarmProfileService);
   private savedCircuitService = inject(SavedCircuitService);
+  private uiFeedback = inject(UiFeedbackService);
 
   waypoints = this.waypointService.waypoints;
   activeCircuitId = this.savedCircuitService.activeCircuitId;
@@ -102,8 +130,24 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   loading = signal(false);
   copyFeedback = signal(false);
   circuitMessage = signal<string | null>(null);
-  addToast = signal<string | null>(null);
-  private addToastTimer: ReturnType<typeof setTimeout> | null = null;
+  cupPanelExpanded = signal(false);
+  disclaimerAccordionIndex = signal<number | number[] | string | string[] | null>(-1);
+
+  circuitListItems = computed(() =>
+    this.circuitLegs().flatMap((leg, index) => {
+      const wp = this.waypointService.getWaypoint(leg.waypointId);
+      if (!wp) {
+        return [];
+      }
+      return [
+        {
+          leg,
+          waypoint: wp,
+          key: `${index}-${leg.waypointId}-${leg.role}`
+        }
+      ];
+    })
+  );
 
   selectedWaypoints = computed(() =>
     this.circuitLegs()
@@ -167,9 +211,35 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     ];
   });
 
+  workflowSteps = computed((): WorkflowStepUi[] => {
+    const hasBase = this.waypoints().length > 0;
+    const hasCircuit = this.selectedWaypointIds().length >= 2;
+    const canExport = hasCircuit && Boolean(this.flarmPreview());
+    return [
+      { label: 'Base', done: hasBase, active: !hasBase },
+      { label: 'Circuit', done: hasCircuit, active: hasBase && !hasCircuit },
+      { label: 'Export', done: canExport, active: hasCircuit && !canExport }
+    ];
+  });
+
+  cupMenuItems = computed<MenuItem[]>(() => [
+    {
+      label: 'Importer .cup',
+      icon: 'pi pi-upload',
+      command: () => this.cupFileInput?.nativeElement.click()
+    },
+    {
+      label: 'Exporter .cup',
+      icon: 'pi pi-file-export',
+      disabled: this.waypoints().length === 0,
+      command: () => this.exportCup()
+    }
+  ]);
+
   constructor() {
     effect(() => {
       this.circuitLegs();
+      this.waypoints();
       this.calculateDistance();
     });
 
@@ -181,6 +251,8 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
       }
     });
   }
+
+  @ViewChild('cupFileInput') cupFileInput?: ElementRef<HTMLInputElement>;
 
   buildDeclaration(): FlarmDeclaration {
     return {
@@ -209,6 +281,10 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   ];
 
   ngOnInit(): void {
+    this.cupPanelExpanded.set(this.waypoints().length === 0);
+    if (!localStorage.getItem(DISCLAIMER_SEEN_KEY) && this.disclaimer()) {
+      this.disclaimerAccordionIndex.set(0);
+    }
     void this.initCupSources();
   }
 
@@ -270,7 +346,7 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     this.circuitsDialogOpen.set(false);
   }
 
-  onWaypointDialogVisible(v: boolean): void {
+  onWaypointDrawerVisible(v: boolean): void {
     if (!v && this.waypointDialogOpen()) {
       this.closeWaypointDialog();
     }
@@ -295,12 +371,52 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   }
 
   showAddToast(message: string): void {
-    this.addToast.set(message);
-    if (this.addToastTimer) clearTimeout(this.addToastTimer);
-    this.addToastTimer = setTimeout(() => {
-      this.addToast.set(null);
-      this.addToastTimer = null;
-    }, 2200);
+    this.uiFeedback.success(message);
+  }
+
+  toggleCupPanel(): void {
+    this.cupPanelExpanded.update(v => !v);
+  }
+
+  onDisclaimerToggle(index: number | number[] | string | string[] | null | undefined): void {
+    this.disclaimerAccordionIndex.set(index ?? null);
+    const values = Array.isArray(index) ? index : index == null ? [] : [index];
+    if (values.some(v => v === 0 || v === '0')) {
+      localStorage.setItem(DISCLAIMER_SEEN_KEY, '1');
+    }
+  }
+
+  onCircuitDrop(event: CdkDragDrop<CircuitListItem[]>): void {
+    if (event.previousIndex === event.currentIndex) {
+      return;
+    }
+    const items = [...this.circuitListItems()];
+    moveItemInArray(items, event.previousIndex, event.currentIndex);
+    this.taskState.setCircuitLegs(items.map(i => i.leg));
+    this.calculateDistance();
+  }
+
+  onCircuitItemClick(item: CircuitListItem): void {
+    this.mapView?.centerOnWaypoint(item.waypoint.id);
+  }
+
+  removeCircuitItem(index: number): void {
+    this.taskState.removeWaypointAt(index);
+    this.calculateDistance();
+  }
+
+  async clearTaskWithConfirm(): Promise<void> {
+    if (this.selectedWaypointIds().length === 0) return;
+    const ok = await this.uiFeedback.confirm({
+      header: 'Vider la tâche',
+      message: 'Retirer tous les points du circuit ?',
+      acceptLabel: 'Vider',
+      rejectLabel: 'Annuler',
+      acceptButtonStyleClass: 'p-button-danger'
+    });
+    if (ok) {
+      this.clearTask();
+    }
   }
 
   private async initCupSources(): Promise<void> {
@@ -338,13 +454,15 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
 
   private async loadFromUrl(url: string, label?: string): Promise<void> {
     if (this.waypoints().length > 0) {
-      const ok = confirm(
-        `Charger cette base remplacera les ${this.waypoints().length} points actuels. Continuer ?`
-      );
+      const ok = await this.uiFeedback.confirm({
+        header: 'Remplacer la base',
+        message: `Charger cette base remplacera les ${this.waypoints().length} points actuels. Continuer ?`
+      });
       if (!ok) return;
     }
     await this.runLoad(() => this.cupLoader.loadFromUrl(url, label, true));
     this.cupUrlInput.set(url);
+    this.cupPanelExpanded.set(false);
     void this.initCupSources();
   }
 
@@ -365,9 +483,10 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     if (!file) return;
 
     if (this.waypoints().length > 0) {
-      const ok = confirm(
-        `Importer « ${file.name} » remplacera les points actuels. Continuer ?`
-      );
+      const ok = await this.uiFeedback.confirm({
+        header: 'Remplacer la base',
+        message: `Importer « ${file.name} » remplacera les points actuels. Continuer ?`
+      });
       if (!ok) {
         input.value = '';
         return;
@@ -375,6 +494,7 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     }
 
     await this.runLoad(() => this.cupLoader.loadFromFile(file, true));
+    this.cupPanelExpanded.set(false);
     input.value = '';
   }
 
@@ -385,6 +505,8 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
       const count = await loader();
       if (count === 0) {
         this.loadError.set('Aucun waypoint trouvé dans le fichier');
+      } else {
+        this.uiFeedback.success('Base CUP chargée', `${count} point(s)`);
       }
       this.currentPage.set(1);
       this.calculateDistance();
@@ -499,9 +621,9 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
         notes: event.notes,
         updateId: event.updateId ?? undefined
       });
-      this.circuitMessage.set(
-        event.updateId ? 'Circuit mis à jour.' : 'Circuit enregistré dans la bibliothèque.'
-      );
+      const msg = event.updateId ? 'Circuit mis à jour.' : 'Circuit enregistré dans la bibliothèque.';
+      this.circuitMessage.set(msg);
+      this.uiFeedback.success(msg);
       this.circuitLibrary?.clearSaveForm();
     } catch (e) {
       this.circuitMessage.set(e instanceof Error ? e.message : 'Enregistrement impossible.');
@@ -516,7 +638,9 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     this.calculateDistance();
     this.closeCircuitsDialog();
     this.setMobileTab('task');
-    this.circuitMessage.set('Circuit chargé — vérifiez pilote / planeur puis exportez le FLARM.');
+    const msg = 'Circuit chargé — vérifiez pilote / planeur puis exportez le FLARM.';
+    this.circuitMessage.set(msg);
+    this.uiFeedback.info(msg);
     setTimeout(() => this.circuitMessage.set(null), 5000);
   }
 

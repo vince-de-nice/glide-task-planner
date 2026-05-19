@@ -9,6 +9,7 @@ import {
   signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { LeafletDirective } from '@bluehalo/ngx-leaflet';
 import {
   latLng,
@@ -41,6 +42,12 @@ import {
   WaypointEditPayload
 } from '../waypoint-edit-dialog/waypoint-edit-dialog.component';
 import { Button } from 'primeng/button';
+import { Tag } from 'primeng/tag';
+import { Select } from 'primeng/select';
+import { Toolbar } from 'primeng/toolbar';
+import { ToggleSwitch } from 'primeng/toggleswitch';
+import { Tooltip } from 'primeng/tooltip';
+import { UiFeedbackService } from '../../services/ui-feedback.service';
 
 const SATELLITE_TILES = {
   url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -56,17 +63,33 @@ const SATELLITE_LABELS = {
 /** Texte des libellés visible à partir de ce zoom Leaflet (plus on zoome, plus z est grand). */
 const MIN_ZOOM_FOR_LABELS = 11;
 
-const MAP_TYPE_FILTERS: { type: WaypointType; label: string; color: string }[] = [
-  { type: 'turnpoint', label: 'Turnpoints', color: '#ea580c' },
-  { type: 'airfield', label: 'Aérodromes', color: '#2563eb' },
-  { type: 'landable', label: 'Atterrissables', color: '#16a34a' },
-  { type: 'custom', label: 'Perso', color: '#9333ea' }
+const MAP_TYPE_FILTERS: {
+  type: WaypointType;
+  label: string;
+  color: string;
+  icon: string;
+}[] = [
+  { type: 'turnpoint', label: 'Turnpoints', color: '#ea580c', icon: 'pi pi-flag' },
+  { type: 'airfield', label: 'Aérodromes', color: '#2563eb', icon: 'pi pi-building' },
+  { type: 'landable', label: 'Atterrissables', color: '#16a34a', icon: 'pi pi-map-marker' },
+  { type: 'custom', label: 'Perso', color: '#9333ea', icon: 'pi pi-star' }
 ];
 
 @Component({
   selector: 'app-map-view',
   standalone: true,
-  imports: [CommonModule, LeafletDirective, WaypointEditDialogComponent, Button],
+  imports: [
+    CommonModule,
+    FormsModule,
+    LeafletDirective,
+    WaypointEditDialogComponent,
+    Button,
+    Tag,
+    Select,
+    Toolbar,
+    ToggleSwitch,
+    Tooltip
+  ],
   templateUrl: './map-view.component.html',
   styleUrls: ['./map-view.component.scss']
 })
@@ -75,6 +98,7 @@ export class MapViewComponent implements OnInit {
 
   private waypointService = inject(WaypointService);
   private taskState = inject(TaskStateService);
+  private uiFeedback = inject(UiFeedbackService);
   private distanceService = inject(DistanceService);
   readonly airspaceLayerService = inject(AirspaceLayerService);
 
@@ -97,13 +121,11 @@ export class MapViewComponent implements OnInit {
   /** true une fois `public/config/airspace.json` lu (affiche le bon mode POAFF / OpenAIP). */
   airspaceConfigReady = signal(false);
 
-  /** Visibilité du catalogue par type (le circuit ignore ces filtres). */
-  private catalogTypeVisible = signal<Record<WaypointType, boolean>>({
-    turnpoint: true,
-    airfield: true,
-    landable: true,
-    custom: true
-  });
+  /** Types de waypoints affichés sur la carte (catalogue). */
+  catalogTypeFilter = signal<WaypointType[]>(['turnpoint', 'airfield', 'landable', 'custom']);
+
+  readonly mapHelpTooltip =
+    'Espaces aériens : POAFF/SIA (France) ou OpenAIP avec clé · pastilles · noms au zoom ≥ 11 · double-clic : nouveau point · clic : menu';
 
   mapOptions!: MapOptions;
 
@@ -125,7 +147,7 @@ export class MapViewComponent implements OnInit {
     effect(() => {
       this.waypoints();
       this.selectedWaypointIds();
-      this.catalogTypeVisible();
+      this.catalogTypeFilter();
       if (this.mapReady() && this.map && this.markersLayer) {
         this.refreshMarkers();
         this.updateTaskLines();
@@ -157,14 +179,37 @@ export class MapViewComponent implements OnInit {
   }
 
   isCatalogTypeVisible(type: WaypointType): boolean {
-    return this.catalogTypeVisible()[type];
+    return this.catalogTypeFilter().includes(type);
   }
 
-  async toggleAirspaceLayer(): Promise<void> {
-    if (this.airspaceVisible()) {
-      this.removeAirspaceLayer();
-      this.airspaceVisible.set(false);
-      this.airspaceStatus.set(null);
+  onCatalogTypeToggle(type: WaypointType, visible: boolean): void {
+    this.catalogTypeFilter.update(types => {
+      if (visible) {
+        return types.includes(type) ? types : [...types, type];
+      }
+      return types.filter(t => t !== type);
+    });
+    if (this.mapReady()) {
+      this.refreshMarkers();
+    }
+  }
+
+  onAirspaceToggle(on: boolean): void {
+    if (on) {
+      void this.enableAirspaceLayer();
+    } else {
+      this.disableAirspaceLayer();
+    }
+  }
+
+  private disableAirspaceLayer(): void {
+    this.removeAirspaceLayer();
+    this.airspaceVisible.set(false);
+    this.airspaceStatus.set(null);
+  }
+
+  private async enableAirspaceLayer(): Promise<void> {
+    if (this.airspaceVisible() || this.airspaceLoading()) {
       return;
     }
 
@@ -208,9 +253,8 @@ export class MapViewComponent implements OnInit {
   }
 
   private async reloadAirspaceLayer(): Promise<void> {
-    this.removeAirspaceLayer();
-    this.airspaceVisible.set(false);
-    await this.toggleAirspaceLayer();
+    this.disableAirspaceLayer();
+    await this.enableAirspaceLayer();
   }
 
   private initAirspacePane(map: Map): void {
@@ -225,16 +269,6 @@ export class MapViewComponent implements OnInit {
     if (this.airspaceLayer && this.map) {
       this.map.removeLayer(this.airspaceLayer);
       this.airspaceLayer = null;
-    }
-  }
-
-  toggleCatalogTypeFilter(type: WaypointType): void {
-    this.catalogTypeVisible.update(current => ({
-      ...current,
-      [type]: !current[type]
-    }));
-    if (this.mapReady()) {
-      this.refreshMarkers();
     }
   }
 
@@ -480,6 +514,13 @@ export class MapViewComponent implements OnInit {
     }
   }
 
+  centerOnWaypoint(waypointId: string): void {
+    const map = this.getMap();
+    const wp = this.waypointService.getWaypoint(waypointId);
+    if (!map || !wp) return;
+    map.flyTo([wp.latitude, wp.longitude], Math.max(map.getZoom(), 12), { duration: 0.4 });
+  }
+
   centerOnAll(): void {
     const map = this.getMap();
     if (!map) return;
@@ -497,8 +538,15 @@ export class MapViewComponent implements OnInit {
     }
   }
 
-  clearSelection(): void {
-    this.taskState.clearSelection();
+  async clearSelection(): Promise<void> {
+    if (this.selectedWaypointIds().length === 0) return;
+    const ok = await this.uiFeedback.confirm({
+      header: 'Effacer la tâche',
+      message: 'Retirer tous les points du circuit affiché sur la carte ?'
+    });
+    if (ok) {
+      this.taskState.clearSelection();
+    }
   }
 
   private openWaypointContextMenu(wp: Waypoint): void {
@@ -531,10 +579,28 @@ export class MapViewComponent implements OnInit {
       event.stopPropagation();
       const action = target.getAttribute('data-action') as WaypointMapAction | null;
       if (!action) return;
-      const message = this.runWaypointAction(action, wp);
-      this.map?.closePopup();
-      if (message) this.actionMessage.emit(message);
+      void this.handleWaypointAction(action, wp);
     });
+  }
+
+  private async handleWaypointAction(action: WaypointMapAction, wp: Waypoint): Promise<void> {
+    if (action === 'delete-waypoint') {
+      const ok = await this.uiFeedback.confirm({
+        header: 'Supprimer le point',
+        message: `Supprimer « ${wp.name} » de la base ?`,
+        acceptLabel: 'Supprimer',
+        acceptButtonStyleClass: 'p-button-danger'
+      });
+      this.map?.closePopup();
+      if (!ok) return;
+      this.taskState.removeAllOccurrences(wp.id);
+      this.waypointService.deleteWaypoint(wp.id);
+      this.actionMessage.emit(`Point « ${wp.name} » supprimé`);
+      return;
+    }
+    const message = this.runWaypointAction(action, wp);
+    this.map?.closePopup();
+    if (message) this.actionMessage.emit(message);
   }
 
   private runWaypointAction(action: WaypointMapAction, wp: Waypoint): string | null {
@@ -567,10 +633,7 @@ export class MapViewComponent implements OnInit {
         return null;
       }
       case 'delete-waypoint':
-        if (!confirm(`Supprimer « ${wp.name} » de la base ?`)) return null;
-        this.taskState.removeAllOccurrences(wp.id);
-        this.waypointService.deleteWaypoint(wp.id);
-        return `Point « ${wp.name} » supprimé`;
+        return null;
       default:
         return null;
     }
