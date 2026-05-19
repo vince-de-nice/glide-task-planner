@@ -244,21 +244,28 @@
                         <span class="decl-circuit-list__role">{{ circuitRoleLabel(item.leg.role) }}</span>
                       }
                       <span class="decl-circuit-list__name">{{ item.waypoint.name }}</span>
-                      @if (legFromIndex(i); as leg) {
-                        <span
-                          class="decl-circuit-list__leg"
-                          [class.decl-circuit-list__leg--off]="!leg.counted"
-                        >
-                          {{ leg.distance.toFixed(1) }} km
-                          @if (!leg.counted) {
-                            <span class="decl-circuit-list__leg-badge">hors tâche</span>
-                          }
-                        </span>
-                      }
                     </span>
                     <span class="decl-circuit-list__zone">{{ legZoneShort(item) }}</span>
                   </span>
                 </button>
+                <span
+                  class="decl-circuit-list__zone-preview-wrap"
+                  [pTooltip]="legZoneShort(item)"
+                  tooltipPosition="top"
+                >
+                  <app-obs-zone-preview [legIndex]="i" />
+                </span>
+                @if (legFromIndex(i); as leg) {
+                  <span
+                    class="decl-circuit-list__leg"
+                    [class.decl-circuit-list__leg--off]="!leg.counted"
+                  >
+                    {{ leg.distance.toFixed(1) }} km
+                    @if (!leg.counted) {
+                      <span class="decl-circuit-list__leg-badge">hors tâche</span>
+                    }
+                  </span>
+                }
                 <div class="decl-circuit-list__actions">
                   <p-button
                     icon="pi pi-cog"

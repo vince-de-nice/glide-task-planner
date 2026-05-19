@@ -6,6 +6,7 @@ import { Button } from 'primeng/button';
 import { Select } from 'primeng/select';
 import { InputNumber } from 'primeng/inputnumber';
 import { Checkbox } from 'primeng/checkbox';
+import { ObsZonePreviewComponent } from '../obs-zone-preview/obs-zone-preview.component';
 import { CircuitLeg } from '../../models/circuit.model';
 import { Waypoint } from '../../models/waypoint.model';
 import {
@@ -28,7 +29,16 @@ export interface CircuitLegZoneDialogSave {
 @Component({
   selector: 'app-circuit-leg-zone-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, Dialog, Button, Select, InputNumber, Checkbox],
+  imports: [
+    CommonModule,
+    FormsModule,
+    Dialog,
+    Button,
+    Select,
+    InputNumber,
+    Checkbox,
+    ObsZonePreviewComponent
+  ],
   templateUrl: './circuit-leg-zone-dialog.component.html',
   styleUrl: './circuit-leg-zone-dialog.component.scss'
 })
@@ -93,6 +103,19 @@ export class CircuitLegZoneDialogComponent {
     return observationZoneShortLabel(zone);
   });
 
+  readonly previewLeg = computed((): CircuitLeg | null => {
+    const leg = this.leg();
+    if (!leg) return null;
+    return {
+      ...leg,
+      obsZone: normalizeObservationZone(
+        this.buildZoneFromForm(),
+        leg.role,
+        this.defaultRadiusM()
+      )
+    };
+  });
+
   constructor() {
     effect(() => {
       if (!this.visible()) return;
@@ -118,7 +141,23 @@ export class CircuitLegZoneDialogComponent {
     });
   }
 
-  onPresetChange(id: ObsZonePresetId): void {
+  onPresetChange(value: unknown): void {
+    const id = this.resolvePresetId(value);
+    if (!id) return;
+    this.applyPreset(id);
+  }
+
+  private resolvePresetId(value: unknown): ObsZonePresetId | null {
+    if (value == null) return null;
+    if (typeof value === 'string') return value as ObsZonePresetId;
+    if (typeof value === 'object' && value !== null && 'id' in value) {
+      const id = (value as { id: unknown }).id;
+      return typeof id === 'string' ? (id as ObsZonePresetId) : null;
+    }
+    return null;
+  }
+
+  private applyPreset(id: ObsZonePresetId): void {
     this.presetId.set(id);
     if (id === 'custom') return;
     const z = observationZoneFromPreset(id, this.defaultRadiusM());

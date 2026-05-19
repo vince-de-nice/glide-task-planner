@@ -1,0 +1,48 @@
+@if (preview(); as p) {
+  <svg
+    class="obs-zone-preview"
+    [attr.viewBox]="viewBox"
+    role="img"
+    [attr.aria-label]="'Zone : ' + p.label"
+  >
+    @if (p.circleR) {
+      <circle
+        class="obs-zone-preview__shape"
+        [attr.cx]="24"
+        [attr.cy]="16"
+        [attr.r]="p.circleR"
+        [attr.fill]="colors().fill"
+        [attr.stroke]="colors().stroke"
+      />
+    }
+    @if (p.pathD) {
+      <path
+        class="obs-zone-preview__shape"
+        [attr.d]="p.pathD"
+        [attr.fill]="colors().fill"
+        [attr.stroke]="colors().stroke"
+      />
+    }
+    @if (p.line) {
+      <line
+        class="obs-zone-preview__line"
+        [attr.x1]="p.line.x1"
+        [attr.y1]="p.line.y1"
+        [attr.x2]="p.line.x2"
+        [attr.y2]="p.line.y2"
+        [attr.stroke]="colors().stroke"
+      />
+    }
+    @for (mark of p.markers ?? []; track $index) {
+      <line
+        class="obs-zone-preview__marker"
+        [attr.x1]="mark.x1"
+        [attr.y1]="mark.y1"
+        [attr.x2]="mark.x2"
+        [attr.y2]="mark.y2"
+        [attr.stroke]="colors().stroke"
+      />
+    }
+    <circle class="obs-zone-preview__center" cx="24" cy="16" r="1.75" />
+  </svg>
+}

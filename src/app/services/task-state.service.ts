@@ -165,27 +165,35 @@ export class TaskStateService {
     this.setLegs(legs);
   }
 
-  updateLegObsZone(index: number, obsZone: ObservationZoneConfig): void {
+  /** Met à jour zone d’observation et altitude d’un point en une seule écriture. */
+  patchLegZone(
+    index: number,
+    patch: { obsZone?: ObservationZoneConfig; elevationM?: number | undefined }
+  ): void {
     const legs = [...this.circuitLegs()];
     if (index < 0 || index >= legs.length) return;
-    legs[index] = {
-      ...legs[index],
-      obsZone: normalizeObservationZone(
-        obsZone,
-        legs[index].role,
-        this.ruleEngine.radiusForLegRole(this.resolvedRegulation(), legs[index].role)
-      )
-    };
+    const leg = legs[index];
+    const r = this.ruleEngine.radiusForLegRole(this.resolvedRegulation(), leg.role);
+    const next: CircuitLeg = { ...leg };
+    if (patch.obsZone !== undefined) {
+      next.obsZone = normalizeObservationZone(patch.obsZone, leg.role, r);
+    }
+    if (patch.elevationM !== undefined) {
+      next.elevationM =
+        patch.elevationM != null && Number.isFinite(patch.elevationM)
+          ? Math.round(patch.elevationM)
+          : undefined;
+    }
+    legs[index] = next;
     this.setLegs(legs);
   }
 
+  updateLegObsZone(index: number, obsZone: ObservationZoneConfig): void {
+    this.patchLegZone(index, { obsZone });
+  }
+
   updateLegElevation(index: number, elevationM: number | undefined): void {
-    const legs = [...this.circuitLegs()];
-    if (index < 0 || index >= legs.length) return;
-    const elev =
-      elevationM != null && Number.isFinite(elevationM) ? Math.round(elevationM) : undefined;
-    legs[index] = { ...legs[index], elevationM: elev };
-    this.setLegs(legs);
+    this.patchLegZone(index, { elevationM });
   }
 
   applyDefaultRadiusToAllLegZones(): void {

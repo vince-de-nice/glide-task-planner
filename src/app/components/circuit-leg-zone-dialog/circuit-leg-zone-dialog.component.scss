@@ -34,9 +34,26 @@
   line-height: 1.35;
 }
 
+.leg-zone-dialog__preview-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.5rem 0 0.65rem;
+  padding: 0.55rem;
+  border: 1px solid var(--gc-border);
+  border-radius: var(--gc-radius-sm);
+  background: #f8fafc;
+}
+
 .leg-zone-dialog__preview {
-  margin: 0.5rem 0;
+  margin: 0;
   font-size: 0.8125rem;
+  text-align: center;
+}
+
+.leg-zone-dialog__preview-shape {
+  display: block;
 }
 
 .leg-zone-dialog__sep {

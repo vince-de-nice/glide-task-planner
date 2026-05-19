@@ -224,6 +224,21 @@ export function formatCupObsZoneLine(index: number, zone: ObservationZoneConfig)
   return parts.join(',');
 }
 
+/** Empreinte légère pour rafraîchir les vues quand la zone change. */
+export function observationZoneSignature(zone: ObservationZoneConfig | undefined): string {
+  if (!zone) return '';
+  return [
+    zone.presetId ?? '',
+    zone.cupStyle,
+    zone.r1M,
+    zone.line ? 1 : 0,
+    zone.a1Deg ?? '',
+    zone.r2M ?? '',
+    zone.a2Deg ?? '',
+    zone.a12Deg ?? ''
+  ].join('|');
+}
+
 export function observationZoneShortLabel(zone: ObservationZoneConfig): string {
   if (zone.line) {
     return `Ligne ${zone.r1M} m`;

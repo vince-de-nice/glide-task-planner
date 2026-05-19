@@ -774,6 +774,7 @@
 }
 
 .decl-circuit-list {
+  --decl-list-preview-col: 3rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -785,13 +786,24 @@
   border-radius: var(--gc-radius-sm);
   background: #fff;
   scrollbar-gutter: stable;
+  display: grid;
+  grid-template-columns:
+    1.25rem
+    0.9rem
+    1.1rem
+    minmax(0, 1fr)
+    var(--decl-list-preview-col)
+    minmax(3.25rem, auto)
+    auto;
+  column-gap: 0.4rem;
 }
 
 .decl-circuit-list__item {
   display: grid;
-  grid-template-columns: 1.25rem 0.9rem 1.1rem minmax(0, 1fr) auto;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
   align-items: center;
-  gap: 0.35rem 0.4rem;
+  gap: 0.35rem 0;
   padding: 0.35rem 0.35rem 0.35rem 0.25rem;
   border-bottom: 1px solid var(--gc-border);
   background: var(--gc-surface);
@@ -818,6 +830,7 @@
 }
 
 .decl-circuit-list__compliance {
+  grid-column: 2;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -838,6 +851,7 @@
 }
 
 .decl-circuit-list__handle {
+  grid-column: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -855,6 +869,7 @@
 }
 
 .decl-circuit-list__num {
+  grid-column: 3;
   font-weight: 800;
   font-size: 0.75rem;
   color: var(--gc-primary);
@@ -884,6 +899,7 @@
 }
 
 .decl-circuit-list__body {
+  grid-column: 4;
   min-width: 0;
   padding: 0;
   border: none;
@@ -910,6 +926,19 @@
   min-width: 0;
 }
 
+.decl-circuit-list__zone-preview-wrap {
+  grid-column: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+  align-self: center;
+  width: var(--decl-list-preview-col);
+  min-width: var(--decl-list-preview-col);
+  max-width: var(--decl-list-preview-col);
+  padding: 0 0.1rem;
+}
+
 .decl-circuit-list__zone {
   display: block;
   font-size: 0.625rem;
@@ -921,6 +950,7 @@
 }
 
 .decl-circuit-list__actions {
+  grid-column: 7;
   display: flex;
   align-items: center;
   gap: 0.1rem;
@@ -961,8 +991,10 @@
 }
 
 .decl-circuit-list__leg {
+  grid-column: 6;
   flex-shrink: 0;
-  margin-left: auto;
+  justify-self: end;
+  text-align: right;
   font-size: 0.6875rem;
   font-weight: 600;
   color: var(--gc-primary);

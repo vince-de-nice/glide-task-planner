@@ -29,6 +29,7 @@ import {
   TaskExportService
 } from '../../services/task-export.service';
 import { TaskRegulationPanelComponent } from '../task-regulation-panel/task-regulation-panel.component';
+import { ObsZonePreviewComponent } from '../obs-zone-preview/obs-zone-preview.component';
 import { TaskRuleEngineService } from '../../services/task-rule-engine.service';
 import { MapViewComponent } from '../map-view/map-view.component';
 import { CircuitLibraryComponent } from '../circuit-library/circuit-library.component';
@@ -43,7 +44,10 @@ import {
   CircuitLegZoneDialogComponent,
   CircuitLegZoneDialogSave
 } from '../circuit-leg-zone-dialog/circuit-leg-zone-dialog.component';
-import { observationZoneShortLabel } from '../../models/observation-zone.model';
+import {
+  observationZoneShortLabel,
+  observationZoneSignature
+} from '../../models/observation-zone.model';
 import { formatElevationDisplay, resolveLegElevationM } from '../../utils/elevation.util';
 import {
   waypointTypeDisplay,
@@ -98,9 +102,9 @@ const CIRCUIT_TAB_STORAGE_KEY = 'gc_circuit_tab';
     AccordionContent,
     DragDropModule,
     Menu,
-    SplitButton,
     CircuitLegZoneDialogComponent,
-    TaskRegulationPanelComponent
+    TaskRegulationPanelComponent,
+    ObsZonePreviewComponent
   ],
   templateUrl: './declaration.component.html',
   styleUrls: ['./declaration.component.scss']
@@ -225,18 +229,18 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     icon: string;
     primary?: boolean;
   }[] = [
-    {
-      format: 'flarm',
-      label: 'FLARM',
-      detail: 'flarmcfg.txt — SD/USB',
-      icon: 'pi pi-download',
-      primary: true
-    },
-    { format: 'cup', label: 'CUP', detail: 'Waypoints + tâche', icon: 'pi pi-file' },
-    { format: 'cupx', label: 'CUPX', detail: 'Archive POINTS.CUP', icon: 'pi pi-box' },
-    { format: 'tsk', label: 'XCSoar', detail: 'Fichier .tsk', icon: 'pi pi-code' },
-    { format: 'igc-crecords', label: 'IGC C-records', detail: 'Trace déclarée', icon: 'pi pi-list' }
-  ];
+      {
+        format: 'flarm',
+        label: 'FLARM',
+        detail: 'flarmcfg.txt — SD/USB',
+        icon: 'pi pi-download',
+        primary: true
+      },
+      { format: 'cup', label: 'CUP', detail: 'Waypoints + tâche', icon: 'pi pi-file' },
+      { format: 'cupx', label: 'CUPX', detail: 'Archive POINTS.CUP', icon: 'pi pi-box' },
+      { format: 'tsk', label: 'XCSoar', detail: 'Fichier .tsk', icon: 'pi pi-code' },
+      { format: 'igc-crecords', label: 'IGC C-records', detail: 'Trace déclarée', icon: 'pi pi-list' }
+    ];
 
   circuitListItems = computed(() =>
     this.circuitLegs().flatMap((leg, index) => {
@@ -248,7 +252,7 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
         {
           leg,
           waypoint: wp,
-          key: `${index}-${leg.waypointId}-${leg.role}`
+          key: `${index}-${leg.waypointId}-${leg.role}-${observationZoneSignature(leg.obsZone)}`
         }
       ];
     })
@@ -432,10 +436,10 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     const p = this.flarmProfile();
     return Boolean(
       p.pilotName.trim() ||
-        p.gliderType.trim() ||
-        p.gliderId.trim() ||
-        p.compId.trim() ||
-        p.compClass.trim()
+      p.gliderType.trim() ||
+      p.gliderId.trim() ||
+      p.compId.trim() ||
+      p.compClass.trim()
     );
   }
 
@@ -636,8 +640,11 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   onLegZoneSaved(data: CircuitLegZoneDialogSave): void {
     const i = this.legZoneEditIndex();
     if (i < 0) return;
-    this.taskState.updateLegObsZone(i, data.obsZone);
-    this.taskState.updateLegElevation(i, data.elevationM);
+    this.taskState.patchLegZone(i, {
+      obsZone: data.obsZone,
+      elevationM: data.elevationM
+    });
+    this.mapView?.refreshObservationZones();
   }
 
   removeCircuitItem(index: number): void {

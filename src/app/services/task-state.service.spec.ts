@@ -103,6 +103,21 @@ describe('TaskStateService circuit roles', () => {
     expect(service.circuitLegs().map(l => l.waypointId)).toEqual([c, a, b]);
   });
 
+  it('patchLegZone preserves sector observation zone', () => {
+    const tp = addWp('tp');
+    service.addTurnpoint(tp);
+    service.patchLegZone(0, {
+      obsZone: {
+        presetId: 'sector_to_next',
+        cupStyle: 2,
+        r1M: 500,
+        a1Deg: 90
+      }
+    });
+    expect(service.circuitLegs()[0].obsZone?.a1Deg).toBe(90);
+    expect(service.circuitLegs()[0].obsZone?.line).toBeFalsy();
+  });
+
   it('removeLastOccurrence and removeAllOccurrences', () => {
     const a = addWp('a');
     const b = addWp('b');

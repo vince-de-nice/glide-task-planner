@@ -501,6 +501,13 @@ export class MapViewComponent implements OnInit {
     this.updateObsZones();
   }
 
+  /** Rafraîchit les zones après modification depuis le dialogue circuit. */
+  refreshObservationZones(): void {
+    if (this.mapReady() && this.map) {
+      this.updateObsZones();
+    }
+  }
+
   private updateObsZones(): void {
     if (!this.map) return;
 
