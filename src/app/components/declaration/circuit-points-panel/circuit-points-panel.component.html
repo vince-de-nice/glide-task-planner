@@ -12,38 +12,35 @@
         (cdkDropListDropped)="onCircuitDrop($event)"
       >
         @for (item of circuitListItems(); track item.key) {
-          <li class="decl-circuit-list__item" cdkDrag>
-            <span class="decl-circuit-list__handle" cdkDragHandle aria-label="Réordonner">
-              <i class="pi pi-arrows-v"></i>
+          <li class="cl-row" cdkDrag>
+            <span class="cl-row__handle" cdkDragHandle aria-label="Réordonner">
+              <i class="pi pi-bars" aria-hidden="true"></i>
             </span>
-            @if (legComplianceIcon(item.legIndex); as icon) {
-              <span
-                class="decl-circuit-list__compliance"
-                [class.decl-circuit-list__compliance--error]="legComplianceSeverity(item.legIndex) === 'error'"
-                [class.decl-circuit-list__compliance--warn]="legComplianceSeverity(item.legIndex) === 'warn'"
-                [pTooltip]="legComplianceTooltip(item.legIndex)"
-                tooltipPosition="left"
-              >
-                <i [class]="icon" aria-hidden="true"></i>
-              </span>
-            } @else {
-              <span class="decl-circuit-list__compliance decl-circuit-list__compliance--ok" aria-hidden="true"></span>
-            }
-            <span
-              class="decl-circuit-list__num"
-              [class.decl-circuit-list__num--error]="legComplianceSeverity(item.legIndex) === 'error'"
-              [class.decl-circuit-list__num--warn]="legComplianceSeverity(item.legIndex) === 'warn'"
-              aria-hidden="true"
-            >{{ item.legIndex + 1 }}</span>
-            <button
-              type="button"
-              class="decl-circuit-list__body"
-              (click)="circuitItemClick.emit(item)"
-            >
-              <span class="decl-circuit-list__line">
-                <span class="decl-circuit-list__main">
+
+            <div class="cl-row__body">
+              <div class="cl-row__meta">
+                <span
+                  class="cl-row__num"
+                  [class.cl-row__num--error]="legComplianceSeverity(item.legIndex) === 'error'"
+                  [class.cl-row__num--warn]="legComplianceSeverity(item.legIndex) === 'warn'"
+                >{{ item.legIndex + 1 }}</span>
+                @if (legComplianceIcon(item.legIndex); as icon) {
                   <span
-                    class="gc-wp-type-badge"
+                    class="cl-row__compliance"
+                    [class.cl-row__compliance--error]="legComplianceSeverity(item.legIndex) === 'error'"
+                    [class.cl-row__compliance--warn]="legComplianceSeverity(item.legIndex) === 'warn'"
+                    [pTooltip]="legComplianceTooltip(item.legIndex)"
+                    tooltipPosition="top"
+                  >
+                    <i [class]="icon" aria-hidden="true"></i>
+                  </span>
+                }
+              </div>
+
+              <div class="cl-row__main">
+                <div class="cl-row__top">
+                  <span
+                    class="gc-wp-type-badge gc-wp-type-badge--sm"
                     [style.--wp-type-color]="waypointTypeDisplay(item.waypoint.type).color"
                     [attr.title]="waypointTypeDisplay(item.waypoint.type).description"
                   >
@@ -51,40 +48,50 @@
                     <span>{{ waypointTypeDisplay(item.waypoint.type).shortLabel }}</span>
                   </span>
                   @if (item.leg.role === 'departure' || item.leg.role === 'arrival') {
-                    <span class="decl-circuit-list__role">{{ circuitRoleLabel(item.leg.role) }}</span>
+                    <span class="cl-row__role">{{ circuitRoleLabel(item.leg.role) }}</span>
                   }
-                  <span class="decl-circuit-list__name">{{ item.waypoint.name }}</span>
-                </span>
-                <span class="decl-circuit-list__zone">{{ legZoneShort(item) }}</span>
-              </span>
-            </button>
-            <span
-              class="decl-circuit-list__zone-preview-wrap"
-              [pTooltip]="legZoneShort(item)"
-              tooltipPosition="top"
-            >
-              <app-obs-zone-preview
-                [previewView]="item.previewView"
-                [role]="item.leg.role"
-              />
-            </span>
-            @if (legFromIndex(item.legIndex); as leg) {
-              <span
-                class="decl-circuit-list__leg"
-                [class.decl-circuit-list__leg--off]="!leg.counted"
-              >
-                {{ leg.distance.toFixed(1) }} km
-                @if (!leg.counted) {
-                  <span class="decl-circuit-list__leg-badge">hors tâche</span>
-                }
-              </span>
-            }
-            <div class="decl-circuit-list__actions">
+                  <button
+                    type="button"
+                    class="cl-row__name"
+                    (click)="circuitItemClick.emit(item)"
+                  >{{ item.waypoint.name }}</button>
+                </div>
+
+                <div class="cl-row__bottom">
+                  <app-obs-zone-preview
+                    class="cl-row__zone-svg"
+                    [previewView]="item.previewView"
+                    [role]="item.leg.role"
+                  />
+                  <span
+                    class="cl-row__zone-label"
+                    [pTooltip]="legZoneShort(item)"
+                    tooltipPosition="top"
+                  >{{ legZoneLabel(item) }}</span>
+                  <span class="cl-row__sep">·</span>
+                  <span class="cl-row__elev">{{ legElevationLabel(item) }}</span>
+                  @if (legFromIndex(item.legIndex); as leg) {
+                    <span class="cl-row__sep">·</span>
+                    <span
+                      class="cl-row__dist"
+                      [class.cl-row__dist--off]="!leg.counted"
+                    >
+                      {{ leg.distance.toFixed(1) }} km
+                      @if (!leg.counted) {
+                        <span class="cl-row__dist-badge">hors tâche</span>
+                      }
+                    </span>
+                  }
+                </div>
+              </div>
+            </div>
+
+            <div class="cl-row__actions">
               <p-button
                 icon="pi pi-cog"
                 [text]="true"
                 size="small"
-                styleClass="decl-circuit-list__action-btn"
+                styleClass="cl-row__action-btn"
                 (onClick)="openLegZone.emit({ legIndex: item.legIndex, event: $event })"
                 pTooltip="Zone et altitude"
                 tooltipPosition="left"
@@ -95,7 +102,7 @@
                 [text]="true"
                 size="small"
                 severity="danger"
-                styleClass="decl-circuit-list__action-btn decl-circuit-list__action-btn--danger"
+                styleClass="cl-row__action-btn cl-row__action-btn--danger"
                 (onClick)="removeItem.emit(item.legIndex)"
                 pTooltip="Retirer"
                 tooltipPosition="left"

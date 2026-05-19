@@ -79,12 +79,17 @@ export class CircuitPointsPanelComponent {
     this.circuitDrop.emit(items.map(i => i.leg));
   }
 
+  legZoneLabel(item: CircuitListItem): string {
+    const zone = item.leg.obsZone;
+    return zone ? observationZoneShortLabel(zone) : '—';
+  }
+
+  legElevationLabel(item: CircuitListItem): string {
+    return formatElevationDisplay(resolveLegElevationM(item.waypoint, item.leg));
+  }
+
   legZoneShort(item: CircuitListItem): string {
-    const leg = item.leg;
-    const zone = leg.obsZone;
-    const zoneTxt = zone ? observationZoneShortLabel(zone) : '—';
-    const elev = formatElevationDisplay(resolveLegElevationM(item.waypoint, leg));
-    return `${zoneTxt} · ${elev}`;
+    return `${this.legZoneLabel(item)} · ${this.legElevationLabel(item)}`;
   }
 
   legIssueMessage(index: number): string | null {
