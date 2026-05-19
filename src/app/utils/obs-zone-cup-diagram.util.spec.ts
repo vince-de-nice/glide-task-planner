@@ -9,7 +9,7 @@ describe('obs-zone-cup-diagram.util', () => {
       presetId: 'cylinder_fixed'
     });
     expect(view.params.map(p => p.key)).toEqual(['style', 'r1']);
-    expect(view.params.filter(p => p.active).map(p => p.key)).toEqual(['style', 'r1']);
+    expect(view.labels.some(l => l.text.startsWith('R1'))).toBe(true);
   });
 
   it('activates sector and ring params for FAI preset', () => {
@@ -27,6 +27,8 @@ describe('obs-zone-cup-diagram.util', () => {
     expect(active).toContain('r2');
     expect(active).toContain('a2');
     expect(active).toContain('a12');
+    expect(view.labels.some(l => l.text.startsWith('A1'))).toBe(true);
+    expect(view.labels.some(l => l.text.startsWith('R2'))).toBe(true);
     expect(view.arcs.length).toBeGreaterThan(0);
     expect(view.circles.length).toBe(2);
   });
@@ -39,11 +41,9 @@ describe('obs-zone-cup-diagram.util', () => {
       a12Deg: 0,
       presetId: 'custom' as const
     };
-    const northAxis = buildObsZoneCupDiagram(zone, 180);
-    const eastAxis = buildObsZoneCupDiagram(zone, 270);
-    const northStyle = northAxis.lines.find(l => l.paramKey === 'style');
-    const eastStyle = eastAxis.lines.find(l => l.paramKey === 'style');
-    expect(northStyle?.x2).not.toBeCloseTo(eastStyle?.x2 ?? 0, 0);
+    const southAxis = buildObsZoneCupDiagram(zone, 180);
+    const westAxis = buildObsZoneCupDiagram(zone, 270);
+    expect(southAxis.styleArrow?.x2).not.toBeCloseTo(westAxis.styleArrow?.x2 ?? 0, 0);
   });
 
   it('omits A12 from legend when style is not fixed', () => {
@@ -58,9 +58,36 @@ describe('obs-zone-cup-diagram.util', () => {
       90
     );
     expect(view.params.some(p => p.key === 'a12')).toBe(false);
+    expect(view.labels.some(l => l.text.startsWith('A12'))).toBe(false);
   });
 
-  it('keeps axis and A1 labels separated along the bearing', () => {
+  it('keeps labels separated when axis points near north', () => {
+    const view = buildObsZoneCupDiagram(
+      {
+        cupStyle: 2,
+        r1M: 2000,
+        a1Deg: 180,
+        r2M: 1200,
+        a2Deg: 80,
+        presetId: 'custom'
+      },
+      345
+    );
+    const north = view.labels.find(l => l.text === 'N')!;
+    const others = view.labels.filter(l => l.text !== 'N');
+    expect(others.length).toBeGreaterThanOrEqual(3);
+
+    for (let i = 0; i < others.length; i++) {
+      for (let j = i + 1; j < others.length; j++) {
+        const dist = Math.hypot(others[i].x - others[j].x, others[i].y - others[j].y);
+        expect(dist).toBeGreaterThanOrEqual(16);
+      }
+      const distN = Math.hypot(others[i].x - north.x, others[i].y - north.y);
+      expect(distN).toBeGreaterThanOrEqual(20);
+    }
+  });
+
+  it('shows axis bearing in Style legend hint for sectors', () => {
     const view = buildObsZoneCupDiagram(
       {
         cupStyle: 2,
@@ -68,14 +95,26 @@ describe('obs-zone-cup-diagram.util', () => {
         a1Deg: 180,
         presetId: 'custom'
       },
-      164
+      345
     );
-    const axis = view.labels.find(l => l.text.startsWith('axe'));
-    const a1 = view.labels.find(l => l.text.startsWith('A1='));
-    expect(axis).toBeDefined();
-    expect(a1).toBeDefined();
-    const dist = Math.hypot(axis!.x - a1!.x, axis!.y - a1!.y);
-    expect(dist).toBeGreaterThanOrEqual(18);
+    const styleParam = view.params.find(p => p.key === 'style');
+    expect(styleParam?.hint).toContain('345°');
+    expect(view.labels.some(l => l.paramKey === 'style' && l.text === '345°')).toBe(true);
+  });
+
+  it('places param labels with leaders on the geometry', () => {
+    const view = buildObsZoneCupDiagram(
+      {
+        cupStyle: 2,
+        r1M: 2000,
+        a1Deg: 180,
+        presetId: 'custom'
+      },
+      345
+    );
+    const a1 = view.labels.find(l => l.text.startsWith('A1'));
+    expect(a1?.leader).toBeDefined();
+    expect(view.labels.find(l => l.text === 'N')).toBeDefined();
   });
 
   it('draws line when Line=1', () => {
@@ -88,5 +127,6 @@ describe('obs-zone-cup-diagram.util', () => {
     });
     expect(view.params.find(p => p.key === 'line')?.active).toBe(true);
     expect(view.lines.some(l => l.paramKey === 'line')).toBe(true);
+    expect(view.labels.some(l => l.text === 'Line')).toBe(true);
   });
 });

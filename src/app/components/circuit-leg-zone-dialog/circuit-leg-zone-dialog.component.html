@@ -166,16 +166,6 @@
           [legRole]="leg()?.role ?? null"
         />
 
-        <div class="leg-zone-dialog__preview-block leg-zone-dialog__preview-block--compact">
-          <p class="leg-zone-dialog__preview">
-            Aperçu sur la tâche : <strong>{{ zonePreview() }}</strong>
-          </p>
-          <app-obs-zone-preview
-            class="leg-zone-dialog__preview-shape"
-            [previewView]="previewView()"
-            [role]="leg()?.role ?? 'turnpoint'"
-          />
-        </div>
       </section>
     </div>
 

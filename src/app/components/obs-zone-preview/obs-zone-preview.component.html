@@ -15,10 +15,10 @@
         [attr.stroke]="colors().stroke"
       />
     }
-    @if (p.pathD) {
+    @for (d of p.pathDs ?? (p.pathD ? [p.pathD] : []); track $index) {
       <path
         class="obs-zone-preview__shape"
-        [attr.d]="p.pathD"
+        [attr.d]="d"
         [attr.fill]="colors().fill"
         [attr.stroke]="colors().stroke"
       />

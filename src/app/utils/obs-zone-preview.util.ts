@@ -9,7 +9,8 @@ import {
   ObsZoneMapShapeKind,
   bearingDegrees,
   buildObsZoneMapShapes,
-  cupZoneReferenceBearingDeg
+  cupZoneReferenceBearingDeg,
+  hasFaiInnerSector
 } from './obs-zone-map.util';
 
 /** ViewBox normalisé pour les miniatures de liste. */
@@ -28,11 +29,12 @@ export interface ObsZonePreviewLine {
 
 export interface ObsZonePreviewView {
   kind: ObsZoneMapShapeKind;
+  /** Un ou plusieurs tracés (keyhole FAI = anneau + secteur intérieur). */
+  pathDs?: string[];
+  /** Premier tracé (compatibilité). */
   pathD?: string;
   circleR?: number;
-  /** Ligne de gate (départ / arrivée). */
   line?: ObsZonePreviewLine;
-  /** Traits d’orientation (0° = nord / haut de l’icône). */
   markers?: ObsZonePreviewLine[];
   role: CircuitLegRole;
   label: string;
@@ -167,55 +169,113 @@ function orientationMarkers(
   return markers;
 }
 
-function mapShapeToPreview(
-  shape: ObsZoneMapShape,
-  zone: ObservationZoneConfig,
-  ctx: ObsZoneLegContext
-): ObsZonePreviewView {
-  const base: ObsZonePreviewView = {
-    kind: shape.kind,
-    role: shape.role,
-    label: shape.label
-  };
+function previewInnerRadiusM(outerM: number, innerM: number): number {
+  return Math.max(3, (innerM / outerM) * MAX_R);
+}
 
+/** Keyhole FAI : anneau (R2→R1, A1) + secteur intérieur (0→R2, A2), sans chevauchement. */
+function buildKeyholePreviewPaths(
+  shapes: ObsZoneMapShape[],
+  zone: ObservationZoneConfig
+): string[] {
+  const ring = shapes.find(s => s.kind === 'ring-sector');
+  if (!ring?.radiusM || !ring.innerRadiusM) {
+    return [];
+  }
+  const innerNorm = previewInnerRadiusM(ring.radiusM, ring.innerRadiusM);
+  const pathDs: string[] = [
+    sectorPathD(
+      ring.startBearingDeg ?? 0,
+      ring.endBearingDeg ?? 360,
+      MAX_R,
+      innerNorm
+    )
+  ];
+
+  const innerSector = shapes.find(s => s.kind === 'sector');
+  if (innerSector && hasFaiInnerSector(zone)) {
+    pathDs.push(
+      sectorPathD(
+        innerSector.startBearingDeg ?? 0,
+        innerSector.endBearingDeg ?? 360,
+        innerNorm,
+        0
+      )
+    );
+  }
+
+  return pathDs;
+}
+
+function shapeToPreviewPath(shape: ObsZoneMapShape): string | undefined {
   switch (shape.kind) {
-    case 'circle':
-      return {
-        ...base,
-        circleR: MAX_R,
-        markers: orientationMarkers(zone, ctx, shape)
-      };
-
     case 'sector':
-      return {
-        ...base,
-        pathD: sectorPathD(shape.startBearingDeg ?? 0, shape.endBearingDeg ?? 360)
-      };
+      return sectorPathD(shape.startBearingDeg ?? 0, shape.endBearingDeg ?? 360);
 
     case 'ring-sector': {
       const outer = shape.radiusM ?? MAX_R;
       const inner = shape.innerRadiusM ?? outer * 0.35;
-      const innerNorm = Math.max(3, (inner / outer) * MAX_R);
-      return {
-        ...base,
-        pathD: sectorPathD(
-          shape.startBearingDeg ?? 0,
-          shape.endBearingDeg ?? 360,
-          MAX_R,
-          innerNorm
-        )
-      };
+      const innerNorm = previewInnerRadiusM(outer, inner);
+      return sectorPathD(
+        shape.startBearingDeg ?? 0,
+        shape.endBearingDeg ?? 360,
+        MAX_R,
+        innerNorm
+      );
     }
 
-    case 'line':
-      return {
-        ...base,
-        line: lineSegmentFromShape(shape)
-      };
-
     default:
-      return { ...base, circleR: MAX_R };
+      return undefined;
   }
+}
+
+function mapShapesToPreview(
+  shapes: ObsZoneMapShape[],
+  zone: ObservationZoneConfig,
+  ctx: ObsZoneLegContext
+): ObsZonePreviewView {
+  const primary = shapes[0];
+  const base: ObsZonePreviewView = {
+    kind: primary.kind,
+    role: primary.role,
+    label: primary.label
+  };
+
+  if (primary.kind === 'circle') {
+    return {
+      ...base,
+      circleR: MAX_R,
+      markers: orientationMarkers(zone, ctx, primary)
+    };
+  }
+
+  if (primary.kind === 'line') {
+    return {
+      ...base,
+      line: lineSegmentFromShape(primary)
+    };
+  }
+
+  const keyholePaths =
+    shapes.some(s => s.kind === 'ring-sector') && shapes.some(s => s.kind === 'sector')
+      ? buildKeyholePreviewPaths(shapes, zone)
+      : [];
+
+  const pathDs =
+    keyholePaths.length > 0
+      ? keyholePaths
+      : shapes.map(s => shapeToPreviewPath(s)).filter((d): d is string => Boolean(d));
+
+  if (pathDs.length > 0) {
+    return {
+      ...base,
+      kind: shapes.length > 1 ? 'ring-sector' : primary.kind,
+      pathDs,
+      pathD: pathDs[0]
+    };
+  }
+
+  return { ...base, circleR: MAX_R };
 }
 
 export function buildObsZonePreview(ctx: ObsZoneLegContext): ObsZonePreviewView | null {
@@ -228,5 +288,5 @@ export function buildObsZonePreview(ctx: ObsZoneLegContext): ObsZonePreviewView 
     ctx.leg.role,
     ctx.defaultRadiusM
   );
-  return mapShapeToPreview(shapes[0], zone, ctx);
+  return mapShapesToPreview(shapes, zone, ctx);
 }

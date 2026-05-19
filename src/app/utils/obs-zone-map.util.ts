@@ -145,6 +145,18 @@ function ringSectorPolygon(
   return [...outer, ...inner.reverse()];
 }
 
+/** Secteur FAI avec trou : anneau (R1/A1) + secteur intérieur (R2/A2) si A2 ≥ 1° (XCSoar). */
+export function hasFaiInnerSector(zone: ObservationZoneConfig): boolean {
+  return (
+    zone.r2M != null &&
+    zone.r2M > 0 &&
+    zone.a1Deg != null &&
+    zone.a1Deg > 0 &&
+    zone.a2Deg != null &&
+    zone.a2Deg >= 1
+  );
+}
+
 /**
  * Axe du secteur en style fixe (0) : cap opposé à A12, comme SeeYou / XCSoar (Reciprocal).
  * @see https://github.com/XCSoar/XCSoar/blob/master/src/Task/TaskFileSeeYou.cpp CalcIntermediateAngle
@@ -248,18 +260,30 @@ export function buildObsZoneMapShapes(ctx: ObsZoneLegContext): ObsZoneMapShape[]
 
   if (zone.r2M != null && zone.r2M > 0 && zone.a1Deg != null) {
     const brg = cupZoneReferenceBearingDeg(zone, ctx);
-    const half = zone.a1Deg / 2;
-    return [
+    const halfA1 = zone.a1Deg / 2;
+    const shapes: ObsZoneMapShape[] = [
       {
         ...base,
         kind: 'ring-sector',
         radiusM: zone.r1M,
         innerRadiusM: zone.r2M,
-        startBearingDeg: brg - half,
-        endBearingDeg: brg + half,
+        startBearingDeg: brg - halfA1,
+        endBearingDeg: brg + halfA1,
         label: `Secteur ${zone.r1M / 1000} km`
       }
     ];
+    if (hasFaiInnerSector(zone)) {
+      const halfA2 = zone.a2Deg! / 2;
+      shapes.push({
+        ...base,
+        kind: 'sector',
+        radiusM: zone.r2M,
+        startBearingDeg: brg - halfA2,
+        endBearingDeg: brg + halfA2,
+        label: `Keyhole · A2 ${zone.a2Deg}°`
+      });
+    }
+    return shapes;
   }
 
   if (zone.a1Deg != null && zone.a1Deg > 0 && zone.a1Deg < 360) {

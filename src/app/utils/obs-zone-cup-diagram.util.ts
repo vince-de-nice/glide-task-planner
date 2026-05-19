@@ -5,11 +5,17 @@ import {
   ObservationZoneConfig,
   cupZoneParamVisibility
 } from '../models/observation-zone.model';
-export const OBS_ZONE_CUP_DIAGRAM_VIEWBOX = '0 0 220 150';
 
-const CX = 110;
-const CY = 78;
-const R1_DRAW = 52;
+export const OBS_ZONE_CUP_DIAGRAM_VIEWBOX = '0 0 320 220';
+export const OBS_ZONE_CUP_CENTER = { cx: 160, cy: 110 };
+
+const CX = OBS_ZONE_CUP_CENTER.cx;
+const CY = OBS_ZONE_CUP_CENTER.cy;
+const R1_DRAW = 78;
+const NORTH_Y = 16;
+const VIEWBOX_BOUNDS = { minX: 12, maxX: 308, minY: 14, maxY: 208 };
+const NORTH_LABEL = { x: CX, y: NORTH_Y };
+const NORTH_CLEAR_RADIUS = 30;
 
 export interface CupDiagramArc {
   pathD: string;
@@ -57,8 +63,9 @@ export interface CupDiagramLabel {
   y: number;
   text: string;
   anchor?: 'start' | 'middle' | 'end';
-  /** Libellé fixe (ex. « N ») — non déplacé par la séparation. */
-  pinned?: boolean;
+  paramKey?: CupParamKey;
+  /** Point d’ancrage sur la géométrie (trait de rappel). */
+  leader?: { x: number; y: number };
 }
 
 export interface ObsZoneCupDiagramView {
@@ -70,9 +77,6 @@ export interface ObsZoneCupDiagramView {
   styleArrow?: CupDiagramLine;
 }
 
-const VIEWBOX_BOUNDS = { minX: 10, maxX: 210, minY: 11, maxY: 142 };
-const LABEL_MIN_DISTANCE = 20;
-
 function polar(bearingDeg: number, radius: number): [number, number] {
   const rad = (bearingDeg * Math.PI) / 180;
   return [CX + radius * Math.sin(rad), CY - radius * Math.cos(rad)];
@@ -83,42 +87,79 @@ function offsetFrom(x: number, y: number, bearingDeg: number, distance: number):
   return [x + distance * Math.sin(rad), y - distance * Math.cos(rad)];
 }
 
-/** Empile des libellés le long du cap (du centre vers l’extérieur). */
-function pushLabelsAlongBearing(
+function textAnchorForBearing(bearingDeg: number): 'start' | 'middle' | 'end' {
+  const b = ((bearingDeg % 360) + 360) % 360;
+  if (b > 25 && b < 155) return 'start';
+  if (b > 205 && b < 335) return 'end';
+  return 'middle';
+}
+
+/** Décalage perpendiculaire à l'arc (extérieur du secteur). */
+function outwardFromArcPoint(arcBearingDeg: number): number {
+  return (arcBearingDeg + 90) % 360;
+}
+
+function labelFootprintRadius(text: string): number {
+  return Math.max(12, text.length * 2.1);
+}
+
+function pushParamLabel(
   labels: CupDiagramLabel[],
-  bearingDeg: number,
-  startRadius: number,
-  texts: string[],
-  step = 11
+  anchorX: number,
+  anchorY: number,
+  outwardBearing: number,
+  outwardPx: number,
+  text: string,
+  paramKey: CupParamKey
 ): void {
-  texts.forEach((text, i) => {
-    const [x, y] = polar(bearingDeg, startRadius + i * step);
-    labels.push({ x, y, text, anchor: 'middle' });
+  const [x, y] = offsetFrom(anchorX, anchorY, outwardBearing, outwardPx);
+  labels.push({
+    x,
+    y,
+    text,
+    paramKey,
+    anchor: textAnchorForBearing(outwardBearing),
+    leader: { x: anchorX, y: anchorY }
   });
 }
 
-/** Écarte les libellés qui se chevauchent (sauf libellés épinglés). */
-export function separateDiagramLabels(
+/** Sur l'arc du secteur : position 0–1 entre les bords. */
+function pushLabelOnArc(
   labels: CupDiagramLabel[],
-  minDistance = LABEL_MIN_DISTANCE,
-  bounds = VIEWBOX_BOUNDS
+  startBrg: number,
+  sweepDeg: number,
+  t: number,
+  radius: number,
+  outwardPx: number,
+  text: string,
+  paramKey: CupParamKey
 ): void {
-  const movable = labels.filter(l => !l.pinned);
-  const maxIter = 16;
+  const arcBrg = startBrg + sweepDeg * t;
+  const [ax, ay] = polar(arcBrg, radius);
+  pushParamLabel(labels, ax, ay, outwardFromArcPoint(arcBrg), outwardPx, text, paramKey);
+}
+
+/** Écarte les libellés (traits de rappel inchangés). */
+function resolveLabelCollisions(labels: CupDiagramLabel[]): void {
+  const movable = labels.filter(l => l.text !== 'N');
+  const north = labels.find(l => l.text === 'N');
+  const maxIter = 28;
 
   for (let iter = 0; iter < maxIter; iter++) {
     let moved = false;
+
     for (let i = 0; i < movable.length; i++) {
       for (let j = i + 1; j < movable.length; j++) {
         const a = movable[i];
         const b = movable[j];
+        const minDist = labelFootprintRadius(a.text) + labelFootprintRadius(b.text) + 3;
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         const d = Math.hypot(dx, dy);
-        if (d >= minDistance || d < 0.01) {
+        if (d >= minDist || d < 0.01) {
           continue;
         }
-        const push = (minDistance - d) / 2;
+        const push = (minDist - d) / 2;
         const nx = dx / d;
         const ny = dy / d;
         a.x -= nx * push;
@@ -128,10 +169,28 @@ export function separateDiagramLabels(
         moved = true;
       }
     }
-    for (const l of movable) {
-      l.x = Math.max(bounds.minX, Math.min(bounds.maxX, l.x));
-      l.y = Math.max(bounds.minY, Math.min(bounds.maxY, l.y));
+
+    if (north) {
+      for (const m of movable) {
+        const minDist = NORTH_CLEAR_RADIUS + labelFootprintRadius(m.text) * 0.45;
+        const dx = m.x - north.x;
+        const dy = m.y - north.y;
+        const d = Math.hypot(dx, dy);
+        if (d >= minDist || d < 0.01) {
+          continue;
+        }
+        const push = minDist - d;
+        m.x += (dx / d) * push;
+        m.y += (dy / d) * push;
+        moved = true;
+      }
     }
+
+    for (const m of movable) {
+      m.x = Math.max(VIEWBOX_BOUNDS.minX, Math.min(VIEWBOX_BOUNDS.maxX, m.x));
+      m.y = Math.max(NORTH_Y + 18, Math.min(VIEWBOX_BOUNDS.maxY, m.y));
+    }
+
     if (!moved) {
       break;
     }
@@ -170,12 +229,15 @@ function formatMeters(m: number): string {
 
 function buildLegend(
   zone: ObservationZoneConfig,
-  axisBearingDeg: number
+  axisBearingDeg: number,
+  isSector: boolean
 ): CupParamLegendItem[] {
   const hasA1 = zone.a1Deg != null && zone.a1Deg > 0;
   const hasR2 = zone.r2M != null && zone.r2M > 0;
   const hasA2 = zone.a2Deg != null && Number.isFinite(zone.a2Deg);
   const hasA12 = zone.a12Deg != null && Number.isFinite(zone.a12Deg);
+
+  const axisInfo = isSector ? ` · axe ${Math.round(axisBearingDeg)}°` : '';
 
   return [
     {
@@ -183,7 +245,7 @@ function buildLegend(
       cupLabel: 'Style',
       value: String(zone.cupStyle),
       active: true,
-      hint: CUP_STYLE_LABELS[zone.cupStyle]
+      hint: CUP_STYLE_LABELS[zone.cupStyle] + axisInfo
     },
     {
       key: 'r1',
@@ -197,7 +259,7 @@ function buildLegend(
       cupLabel: 'A1',
       value: hasA1 ? `${zone.a1Deg}°` : '—',
       active: hasA1,
-      hint: 'Largeur angulaire du secteur extérieur (±A1 autour de l’axe)'
+      hint: hasA1 ? `±${Math.round(zone.a1Deg! / 2)}° autour de l'axe` : 'Ouverture du secteur'
     },
     {
       key: 'r2',
@@ -211,7 +273,7 @@ function buildLegend(
       cupLabel: 'A2',
       value: hasA2 ? `${zone.a2Deg}°` : '—',
       active: hasA2,
-      hint: 'Ouverture du secteur intérieur sur R2 (même axe que A1)'
+      hint: 'Ouverture du secteur intérieur sur R2'
     },
     {
       key: 'a12',
@@ -219,13 +281,9 @@ function buildLegend(
       value: hasA12 ? `${zone.a12Deg}°` : '—',
       active: zone.cupStyle === 0 && hasA12,
       hint:
-        zone.cupStyle === 0
-          ? hasA12
-            ? `Style fixe : cap dans le CUP ; axe du secteur ≈ ${axisBearingDeg}° (A12+180°)`
-            : 'Style fixe : cap d’orientation (sinon nord)'
-          : hasA12
-            ? 'Ignoré si Style ≠ 0 (orientation par Style + circuit)'
-            : 'Utilisé seulement en Style 0 (fixe)'
+        zone.cupStyle === 0 && hasA12
+          ? `Cap CUP → axe ${Math.round(axisBearingDeg)}° (A12+180°)`
+          : 'Cap de référence (Style 0 uniquement)'
     },
     {
       key: 'line',
@@ -244,10 +302,6 @@ export function buildObsZoneCupDiagram(
   legRole?: CircuitLegRole
 ): ObsZoneCupDiagramView {
   const axisBearing = referenceBearingDeg;
-  const visibility = cupZoneParamVisibility(zone, { legRole });
-  const params = buildLegend(zone, axisBearing)
-    .filter(p => visibility[p.key])
-    .filter(p => p.active || p.key === 'style' || p.key === 'r1');
   const circles: CupDiagramCircle[] = [];
   const arcs: CupDiagramArc[] = [];
   const lines: CupDiagramLine[] = [];
@@ -259,8 +313,14 @@ export function buildObsZoneCupDiagram(
   const isSector = hasA1 && !isLine;
   const isRing = isSector && hasR2;
 
+  const visibility = cupZoneParamVisibility(zone, { legRole });
+  const params = buildLegend(zone, axisBearing, isSector)
+    .filter(p => visibility[p.key])
+    .filter(p => p.active || p.key === 'style' || p.key === 'r1');
+
   const halfA1 = hasA1 ? zone.a1Deg! / 2 : 0;
   const startBrg = axisBearing - halfA1;
+  const sideBrg = (axisBearing + 90) % 360;
 
   circles.push({
     cx: CX,
@@ -273,8 +333,9 @@ export function buildObsZoneCupDiagram(
     paramKey: 'r1'
   });
 
+  let innerR = 0;
   if (visibility.r2 && isRing) {
-    const innerR = Math.max(12, (zone.r2M! / zone.r1M) * R1_DRAW);
+    innerR = Math.max(18, (zone.r2M! / zone.r1M) * R1_DRAW);
     circles.push({
       cx: CX,
       cy: CY,
@@ -289,29 +350,15 @@ export function buildObsZoneCupDiagram(
 
   if (visibility.a1 && isSector) {
     arcs.push({
-      pathD: sectorPathD(startBrg, zone.a1Deg!, R1_DRAW, isRing ? Math.max(12, (zone.r2M! / zone.r1M) * R1_DRAW) : 0),
+      pathD: sectorPathD(startBrg, zone.a1Deg!, R1_DRAW, isRing ? innerR : 0),
       stroke: '#7c3aed',
       fill: 'rgba(167, 139, 250, 0.22)',
       label: `A1 ${zone.a1Deg}°`,
       paramKey: 'a1'
     });
-    pushLabelsAlongBearing(labels, axisBearing, R1_DRAW + 10, [
-      `axe ${Math.round(axisBearing)}°`,
-      `A1=${zone.a1Deg}° (±${halfA1}°)`
-    ]);
-  }
-
-  if (hasR2 && !isSector) {
-    labels.push({
-      x: CX + R1_DRAW * 0.55,
-      y: CY - 8,
-      text: `R2=${formatMeters(zone.r2M!)}`,
-      anchor: 'start'
-    });
   }
 
   if (visibility.a2 && zone.a2Deg != null && zone.a2Deg > 0 && isRing) {
-    const innerR = Math.max(12, (zone.r2M! / zone.r1M) * R1_DRAW);
     const halfA2 = zone.a2Deg / 2;
     arcs.push({
       pathD: sectorPathD(axisBearing - halfA2, zone.a2Deg, innerR, 0),
@@ -323,7 +370,7 @@ export function buildObsZoneCupDiagram(
   }
 
   if (visibility.a12 && zone.a12Deg != null && zone.a12Deg > 0) {
-    const [a12x, a12y] = polar(zone.a12Deg, R1_DRAW - 4);
+    const [a12x, a12y] = polar(zone.a12Deg, R1_DRAW - 6);
     lines.push({
       x1: CX,
       y1: CY,
@@ -334,17 +381,10 @@ export function buildObsZoneCupDiagram(
       strokeDasharray: '3 2',
       paramKey: 'a12'
     });
-    const [lx, ly] = offsetFrom(a12x, a12y, (zone.a12Deg + 90) % 360, 12);
-    labels.push({
-      x: lx,
-      y: ly,
-      text: `A12=${zone.a12Deg}°`,
-      anchor: 'middle'
-    });
   }
 
   if (visibility.line && isLine) {
-    const halfLen = 58;
+    const halfLen = 88;
     lines.push({
       x1: CX - halfLen,
       y1: CY,
@@ -355,11 +395,11 @@ export function buildObsZoneCupDiagram(
       label: 'Line=1',
       paramKey: 'line'
     });
-    labels.push({ x: CX, y: CY + 14, text: 'Line=1', anchor: 'middle' });
+    labels.push({ x: CX, y: CY + 20, text: 'Line', anchor: 'middle', paramKey: 'line' });
   }
 
   const styleColors = ['#2563eb', '#2563eb', '#16a34a', '#ca8a04', '#9333ea'];
-  const [sx, sy] = polar(axisBearing, R1_DRAW - 6);
+  const [sx, sy] = polar(axisBearing, R1_DRAW - 8);
   const styleArrow: CupDiagramLine = {
     x1: CX,
     y1: CY,
@@ -370,26 +410,70 @@ export function buildObsZoneCupDiagram(
     paramKey: 'style'
   };
 
-  labels.push({ x: CX, y: 12, text: 'N', anchor: 'middle', pinned: true });
+  // Libellés répartis sur l'arc et les côtés opposés (jamais empilés sur l'axe)
+  const [r1Ax, r1Ay] = polar(sideBrg, R1_DRAW * 0.62);
+  pushParamLabel(labels, r1Ax, r1Ay, sideBrg, 13, `R1 ${formatMeters(zone.r1M)}`, 'r1');
+
+  if (visibility.a1 && isSector) {
+    const a1T = zone.a1Deg! > 100 ? 0.22 : 0.5;
+    pushLabelOnArc(labels, startBrg, zone.a1Deg!, a1T, R1_DRAW, 11, `A1 ${zone.a1Deg}°`, 'a1');
+  }
+
+  if (visibility.r2 && isRing) {
+    const [r2Ax, r2Ay] = polar((sideBrg + 180) % 360, innerR);
+    pushParamLabel(
+      labels,
+      r2Ax,
+      r2Ay,
+      (sideBrg + 180) % 360,
+      11,
+      `R2 ${formatMeters(zone.r2M!)}`,
+      'r2'
+    );
+  }
+
+  if (visibility.a2 && zone.a2Deg != null && zone.a2Deg > 0 && isRing) {
+    const a2Start = axisBearing - zone.a2Deg / 2;
+    pushLabelOnArc(labels, a2Start, zone.a2Deg, 0.5, innerR, 10, `A2 ${zone.a2Deg}°`, 'a2');
+  }
+
+  if (visibility.a12 && zone.a12Deg != null && zone.a12Deg > 0) {
+    const [a12Ax, a12Ay] = polar(zone.a12Deg, R1_DRAW * 0.38);
+    pushParamLabel(
+      labels,
+      a12Ax,
+      a12Ay,
+      outwardFromArcPoint(zone.a12Deg),
+      11,
+      `A12 ${zone.a12Deg}°`,
+      'a12'
+    );
+  }
+
+  if (isSector) {
+    const styleT = zone.a1Deg! > 100 ? 0.78 : 0.22;
+    pushLabelOnArc(
+      labels,
+      startBrg,
+      zone.a1Deg!,
+      styleT,
+      R1_DRAW,
+      12,
+      `${Math.round(axisBearing)}°`,
+      'style'
+    );
+  }
+
+  labels.push({ x: NORTH_LABEL.x, y: NORTH_LABEL.y, text: 'N', anchor: 'middle' });
+  resolveLabelCollisions(labels);
   lines.push({
     x1: CX,
-    y1: CY - 62,
+    y1: CY - 92,
     x2: CX,
-    y2: CY - 48,
+    y2: CY - 72,
     stroke: '#64748b',
     strokeWidth: 1.5
   });
-
-  if (!isSector && !isLine) {
-    labels.push({
-      x: CX + R1_DRAW + 6,
-      y: CY,
-      text: `R1`,
-      anchor: 'start'
-    });
-  }
-
-  separateDiagramLabels(labels);
 
   return {
     params,

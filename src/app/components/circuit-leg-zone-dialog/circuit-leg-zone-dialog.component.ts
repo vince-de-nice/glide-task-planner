@@ -6,7 +6,6 @@ import { Button } from 'primeng/button';
 import { Select } from 'primeng/select';
 import { InputNumber } from 'primeng/inputnumber';
 import { Checkbox } from 'primeng/checkbox';
-import { ObsZonePreviewComponent } from '../obs-zone-preview/obs-zone-preview.component';
 import { ObsZoneCupDiagramComponent } from '../obs-zone-cup-diagram/obs-zone-cup-diagram.component';
 import { CircuitLeg, circuitRoleShortLabel } from '../../models/circuit.model';
 import { Waypoint } from '../../models/waypoint.model';
@@ -19,14 +18,12 @@ import {
   ObsZonePresetId,
   ObservationZoneConfig,
   observationZoneFromPreset,
-  observationZoneShortLabel,
   normalizeObservationZone
 } from '../../models/observation-zone.model';
 import { formatElevationDisplay, resolveLegElevationM } from '../../utils/elevation.util';
 import { TaskStateService } from '../../services/task-state.service';
 import { WaypointService } from '../../services/waypoint.service';
-import { buildObsZonePreview } from '../../utils/obs-zone-preview.util';
-import { cupZoneReferenceBearingDeg, ObsZoneLegContext } from '../../utils/obs-zone-map.util';
+import { cupZoneReferenceBearingDeg } from '../../utils/obs-zone-map.util';
 
 export interface CircuitLegZoneDialogSave {
   obsZone: ObservationZoneConfig;
@@ -44,7 +41,6 @@ export interface CircuitLegZoneDialogSave {
     Select,
     InputNumber,
     Checkbox,
-    ObsZonePreviewComponent,
     ObsZoneCupDiagramComponent
   ],
   templateUrl: './circuit-leg-zone-dialog.component.html',
@@ -162,16 +158,11 @@ export class CircuitLegZoneDialogComponent {
     );
   });
 
-  readonly zonePreview = computed(() => {
-    const zone = this.normalizedZoneFromForm();
-    return zone ? observationZoneShortLabel(zone) : '—';
-  });
-
-  readonly obsZoneLegContext = computed((): ObsZoneLegContext | null => {
+  readonly cupDiagramRefBearing = computed(() => {
     const leg = this.leg();
     const wp = this.waypoint();
     const zone = this.normalizedZoneFromForm();
-    if (!leg || !wp || !zone) return null;
+    if (!leg || !wp || !zone) return 0;
 
     const legs = this.taskState.circuitLegs();
     const i = this.legIndex();
@@ -180,7 +171,7 @@ export class CircuitLegZoneDialogComponent {
       ? (this.waypointService.getWaypoint(depLeg.waypointId) ?? null)
       : null;
 
-    return {
+    return cupZoneReferenceBearingDeg(zone, {
       legIndex: i,
       leg: { ...leg, obsZone: zone },
       waypoint: wp,
@@ -191,20 +182,7 @@ export class CircuitLegZoneDialogComponent {
           : null,
       departure: departureWp,
       defaultRadiusM: this.defaultRadiusM()
-    };
-  });
-
-  readonly cupDiagramRefBearing = computed(() => {
-    const ctx = this.obsZoneLegContext();
-    const zone = this.normalizedZoneFromForm();
-    if (!ctx || !zone) return 0;
-    return cupZoneReferenceBearingDeg(zone, ctx);
-  });
-
-  readonly previewView = computed(() => {
-    const ctx = this.obsZoneLegContext();
-    if (!ctx) return null;
-    return buildObsZonePreview(ctx);
+    });
   });
 
   constructor() {

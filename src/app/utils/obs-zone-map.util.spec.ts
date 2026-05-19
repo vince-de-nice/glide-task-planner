@@ -108,4 +108,41 @@ describe('obs-zone-map.util', () => {
     expect(shapes[0].startBearingDeg).toBeCloseTo(247.5, 5);
     expect(shapes[0].endBearingDeg).toBeCloseTo(292.5, 5);
   });
+
+  it('builds FAI keyhole as ring-sector plus inner sector', () => {
+    const wp: Waypoint = {
+      id: 't',
+      name: 'TP',
+      latitude: 45,
+      longitude: 6,
+      type: 'turnpoint'
+    };
+    const leg: CircuitLeg = {
+      waypointId: 't',
+      role: 'turnpoint',
+      obsZone: {
+        cupStyle: 0,
+        r1M: 30000,
+        a1Deg: 45,
+        r2M: 12000,
+        a2Deg: 12,
+        a12Deg: 123.4,
+        presetId: 'sector_fai'
+      }
+    };
+    const shapes = buildObsZoneMapShapes({
+      legIndex: 0,
+      leg,
+      waypoint: wp,
+      prev: null,
+      next: null,
+      departure: null,
+      defaultRadiusM: 400
+    });
+    expect(shapes).toHaveLength(2);
+    expect(shapes[0].kind).toBe('ring-sector');
+    expect(shapes[1].kind).toBe('sector');
+    expect(shapes[1].radiusM).toBe(12000);
+    expect(shapes[1].endBearingDeg! - shapes[1].startBearingDeg!).toBeCloseTo(12, 0);
+  });
 });

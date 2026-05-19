@@ -20,7 +20,6 @@
           [attr.stroke-width]="1.75"
           [attr.stroke-dasharray]="c.strokeDasharray"
           class="cup-diagram__shape"
-          [class.cup-diagram__shape--active]="true"
         />
       }
       @for (a of d.arcs; track a.paramKey) {
@@ -56,12 +55,31 @@
           marker-end="url(#cup-arrow)"
         />
       }
-      <circle class="cup-diagram__center" [attr.cx]="110" [attr.cy]="78" r="3.5" />
-      @for (lb of d.labels; track lb.text) {
+      <circle
+        class="cup-diagram__center"
+        [attr.cx]="center.cx"
+        [attr.cy]="center.cy"
+        r="4"
+      />
+      @for (lb of d.labels; track lb.text + (lb.paramKey ?? '')) {
+        @if (lb.leader) {
+          <line
+            class="cup-diagram__leader"
+            [attr.x1]="lb.leader.x"
+            [attr.y1]="lb.leader.y"
+            [attr.x2]="lb.x"
+            [attr.y2]="lb.y"
+            [attr.data-param]="lb.paramKey ?? null"
+          />
+        }
+      }
+      @for (lb of d.labels; track 't-' + lb.text + (lb.paramKey ?? '')) {
         <text
-          class="cup-diagram__dim-label"
+          class="cup-diagram__label"
+          [attr.data-param]="lb.paramKey ?? null"
           [attr.x]="lb.x"
           [attr.y]="lb.y"
+          [attr.dy]="lb.text === 'N' ? 0 : 3"
           [attr.text-anchor]="lb.anchor ?? 'middle'"
         >{{ lb.text }}</text>
       }
@@ -69,10 +87,7 @@
 
     <ul class="cup-diagram__legend">
       @for (p of d.params; track p.key) {
-        <li
-          class="cup-diagram__param"
-          [attr.data-param]="p.key"
-        >
+        <li class="cup-diagram__param" [attr.data-param]="p.key">
           <span class="cup-diagram__param-key">{{ p.cupLabel }}</span>
           <span class="cup-diagram__param-val">{{ p.value }}</span>
           <span class="cup-diagram__param-hint">{{ p.hint }}</span>

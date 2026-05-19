@@ -2,6 +2,7 @@ import { Component, computed, input } from '@angular/core';
 import { CircuitLegRole } from '../../models/circuit.model';
 import { ObservationZoneConfig } from '../../models/observation-zone.model';
 import {
+  OBS_ZONE_CUP_CENTER,
   OBS_ZONE_CUP_DIAGRAM_VIEWBOX,
   ObsZoneCupDiagramView,
   buildObsZoneCupDiagram
@@ -20,6 +21,7 @@ export class ObsZoneCupDiagramComponent {
   legRole = input<CircuitLegRole | null>(null);
 
   readonly viewBox = OBS_ZONE_CUP_DIAGRAM_VIEWBOX;
+  readonly center = OBS_ZONE_CUP_CENTER;
 
   diagram = computed((): ObsZoneCupDiagramView | null => {
     const z = this.zone();

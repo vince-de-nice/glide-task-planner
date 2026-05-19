@@ -132,7 +132,12 @@ describe('obs-zone-preview.util', () => {
       defaultRadiusM: 400
     });
     expect(view?.kind).toBe('ring-sector');
-    expect(view?.pathD).toContain('A');
+    expect(view?.pathDs?.length).toBe(2);
+    expect(view?.pathDs?.[0]).toContain('A');
+    expect(view?.pathDs?.[1]).toContain('M');
+    // Secteur intérieur : arc à rayon réduit (R2/R1), pas au rayon extérieur.
+    expect(view?.pathDs?.[1]).not.toMatch(/A 14 14/);
+    expect(view?.pathDs?.[1]).toMatch(/A [\d.]+ [\d.]+/);
   });
 
   it('returns non-null for every preset type', () => {
