@@ -9,30 +9,57 @@
   <section class="decl-db vav-card" aria-label="Base de points">
     <div class="decl-db__toolbar">
       <span class="decl-db__step" aria-hidden="true">1</span>
-      <select
-        id="catalog"
-        class="vav-select decl-db__select"
-        (change)="onCatalogSelect($event)"
+      <p-select
+        class="decl-db__quick-src"
+        [options]="cupSources()"
+        optionLabel="label"
+        optionValue="url"
+        placeholder="Source connue…"
+        [showClear]="true"
+        [filter]="cupSources().length > 8"
+        filterPlaceholder="Filtrer…"
+        [ngModel]="cupQuickSourcePick()"
+        (ngModelChange)="onCupQuickPickChange($event)"
         [disabled]="loading()"
-        aria-label="Catalogue 2026"
-      >
-        <option value="">Catalogue 2026 — choisir une base</option>
-        @for (entry of catalog(); track entry.id) {
-          <option [value]="entry.id">{{ entry.label }} · {{ entry.region }}</option>
-        }
-      </select>
-      <label class="vav-btn vav-btn--secondary vav-btn--sm file-btn">
-        .cup
-        <input type="file" accept=".cup" (change)="onCupFileSelected($event)" hidden />
-      </label>
-      <button
-        type="button"
-        class="vav-btn vav-btn--primary vav-btn--sm"
-        (click)="openWaypointDialog()"
+        size="small"
+      />
+      <div class="decl-db__url-row">
+        <input
+          pInputText
+          fluid
+          pSize="small"
+          class="decl-db__url-input"
+          type="url"
+          placeholder="URL du fichier .cup"
+          [ngModel]="cupUrlInput()"
+          (ngModelChange)="cupUrlInput.set($event)"
+          [disabled]="loading()"
+        />
+        <p-button
+          label="Charger"
+          icon="pi pi-download"
+          size="small"
+          [disabled]="loading() || !cupUrlInput().trim()"
+          (onClick)="loadFromUrlInput()"
+        />
+      </div>
+      <input #cupFileInput type="file" accept=".cup" (change)="onCupFileSelected($event)" hidden />
+      <p-button
+        label="Importer .cup"
+        icon="pi pi-upload"
+        size="small"
+        severity="secondary"
+        [disabled]="loading()"
+        (onClick)="cupFileInput.click()"
+      />
+      <p-button
+        label="Exporter .cup"
+        icon="pi pi-file-export"
+        size="small"
+        [outlined]="true"
         [disabled]="waypoints().length === 0"
-      >
-        Choisir des points
-      </button>
+        (onClick)="exportCup()"
+      />
       @if (loading()) {
         <span class="decl-db__pill">…</span>
       } @else if (waypoints().length > 0) {
@@ -42,6 +69,14 @@
         <span class="decl-db__pill decl-db__pill--task">{{ selectedWaypointIds().length }} en tâche</span>
       }
     </div>
+    @if (cupMeta().sourceLabel) {
+      <p class="decl-db__source">
+        Base : <strong>{{ cupMeta().sourceLabel }}</strong>
+        @if (cupMeta().sourceUrl) {
+          <span class="decl-db__source-url" [title]="cupMeta().sourceUrl!">{{ cupMeta().sourceUrl }}</span>
+        }
+      </p>
+    }
     @if (loadError()) {
       <p class="vav-alert vav-alert--error decl-db__alert">{{ loadError() }}</p>
     }
@@ -62,25 +97,16 @@
   }
 
   <nav class="decl-tabs" aria-label="Panneaux">
-    <button
-      type="button"
-      class="decl-tabs__btn"
-      [class.is-active]="mobileTab() === 'map'"
-      (click)="setMobileTab('map')"
-    >
-      Carte
-    </button>
-    <button
-      type="button"
-      class="decl-tabs__btn"
-      [class.is-active]="mobileTab() === 'task'"
-      (click)="setMobileTab('task')"
-    >
-      Circuit
-      @if (selectedWaypointIds().length > 0) {
-        <span class="decl-tabs__count">{{ selectedWaypointIds().length }}</span>
-      }
-    </button>
+    <p-selectButton
+      class="decl-tabs__select"
+      [options]="mobileTabOptionsUi()"
+      optionLabel="label"
+      optionValue="value"
+      [ngModel]="mobileTab()"
+      (ngModelChange)="setMobileTab($event)"
+      [allowEmpty]="false"
+      size="small"
+    />
   </nav>
 
   <div
@@ -92,15 +118,6 @@
       <div class="decl-map-wrap">
         <app-map-view (actionMessage)="showAddToast($event)" />
       </div>
-      <button
-        type="button"
-        class="decl-fab vav-btn vav-btn--primary"
-        (click)="openWaypointDialog()"
-        [disabled]="waypoints().length === 0"
-        aria-label="Choisir des points"
-      >
-        +
-      </button>
     </section>
 
     <section class="decl-panel decl-panel--circuit vav-card" aria-label="Circuit et export">
@@ -160,51 +177,69 @@
                 }
               </div>
               <div class="decl-task-item__actions">
-                <button type="button" class="vav-btn vav-btn--ghost vav-btn--icon" (click)="moveWaypoint(i, 'up')" [disabled]="i === 0" title="Monter">↑</button>
-                <button type="button" class="vav-btn vav-btn--ghost vav-btn--icon" (click)="moveWaypoint(i, 'down')" [disabled]="i === selectedWaypointIds().length - 1" title="Descendre">↓</button>
-                <button type="button" class="vav-btn vav-btn--ghost vav-btn--icon decl-task-item__remove" (click)="removeFromTask(i)" title="Retirer">×</button>
+                <p-button icon="pi pi-angle-up" [text]="true" size="small" (onClick)="moveWaypoint(i, 'up')" [disabled]="i === 0" title="Monter" />
+                <p-button
+                  icon="pi pi-angle-down"
+                  [text]="true"
+                  size="small"
+                  (onClick)="moveWaypoint(i, 'down')"
+                  [disabled]="i === selectedWaypointIds().length - 1"
+                  title="Descendre"
+                />
+                <p-button
+                  icon="pi pi-times"
+                  [text]="true"
+                  size="small"
+                  severity="danger"
+                  class="decl-task-item__remove"
+                  (onClick)="removeFromTask(i)"
+                  title="Retirer"
+                />
               </div>
             </li>
           }
         } @empty {
-          <li class="decl-empty">
-            Circuit vide — utilisez la carte, « Choisir des points » ou le bouton +.
-          </li>
+          <li class="decl-empty">Circuit vide.</li>
         }
       </ol>
 
+      <div class="decl-circuit__add">
+        <p-button
+          label="Choisir des points"
+          icon="pi pi-plus"
+          size="small"
+          severity="secondary"
+          [disabled]="waypoints().length === 0"
+          (onClick)="openWaypointDialog()"
+        />
+      </div>
+
       <footer class="decl-circuit__foot">
-        <button
-          type="button"
-          class="vav-btn vav-btn--primary decl-circuit__download"
-          (click)="downloadFlarm()"
+        <p-button
+          class="decl-circuit__download"
+          label="Télécharger flarmcfg.txt"
+          icon="pi pi-download"
+          severity="primary"
           [disabled]="selectedWaypointIds().length === 0"
-        >
-          Télécharger flarmcfg.txt
-        </button>
+          (onClick)="downloadFlarm()"
+        />
         <div class="decl-circuit__actions">
-          <button
-            type="button"
-            class="vav-btn vav-btn--ghost vav-btn--sm"
-            (click)="clearTask()"
+          <p-button
+            label="Vider"
+            size="small"
+            [outlined]="true"
             [disabled]="selectedWaypointIds().length === 0"
-          >
-            Vider
-          </button>
-          <button type="button" class="vav-btn vav-btn--secondary vav-btn--sm" (click)="openPilotDialog()">
-            Pilote & planeur
-          </button>
-          <button type="button" class="vav-btn vav-btn--secondary vav-btn--sm" (click)="openCircuitsDialog()">
-            Mes circuits
-          </button>
-          <button
-            type="button"
-            class="vav-btn vav-btn--ghost vav-btn--sm"
-            (click)="openPreviewDialog()"
+            (onClick)="clearTask()"
+          />
+          <p-button label="Pilote & planeur" size="small" severity="secondary" (onClick)="openPilotDialog()" />
+          <p-button label="Mes circuits" size="small" severity="secondary" (onClick)="openCircuitsDialog()" />
+          <p-button
+            label="Aperçu FLARM"
+            size="small"
+            [outlined]="true"
             [disabled]="!flarmPreview()"
-          >
-            Aperçu FLARM
-          </button>
+            (onClick)="openPreviewDialog()"
+          />
         </div>
       </footer>
     </section>
@@ -212,181 +247,250 @@
 </div>
 
 <!-- Dialog : choix des waypoints -->
-@if (waypointDialogOpen()) {
-  <div class="vav-modal" role="dialog" aria-modal="true" aria-labelledby="wp-dialog-title">
-    <button type="button" class="vav-modal__backdrop" aria-label="Fermer" (click)="closeWaypointDialog()"></button>
-    <div class="vav-modal__panel vav-modal__panel--lg">
-      <header class="vav-modal__head">
-        <h2 id="wp-dialog-title" class="vav-modal__title">Choisir des points</h2>
-        @if (filteredCount() > 0) {
-          <span class="decl-panel__meta">{{ filteredCount() }} résultat(s)</span>
-        }
-        <button type="button" class="vav-modal__close" aria-label="Fermer" (click)="closeWaypointDialog()">×</button>
-      </header>
-      <div class="decl-list-tools">
-        <input
-          type="search"
-          class="vav-input vav-input--sm"
-          placeholder="Rechercher nom, code…"
-          [ngModel]="searchQuery()"
-          (ngModelChange)="onSearchChange($event)"
+<p-dialog
+  [visible]="waypointDialogOpen()"
+  (visibleChange)="onWaypointDialogVisible($event)"
+  header="Choisir des points"
+  [modal]="true"
+  [closable]="true"
+  [dismissableMask]="true"
+  [draggable]="false"
+  [resizable]="false"
+  styleClass="decl-wp-dialog"
+  [style]="{ width: 'min(100vw - 1rem, 880px)' }"
+  [contentStyle]="{ display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }"
+>
+  @if (filteredCount() > 0) {
+    <p class="decl-panel__meta decl-wp-dialog__meta">{{ filteredCount() }} résultat(s)</p>
+  }
+  <div class="decl-list-tools">
+    <input
+      pInputText
+      fluid
+      pSize="small"
+      type="search"
+      placeholder="Rechercher nom, code…"
+      [ngModel]="searchQuery()"
+      (ngModelChange)="onSearchChange($event)"
+    />
+    <div class="decl-chips" role="group" aria-label="Filtres">
+      @for (f of typeFilters; track f.id) {
+        <p-button
+          size="small"
+          [text]="true"
+          [severity]="typeFilter() === f.id ? 'primary' : 'secondary'"
+          [class.is-active]="typeFilter() === f.id"
+          (onClick)="setTypeFilter(f.id)"
+          [label]="f.label"
         />
-        <div class="decl-chips" role="group" aria-label="Filtres">
-          @for (f of typeFilters; track f.id) {
-            <button
-              type="button"
-              class="vav-chip vav-chip--sm"
-              [class.is-active]="typeFilter() === f.id"
-              (click)="setTypeFilter(f.id)"
-            >
-              {{ f.label }}
-            </button>
-          }
-        </div>
-      </div>
-      <div class="decl-list-body">
-        <ul class="decl-wp-list vav-scroll" aria-label="Page {{ currentPage() }}">
-          @for (wp of paginatedWaypoints(); track $index) {
-            <li>
-              <button
-                type="button"
-                class="decl-wp-row"
-                [class.is-in-task]="getOccurrenceCount(wp.id) > 0"
-                (click)="onWaypointRowClick(wp.id, wp.name)"
-              >
-                @if (getOccurrenceCount(wp.id) > 0) {
-                  <span class="decl-wp-row__badge">×{{ getOccurrenceCount(wp.id) }}</span>
-                } @else {
-                  <span class="decl-wp-row__badge decl-wp-row__badge--add">+</span>
-                }
-                <span class="decl-wp-row__body">
-                  <span class="decl-wp-row__name">{{ wp.name }}</span>
-                  @if (wp.code) {
-                    <span class="decl-wp-row__code">{{ wp.code }}</span>
-                  }
-                </span>
-                <span class="decl-wp-row__type">{{ typeLabel(wp.type) }}</span>
-              </button>
-            </li>
-          } @empty {
-            <li class="decl-empty">Aucun point ne correspond.</li>
-          }
-        </ul>
-      </div>
-      @if (filteredCount() > 0) {
-        <nav class="decl-pager" aria-label="Pagination des points">
-          <span class="decl-pager__info">{{ pageRangeStart() }}–{{ pageRangeEnd() }} / {{ filteredCount() }}</span>
-          <div class="decl-pager__nav">
-            <button type="button" class="vav-btn vav-btn--ghost vav-btn--sm" (click)="prevPage()" [disabled]="currentPage() <= 1" aria-label="Page précédente">‹</button>
-            <span class="decl-pager__page">{{ currentPage() }} / {{ totalPages() }}</span>
-            <button type="button" class="vav-btn vav-btn--ghost vav-btn--sm" (click)="nextPage()" [disabled]="currentPage() >= totalPages()" aria-label="Page suivante">›</button>
-          </div>
-          <label class="decl-pager__size">
-            <span class="vav-label vav-label--invisible">Par page</span>
-            <select class="vav-select vav-select--sm" [ngModel]="pageSize()" (ngModelChange)="setPageSize(+$event)" aria-label="Points par page">
-              @for (n of pageSizeOptions; track n) {
-                <option [value]="n">{{ n }}</option>
-              }
-            </select>
-          </label>
-        </nav>
       }
-      <footer class="vav-modal__foot">
-        <button type="button" class="vav-btn vav-btn--primary" (click)="closeWaypointDialog()">Terminé</button>
-      </footer>
     </div>
   </div>
-}
+  <div class="decl-list-body">
+    <ul class="decl-wp-list vav-scroll" aria-label="Page {{ currentPage() }}">
+      @for (wp of paginatedWaypoints(); track $index) {
+        <li>
+          <button
+            type="button"
+            class="decl-wp-row"
+            [class.is-in-task]="getOccurrenceCount(wp.id) > 0"
+            (click)="onWaypointRowClick(wp.id, wp.name)"
+          >
+            @if (getOccurrenceCount(wp.id) > 0) {
+              <span class="decl-wp-row__badge">×{{ getOccurrenceCount(wp.id) }}</span>
+            } @else {
+              <span class="decl-wp-row__badge decl-wp-row__badge--add">+</span>
+            }
+            <span class="decl-wp-row__body">
+              <span class="decl-wp-row__name">{{ wp.name }}</span>
+              @if (wp.code) {
+                <span class="decl-wp-row__code">{{ wp.code }}</span>
+              }
+            </span>
+            <span class="decl-wp-row__type">{{ typeLabel(wp.type) }}</span>
+          </button>
+        </li>
+      } @empty {
+        <li class="decl-empty">Aucun point ne correspond.</li>
+      }
+    </ul>
+  </div>
+  @if (filteredCount() > 0) {
+    <nav class="decl-pager" aria-label="Pagination des points">
+      <span class="decl-pager__info">{{ pageRangeStart() }}–{{ pageRangeEnd() }} / {{ filteredCount() }}</span>
+      <div class="decl-pager__nav">
+        <p-button
+          icon="pi pi-angle-left"
+          [text]="true"
+          size="small"
+          (onClick)="prevPage()"
+          [disabled]="currentPage() <= 1"
+          ariaLabel="Page précédente"
+        />
+        <span class="decl-pager__page">{{ currentPage() }} / {{ totalPages() }}</span>
+        <p-button
+          icon="pi pi-angle-right"
+          [text]="true"
+          size="small"
+          (onClick)="nextPage()"
+          [disabled]="currentPage() >= totalPages()"
+          ariaLabel="Page suivante"
+        />
+      </div>
+      <label class="decl-pager__size">
+        <span class="vav-label vav-label--invisible">Par page</span>
+        <p-select
+          [options]="pageSizeOptions"
+          [ngModel]="pageSize()"
+          (ngModelChange)="setPageSize(+$event)"
+          size="small"
+          ariaLabel="Points par page"
+        />
+      </label>
+    </nav>
+  }
+  <div class="decl-wp-dialog__foot">
+    <p-button label="Terminé" icon="pi pi-check" (onClick)="closeWaypointDialog()" />
+  </div>
+</p-dialog>
 
 <!-- Dialog : pilote & planeur -->
-@if (pilotDialogOpen()) {
-  <div class="vav-modal" role="dialog" aria-modal="true" aria-labelledby="pilot-dialog-title">
-    <button type="button" class="vav-modal__backdrop" aria-label="Fermer" (click)="closePilotDialog()"></button>
-    <div class="vav-modal__panel">
-      <header class="vav-modal__head">
-        <h2 id="pilot-dialog-title" class="vav-modal__title">Pilote & planeur</h2>
-        <button type="button" class="vav-modal__close" aria-label="Fermer" (click)="closePilotDialog()">×</button>
-      </header>
-      <div class="vav-modal__body">
-        <div class="decl-form-grid">
-          <label class="decl-field">
-            <span class="vav-label">Pilote</span>
-            <input class="vav-input" [ngModel]="flarmProfile().pilotName" (ngModelChange)="flarmProfileService.setPilotName($event)" placeholder="Jean Dupont" maxlength="47" />
-          </label>
-          <label class="decl-field">
-            <span class="vav-label">Type planeur</span>
-            <input class="vav-input" [ngModel]="flarmProfile().gliderType" (ngModelChange)="flarmProfileService.setGliderType($event)" placeholder="JS1-C" maxlength="31" />
-          </label>
-          <label class="decl-field">
-            <span class="vav-label">Immatriculation</span>
-            <input class="vav-input" [ngModel]="flarmProfile().gliderId" (ngModelChange)="flarmProfileService.setGliderId($event)" placeholder="F-CINE" maxlength="15" />
-          </label>
-          <label class="decl-field">
-            <span class="vav-label">ID compétition</span>
-            <input class="vav-input" [ngModel]="flarmProfile().compId" (ngModelChange)="flarmProfileService.setCompId($event)" placeholder="ZX" maxlength="15" />
-          </label>
-          <label class="decl-field">
-            <span class="vav-label">Classe</span>
-            <input class="vav-input" [ngModel]="flarmProfile().compClass" (ngModelChange)="flarmProfileService.setCompClass($event)" placeholder="Standard" maxlength="15" />
-          </label>
-          <label class="decl-field">
-            <span class="vav-label">LOGINT (s)</span>
-            <input class="vav-input" type="number" min="1" max="8" [ngModel]="flarmProfile().logInterval" (ngModelChange)="flarmProfileService.setLogInterval(+$event)" />
-          </label>
-        </div>
-      </div>
-      <footer class="vav-modal__foot">
-        <button type="button" class="vav-btn vav-btn--primary" (click)="closePilotDialog()">Enregistrer</button>
-      </footer>
-    </div>
+<p-dialog
+  [visible]="pilotDialogOpen()"
+  (visibleChange)="onPilotDialogVisible($event)"
+  header="Pilote & planeur"
+  [modal]="true"
+  [closable]="true"
+  [dismissableMask]="true"
+  [draggable]="false"
+  [style]="{ width: 'min(100vw - 1rem, 520px)' }"
+>
+  <div class="decl-form-grid">
+    <label class="decl-field">
+      <span class="vav-label">Pilote</span>
+      <input
+        pInputText
+        fluid
+        [ngModel]="flarmProfile().pilotName"
+        (ngModelChange)="flarmProfileService.setPilotName($event)"
+        placeholder="Jean Dupont"
+        maxlength="47"
+      />
+    </label>
+    <label class="decl-field">
+      <span class="vav-label">Type planeur</span>
+      <input
+        pInputText
+        fluid
+        [ngModel]="flarmProfile().gliderType"
+        (ngModelChange)="flarmProfileService.setGliderType($event)"
+        placeholder="JS1-C"
+        maxlength="31"
+      />
+    </label>
+    <label class="decl-field">
+      <span class="vav-label">Immatriculation</span>
+      <input
+        pInputText
+        fluid
+        [ngModel]="flarmProfile().gliderId"
+        (ngModelChange)="flarmProfileService.setGliderId($event)"
+        placeholder="F-CINE"
+        maxlength="15"
+      />
+    </label>
+    <label class="decl-field">
+      <span class="vav-label">ID compétition</span>
+      <input
+        pInputText
+        fluid
+        [ngModel]="flarmProfile().compId"
+        (ngModelChange)="flarmProfileService.setCompId($event)"
+        placeholder="ZX"
+        maxlength="15"
+      />
+    </label>
+    <label class="decl-field">
+      <span class="vav-label">Classe</span>
+      <input
+        pInputText
+        fluid
+        [ngModel]="flarmProfile().compClass"
+        (ngModelChange)="flarmProfileService.setCompClass($event)"
+        placeholder="Standard"
+        maxlength="15"
+      />
+    </label>
+    <label class="decl-field">
+      <span class="vav-label">LOGINT (s)</span>
+      <input
+        pInputText
+        fluid
+        type="number"
+        min="1"
+        max="8"
+        [ngModel]="flarmProfile().logInterval"
+        (ngModelChange)="flarmProfileService.setLogInterval(+$event)"
+      />
+    </label>
   </div>
-}
+  <div class="decl-wp-dialog__foot">
+    <p-button label="Enregistrer" icon="pi pi-check" (onClick)="closePilotDialog()" />
+  </div>
+</p-dialog>
 
 <!-- Dialog : aperçu FLARM -->
-@if (previewDialogOpen()) {
-  <div class="vav-modal" role="dialog" aria-modal="true" aria-labelledby="preview-dialog-title">
-    <button type="button" class="vav-modal__backdrop" aria-label="Fermer" (click)="closePreviewDialog()"></button>
-    <div class="vav-modal__panel vav-modal__panel--md">
-      <header class="vav-modal__head">
-        <h2 id="preview-dialog-title" class="vav-modal__title">Aperçu flarmcfg.txt</h2>
-        <button type="button" class="vav-modal__close" aria-label="Fermer" (click)="closePreviewDialog()">×</button>
-      </header>
-      <div class="vav-modal__body decl-preview">
-        <button type="button" class="vav-btn vav-btn--secondary vav-btn--sm" (click)="copyPreview()" [disabled]="!flarmPreview()">
-          {{ copyFeedback() ? 'Copié' : 'Copier' }}
-        </button>
-        <textarea class="vav-textarea" readonly [value]="flarmPreview()" rows="14"></textarea>
-      </div>
-      <footer class="vav-modal__foot">
-        <button type="button" class="vav-btn vav-btn--primary" (click)="downloadFlarm(); closePreviewDialog()" [disabled]="selectedWaypointIds().length === 0">
-          Télécharger
-        </button>
-        <button type="button" class="vav-btn vav-btn--ghost" (click)="closePreviewDialog()">Fermer</button>
-      </footer>
-    </div>
+<p-dialog
+  [visible]="previewDialogOpen()"
+  (visibleChange)="onPreviewDialogVisible($event)"
+  header="Aperçu flarmcfg.txt"
+  [modal]="true"
+  [closable]="true"
+  [dismissableMask]="true"
+  [draggable]="false"
+  styleClass="decl-preview-dialog"
+  [style]="{ width: 'min(100vw - 1rem, 640px)' }"
+  [contentStyle]="{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }"
+>
+  <p-button
+    [label]="copyFeedback() ? 'Copié' : 'Copier'"
+    icon="pi pi-copy"
+    size="small"
+    severity="secondary"
+    (onClick)="copyPreview()"
+    [disabled]="!flarmPreview()"
+  />
+  <textarea pTextarea fluid pSize="small" readonly [value]="flarmPreview()" rows="14"></textarea>
+  <div class="decl-wp-dialog__foot decl-wp-dialog__foot--split">
+    <p-button
+      label="Télécharger"
+      icon="pi pi-download"
+      (onClick)="downloadFlarm(); closePreviewDialog()"
+      [disabled]="selectedWaypointIds().length === 0"
+    />
+    <p-button label="Fermer" [outlined]="true" (onClick)="closePreviewDialog()" />
   </div>
-}
+</p-dialog>
 
 <!-- Dialog : bibliothèque de circuits -->
-@if (circuitsDialogOpen()) {
-  <div class="vav-modal" role="dialog" aria-modal="true" aria-labelledby="circuits-dialog-title">
-    <button type="button" class="vav-modal__backdrop" aria-label="Fermer" (click)="closeCircuitsDialog()"></button>
-    <div class="vav-modal__panel vav-modal__panel--md">
-      <header class="vav-modal__head">
-        <h2 id="circuits-dialog-title" class="vav-modal__title">Mes circuits</h2>
-        <button type="button" class="vav-modal__close" aria-label="Fermer" (click)="closeCircuitsDialog()">×</button>
-      </header>
-      <div class="vav-modal__body vav-modal__body--scroll">
-        <app-circuit-library
-          [canSave]="canSaveCircuit()"
-          [selectedCircuitId]="activeCircuitId()"
-          (saveRequested)="onCircuitSaveRequest($event)"
-          (circuitLoaded)="onCircuitLoaded($event)"
-        />
-      </div>
-      <footer class="vav-modal__foot">
-        <button type="button" class="vav-btn vav-btn--primary" (click)="closeCircuitsDialog()">Fermer</button>
-      </footer>
-    </div>
+<p-dialog
+  [visible]="circuitsDialogOpen()"
+  (visibleChange)="onCircuitsDialogVisible($event)"
+  header="Mes circuits"
+  [modal]="true"
+  [closable]="true"
+  [dismissableMask]="true"
+  [draggable]="false"
+  [style]="{ width: 'min(100vw - 1rem, 640px)' }"
+  [contentStyle]="{ maxHeight: 'min(70dvh, 520px)', overflow: 'auto' }"
+>
+  <app-circuit-library
+    [canSave]="canSaveCircuit()"
+    [selectedCircuitId]="activeCircuitId()"
+    (saveRequested)="onCircuitSaveRequest($event)"
+    (circuitLoaded)="onCircuitLoaded($event)"
+  />
+  <div class="decl-wp-dialog__foot">
+    <p-button label="Fermer" icon="pi pi-times" (onClick)="closeCircuitsDialog()" />
   </div>
-}
+</p-dialog>

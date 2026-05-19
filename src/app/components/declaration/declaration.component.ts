@@ -14,6 +14,9 @@ import { FormsModule } from '@angular/forms';
 import { WaypointService } from '../../services/waypoint.service';
 import { TaskStateService } from '../../services/task-state.service';
 import { CupLoaderService } from '../../services/cup-loader.service';
+import { CupDatabaseService } from '../../services/cup-database.service';
+import { CupSourcesConfigService } from '../../services/cup-sources-config.service';
+import { CupSourceEntry } from '../../models/cup-sources.model';
 import {
   DistanceService,
   DistanceResult,
@@ -26,18 +29,36 @@ import {
 import { MapViewComponent } from '../map-view/map-view.component';
 import { CircuitLibraryComponent } from '../circuit-library/circuit-library.component';
 import { SavedCircuitService } from '../../services/saved-circuit.service';
-import { CupCatalogEntry } from '../../models/cup-catalog.model';
 import { FlarmDeclaration } from '../../models/flarm-profile.model';
 import { circuitRoleShortLabel } from '../../models/circuit.model';
 import { Waypoint, WaypointTypeFilter } from '../../models/waypoint.model';
 import { FlarmProfileService } from '../../services/flarm-profile.service';
+import { Button } from 'primeng/button';
+import { Select } from 'primeng/select';
+import { InputText } from 'primeng/inputtext';
+import { SelectButton } from 'primeng/selectbutton';
+import { Dialog } from 'primeng/dialog';
+import { Tooltip } from 'primeng/tooltip';
+import { Textarea } from 'primeng/textarea';
 
 type MobileTab = 'map' | 'task';
 
 @Component({
   selector: 'app-declaration',
   standalone: true,
-  imports: [CommonModule, FormsModule, MapViewComponent, CircuitLibraryComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    MapViewComponent,
+    CircuitLibraryComponent,
+    Button,
+    Select,
+    InputText,
+    SelectButton,
+    Dialog,
+    Tooltip,
+    Textarea
+  ],
   templateUrl: './declaration.component.html',
   styleUrls: ['./declaration.component.scss']
 })
@@ -48,6 +69,8 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   waypointService = inject(WaypointService);
   private taskState = inject(TaskStateService);
   private cupLoader = inject(CupLoaderService);
+  private cupDatabase = inject(CupDatabaseService);
+  private cupSourcesConfig = inject(CupSourcesConfigService);
   private distanceService = inject(DistanceService);
   private flarmConfigService = inject(FlarmConfigService);
   flarmProfileService = inject(FlarmProfileService);
@@ -58,10 +81,12 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   selectedWaypointIds = this.taskState.selectedWaypointIds;
   circuitLegs = this.taskState.circuitLegs;
   taskName = this.taskState.taskName;
-  activeDatabaseId = this.taskState.activeDatabaseId;
   flarmProfile = this.flarmProfileService.profile;
+  cupMeta = this.cupDatabase.meta;
 
-  catalog = signal<CupCatalogEntry[]>([]);
+  cupSources = signal<CupSourceEntry[]>([]);
+  cupQuickSourcePick = signal<string | null>(null);
+  cupUrlInput = signal('');
   disclaimer = signal('');
   searchQuery = signal('');
   typeFilter = signal<WaypointTypeFilter>('all');
@@ -134,6 +159,14 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
 
   readonly pageSizeOptions = [25, 40, 50, 100];
 
+  mobileTabOptionsUi = computed(() => {
+    const n = this.selectedWaypointIds().length;
+    return [
+      { label: 'Carte', value: 'map' as MobileTab },
+      { label: n > 0 ? `Circuit (${n})` : 'Circuit', value: 'task' as MobileTab }
+    ];
+  });
+
   constructor() {
     effect(() => {
       this.circuitLegs();
@@ -176,7 +209,7 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   ];
 
   ngOnInit(): void {
-    void this.initCatalog();
+    void this.initCupSources();
   }
 
   ngAfterViewInit(): void {
@@ -237,6 +270,30 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     this.circuitsDialogOpen.set(false);
   }
 
+  onWaypointDialogVisible(v: boolean): void {
+    if (!v && this.waypointDialogOpen()) {
+      this.closeWaypointDialog();
+    }
+  }
+
+  onPilotDialogVisible(v: boolean): void {
+    if (!v) {
+      this.closePilotDialog();
+    }
+  }
+
+  onPreviewDialogVisible(v: boolean): void {
+    if (!v) {
+      this.closePreviewDialog();
+    }
+  }
+
+  onCircuitsDialogVisible(v: boolean): void {
+    if (!v) {
+      this.closeCircuitsDialog();
+    }
+  }
+
   showAddToast(message: string): void {
     this.addToast.set(message);
     if (this.addToastTimer) clearTimeout(this.addToastTimer);
@@ -246,34 +303,60 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     }, 2200);
   }
 
-  private async initCatalog(): Promise<void> {
+  private async initCupSources(): Promise<void> {
     try {
-      const cat = await this.cupLoader.loadCatalog();
-      this.catalog.set(cat.databases);
-      this.disclaimer.set(cat.disclaimer);
+      const config = await this.cupSourcesConfig.loadConfig();
+      this.disclaimer.set(config.disclaimer);
+      const merged = this.cupSourcesConfig.mergeWithRecents(
+        config,
+        this.cupDatabase.getRecentUrls()
+      );
+      this.cupSources.set(merged);
     } catch {
-      this.loadError.set('Catalogue CUP indisponible');
+      this.loadError.set('Configuration des sources CUP indisponible');
     }
   }
 
-  async onCatalogSelect(event: Event): Promise<void> {
-    const select = event.target as HTMLSelectElement;
-    const id = select.value;
-    if (!id) return;
-    const entry = this.catalog().find(e => e.id === id);
-    if (!entry) return;
-    await this.loadDatabase(entry);
-    select.value = '';
+  async onCupQuickPickChange(url: string | null): Promise<void> {
+    this.cupQuickSourcePick.set(url);
+    if (!url?.trim()) {
+      return;
+    }
+    const entry = this.cupSources().find(s => s.url === url);
+    try {
+      await this.loadFromUrl(url, entry?.label);
+    } finally {
+      this.cupQuickSourcePick.set(null);
+    }
   }
 
-  async loadDatabase(entry: CupCatalogEntry): Promise<void> {
+  async loadFromUrlInput(): Promise<void> {
+    const url = this.cupUrlInput().trim();
+    if (!url) return;
+    await this.loadFromUrl(url);
+  }
+
+  private async loadFromUrl(url: string, label?: string): Promise<void> {
     if (this.waypoints().length > 0) {
       const ok = confirm(
-        `Charger « ${entry.label} » remplacera les ${this.waypoints().length} points actuels. Continuer ?`
+        `Charger cette base remplacera les ${this.waypoints().length} points actuels. Continuer ?`
       );
       if (!ok) return;
     }
-    await this.runLoad(() => this.cupLoader.loadEmbedded(entry, true));
+    await this.runLoad(() => this.cupLoader.loadFromUrl(url, label, true));
+    this.cupUrlInput.set(url);
+    void this.initCupSources();
+  }
+
+  exportCup(): void {
+    const content = this.cupDatabase.exportCup();
+    const label = this.cupDatabase.getSourceLabel().replace(/[^\w.-]+/g, '_') || 'vav-export';
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${label}.cup`;
+    link.click();
+    URL.revokeObjectURL(link.href);
   }
 
   async onCupFileSelected(event: Event): Promise<void> {
@@ -412,7 +495,7 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
         taskName: this.taskName(),
         profile: this.flarmProfile(),
         circuitLegs: this.circuitLegs(),
-        databaseId: this.activeDatabaseId(),
+        sourceUrl: this.cupDatabase.getSourceUrl(),
         notes: event.notes,
         updateId: event.updateId ?? undefined
       });

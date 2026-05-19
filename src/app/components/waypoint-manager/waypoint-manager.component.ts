@@ -3,17 +3,24 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { WaypointService } from '../../services/waypoint.service';
+import { CupDatabaseService } from '../../services/cup-database.service';
+import { CupLoaderService } from '../../services/cup-loader.service';
 import { Waypoint, WaypointType } from '../../models/waypoint.model';
+import { Button } from 'primeng/button';
+import { InputText } from 'primeng/inputtext';
+import { Select } from 'primeng/select';
 
 @Component({
   selector: 'app-waypoint-manager',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, Button, InputText, Select],
   templateUrl: './waypoint-manager.component.html',
   styleUrls: ['./waypoint-manager.component.scss']
 })
 export class WaypointManagerComponent {
   private waypointService = inject(WaypointService);
+  private cupDatabase = inject(CupDatabaseService);
+  private cupLoader = inject(CupLoaderService);
 
   waypoints = this.waypointService.waypoints;
 
@@ -30,7 +37,7 @@ export class WaypointManagerComponent {
     description: ''
   });
 
-  waypointTypes: { value: WaypointType; label: string }[] = [
+  readonly waypointTypes: { value: WaypointType; label: string }[] = [
     { value: 'turnpoint', label: 'Turnpoint' },
     { value: 'airfield', label: 'Aérodrome' },
     { value: 'landable', label: 'Atterrissable' },
@@ -78,38 +85,39 @@ export class WaypointManagerComponent {
     this.editingWaypoint.set(null);
   }
 
-  exportJson(): void {
-    const content = this.waypointService.exportWaypoints();
-    const blob = new Blob([content], { type: 'application/json' });
+  exportCup(): void {
+    const content = this.cupDatabase.exportCup();
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `vav-waypoints-${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = `${this.cupDatabase.getSourceLabel().replace(/[^\w.-]+/g, '_') || 'export'}.cup`;
     link.click();
     URL.revokeObjectURL(url);
-    this.importMessage.set('Export JSON téléchargé.');
+    this.importMessage.set('Export CUP téléchargé.');
   }
 
-  onImportJson(event: Event): void {
+  async onCupFileSelected(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const replace = confirm(
-          'Remplacer tous les waypoints existants ? (Annuler = fusionner)'
-        );
-        this.waypointService.importWaypointsFromJson(reader.result as string, replace);
-        this.importMessage.set(
-          replace ? 'Waypoints remplacés.' : 'Waypoints fusionnés.'
-        );
-      } catch {
-        this.importMessage.set('Fichier JSON invalide.');
+    if (this.waypoints().length > 0) {
+      const ok = confirm(
+        `Importer « ${file.name} » remplacera les points actuels. Continuer ?`
+      );
+      if (!ok) {
+        input.value = '';
+        return;
       }
-    };
-    reader.readAsText(file);
+    }
+
+    try {
+      await this.cupLoader.loadFromFile(file, true);
+      this.importMessage.set('Base CUP importée.');
+    } catch {
+      this.importMessage.set('Fichier CUP invalide ou illisible.');
+    }
     input.value = '';
   }
 

@@ -100,7 +100,7 @@ export class SavedCircuitService {
     taskName: string;
     profile: FlarmProfile;
     circuitLegs: CircuitLeg[];
-    databaseId?: string | null;
+    sourceUrl?: string | null;
     notes?: string;
     updateId?: string;
   }): SavedCircuit {
@@ -130,7 +130,7 @@ export class SavedCircuitService {
         taskName: input.taskName.trim() || label,
         profile: { ...input.profile },
         waypoints: snapshots,
-        databaseId: input.databaseId ?? existing.databaseId,
+        sourceUrl: input.sourceUrl ?? existing.sourceUrl,
         notes: input.notes?.trim() || existing.notes,
         updatedAt: now
       };
@@ -147,7 +147,7 @@ export class SavedCircuitService {
       taskName: input.taskName.trim() || label,
       profile: { ...input.profile },
       waypoints: snapshots,
-      databaseId: input.databaseId ?? null,
+      sourceUrl: input.sourceUrl ?? null,
       notes: input.notes?.trim(),
       createdAt: now,
       updatedAt: now

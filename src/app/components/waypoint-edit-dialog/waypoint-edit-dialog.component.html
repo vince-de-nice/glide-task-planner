@@ -1,0 +1,102 @@
+<p-dialog
+  [visible]="open()"
+  (visibleChange)="onDialogVisibleChange($event)"
+  [header]="isCreate() ? 'Nouveau point' : 'Modifier le point'"
+  [modal]="true"
+  [closable]="true"
+  [dismissableMask]="true"
+  [draggable]="false"
+  [style]="{ width: 'min(100vw - 1rem, 440px)' }"
+>
+  <form class="wp-edit-dialog__form" (ngSubmit)="onSubmit()">
+    <label class="wp-edit-dialog__field">
+      <span class="vav-label">Nom</span>
+      <input
+        pInputText
+        fluid
+        [ngModel]="form().name"
+        (ngModelChange)="patchForm({ name: $event })"
+        name="name"
+        required
+        maxlength="80"
+      />
+    </label>
+    <label class="wp-edit-dialog__field">
+      <span class="vav-label">Code</span>
+      <input
+        pInputText
+        fluid
+        [ngModel]="form().code ?? ''"
+        (ngModelChange)="patchForm({ code: $event || undefined })"
+        name="code"
+        maxlength="12"
+      />
+    </label>
+    <label class="wp-edit-dialog__field">
+      <span class="vav-label">Type</span>
+      <p-select
+        [options]="types"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="form().type"
+        (ngModelChange)="patchForm({ type: $event })"
+        name="type"
+        size="small"
+        styleClass="wp-edit-type-select"
+      />
+    </label>
+    <div class="wp-edit-dialog__row">
+      <label class="wp-edit-dialog__field">
+        <span class="vav-label">Latitude</span>
+        <input
+          pInputText
+          fluid
+          type="number"
+          step="any"
+          [ngModel]="form().latitude"
+          (ngModelChange)="patchForm({ latitude: +$event })"
+          name="latitude"
+          required
+        />
+      </label>
+      <label class="wp-edit-dialog__field">
+        <span class="vav-label">Longitude</span>
+        <input
+          pInputText
+          fluid
+          type="number"
+          step="any"
+          [ngModel]="form().longitude"
+          (ngModelChange)="patchForm({ longitude: +$event })"
+          name="longitude"
+          required
+        />
+      </label>
+    </div>
+    <label class="wp-edit-dialog__field">
+      <span class="vav-label">Altitude (m)</span>
+      <input
+        pInputText
+        fluid
+        type="number"
+        [ngModel]="form().elevation ?? ''"
+        (ngModelChange)="patchForm({ elevation: $event === '' ? undefined : +$event })"
+        name="elevation"
+      />
+    </label>
+    <label class="wp-edit-dialog__field">
+      <span class="vav-label">Description</span>
+      <input
+        pInputText
+        fluid
+        [ngModel]="form().description ?? ''"
+        (ngModelChange)="patchForm({ description: $event || undefined })"
+        name="description"
+      />
+    </label>
+    <footer class="wp-edit-dialog__actions">
+      <p-button label="Annuler" type="button" [text]="true" (onClick)="onCancel()" />
+      <p-button label="Enregistrer" type="submit" icon="pi pi-check" severity="primary" />
+    </footer>
+  </form>
+</p-dialog>

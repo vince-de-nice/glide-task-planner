@@ -36,6 +36,10 @@
   gap: 0.5rem;
 }
 
+:host ::ng-deep .wp-type-select {
+  width: 100%;
+}
+
 .file-btn {
   cursor: pointer;
 }

@@ -3,11 +3,14 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SavedCircuitService } from '../../services/saved-circuit.service';
 import { SavedCircuit } from '../../models/saved-circuit.model';
+import { Button } from 'primeng/button';
+import { InputText } from 'primeng/inputtext';
+import { Select } from 'primeng/select';
 
 @Component({
   selector: 'app-circuit-library',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, Button, InputText, Select],
   templateUrl: './circuit-library.component.html',
   styleUrls: ['./circuit-library.component.scss']
 })
@@ -29,6 +32,14 @@ export class CircuitLibraryComponent {
   editingId = signal<string | null>(null);
   editLabel = signal('');
   importMessage = signal<string | null>(null);
+  quickPickId = signal<string | null>(null);
+
+  circuitQuickOptions = computed(() =>
+    this.circuits().map(c => ({
+      id: c.id,
+      label: `${c.label} (${c.waypoints.length} pts)${c.profile.pilotName ? ` — ${c.profile.pilotName}` : ''}`
+    }))
+  );
 
   filteredCircuits = computed(() => {
     const q = this.filterQuery().trim().toLowerCase();
@@ -52,10 +63,16 @@ export class CircuitLibraryComponent {
     });
   });
 
-  onQuickSelect(event: Event): void {
-    const id = (event.target as HTMLSelectElement).value;
-    if (id) this.loadCircuit(id);
-    (event.target as HTMLSelectElement).value = '';
+  onQuickPickChange(id: string | null): void {
+    this.quickPickId.set(id);
+    if (!id) {
+      return;
+    }
+    try {
+      this.loadCircuit(id);
+    } finally {
+      this.quickPickId.set(null);
+    }
   }
 
   loadCircuit(id: string): void {
@@ -75,8 +92,8 @@ export class CircuitLibraryComponent {
     });
   }
 
-  startUpdate(circuit: SavedCircuit, event: Event): void {
-    event.stopPropagation();
+  startUpdate(circuit: SavedCircuit, e?: unknown): void {
+    (e as Event | undefined)?.stopPropagation?.();
     this.editingId.set(circuit.id);
     this.saveLabel.set(circuit.label);
     this.saveNotes.set(circuit.notes ?? '');
@@ -88,21 +105,21 @@ export class CircuitLibraryComponent {
     this.saveNotes.set('');
   }
 
-  deleteCircuit(id: string, event: Event): void {
-    event.stopPropagation();
+  deleteCircuit(id: string, e?: unknown): void {
+    (e as Event | undefined)?.stopPropagation?.();
     if (confirm('Supprimer ce circuit de la bibliothèque ?')) {
       this.savedCircuitService.deleteCircuit(id);
       if (this.editingId() === id) this.cancelUpdate();
     }
   }
 
-  duplicateCircuit(id: string, event: Event): void {
-    event.stopPropagation();
+  duplicateCircuit(id: string, e?: unknown): void {
+    (e as Event | undefined)?.stopPropagation?.();
     this.savedCircuitService.duplicateCircuit(id);
   }
 
-  startRename(circuit: SavedCircuit, event: Event): void {
-    event.stopPropagation();
+  startRename(circuit: SavedCircuit, e?: unknown): void {
+    (e as Event | undefined)?.stopPropagation?.();
     const name = prompt('Nouveau nom du circuit :', circuit.label);
     if (name?.trim()) {
       this.savedCircuitService.renameCircuit(circuit.id, name);

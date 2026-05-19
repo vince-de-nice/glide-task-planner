@@ -25,19 +25,29 @@ export class CupParserService {
   /**
    * Parse a CUP file content and return waypoints
    */
+  extractHeaderLine(content: string): string {
+    const lines = content.split('\n').filter(line => line.trim());
+    const headerLineIndex = lines.findIndex(
+      line => line.toLowerCase().includes('name') && line.toLowerCase().includes('lat')
+    );
+    if (headerLineIndex === -1) {
+      throw new Error('Fichier CUP invalide : ligne d’en-tête introuvable');
+    }
+    return lines[headerLineIndex].trim();
+  }
+
   parseCupFile(content: string): Waypoint[] {
     const lines = content.split('\n').filter(line => line.trim());
     if (lines.length === 0) {
       return [];
     }
 
-    // Find the header line (starts with 'name' or contains field names)
-    const headerLineIndex = lines.findIndex(line => 
-      line.toLowerCase().includes('name') && line.toLowerCase().includes('lat')
+    const headerLineIndex = lines.findIndex(
+      line => line.toLowerCase().includes('name') && line.toLowerCase().includes('lat')
     );
-    
+
     if (headerLineIndex === -1) {
-      throw new Error('Invalid CUP file: no header line found');
+      throw new Error('Fichier CUP invalide : ligne d’en-tête introuvable');
     }
 
     const header = this.parseHeader(lines[headerLineIndex]);
@@ -126,7 +136,16 @@ export class CupParserService {
       longitude: lon,
       elevation: elevation,
       description: cupWaypoint.desc?.replace(/"/g, ''),
-      type
+      type,
+      cupFields: {
+        style: cupWaypoint.style || '1',
+        rwdir: cupWaypoint.rwdir,
+        rwlen: cupWaypoint.rwlen,
+        rwwidth: cupWaypoint.rwwidth,
+        freq: cupWaypoint.freq,
+        userdata: cupWaypoint.userdata,
+        pics: cupWaypoint.pics
+      }
     };
   }
 

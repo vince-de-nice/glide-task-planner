@@ -36,6 +36,11 @@ import {
   waypointTypeLabel,
   WaypointMapAction
 } from './map-waypoint-popup.util';
+import {
+  WaypointEditDialogComponent,
+  WaypointEditPayload
+} from '../waypoint-edit-dialog/waypoint-edit-dialog.component';
+import { Button } from 'primeng/button';
 
 const SATELLITE_TILES = {
   url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -61,7 +66,7 @@ const MAP_TYPE_FILTERS: { type: WaypointType; label: string; color: string }[] =
 @Component({
   selector: 'app-map-view',
   standalone: true,
-  imports: [CommonModule, LeafletDirective],
+  imports: [CommonModule, LeafletDirective, WaypointEditDialogComponent, Button],
   templateUrl: './map-view.component.html',
   styleUrls: ['./map-view.component.scss']
 })
@@ -107,6 +112,11 @@ export class MapViewComponent implements OnInit {
   private taskLinesLayer: LayerGroup | null = null;
   private airspaceLayer: Layer | null = null;
   mapReady = signal(false);
+
+  editDialogOpen = signal(false);
+  editingWaypoint = signal<Waypoint | null>(null);
+  editIsCreate = signal(false);
+  private pendingCreateCoords: { lat: number; lng: number } | null = null;
 
   /** Distance tâche affichée sur la carte (km, hors branches déco/attero). */
   taskDistanceKm = signal<string | null>(null);
@@ -292,40 +302,48 @@ export class MapViewComponent implements OnInit {
     event.originalEvent.stopPropagation();
 
     const { lat, lng } = event.latlng;
-    const html = `
-      <div class="poi-popup">
-        <p><strong>Nouveau point</strong></p>
-        <p class="poi-coords">${lat.toFixed(5)}, ${lng.toFixed(5)}</p>
-        <input type="text" id="poi-name-input" placeholder="Nom du point" maxlength="32" />
-        <div class="poi-actions">
-          <button type="button" id="poi-cancel-btn">Annuler</button>
-          <button type="button" id="poi-add-btn">Ajouter</button>
-        </div>
-      </div>
-    `;
+    this.pendingCreateCoords = { lat, lng };
+    this.editingWaypoint.set({
+      id: '',
+      name: '',
+      latitude: lat,
+      longitude: lng,
+      type: 'custom'
+    });
+    this.editIsCreate.set(true);
+    this.editDialogOpen.set(true);
+  }
 
-    popup({ closeOnClick: true })
-      .setLatLng([lat, lng])
-      .setContent(html)
-      .openOn(this.map);
+  onEditDialogSave(payload: WaypointEditPayload): void {
+    if (this.editIsCreate()) {
+      const wp = this.waypointService.addWaypoint(payload);
+      this.taskState.addTurnpoint(wp.id);
+      this.actionMessage.emit(`« ${wp.name} » ajouté`);
+    } else {
+      const current = this.editingWaypoint();
+      if (current) {
+        this.waypointService.updateWaypoint(current.id, payload);
+        this.actionMessage.emit(`« ${payload.name} » mis à jour`);
+      }
+    }
+    this.closeEditDialog();
+  }
 
-    setTimeout(() => {
-      document.getElementById('poi-cancel-btn')?.addEventListener('click', () => {
-        this.map?.closePopup();
-      });
-      document.getElementById('poi-add-btn')?.addEventListener('click', () => {
-        const input = document.getElementById('poi-name-input') as HTMLInputElement | null;
-        const name = input?.value?.trim() || `Point ${lat.toFixed(3)}`;
-        const wp = this.waypointService.addWaypoint({
-          name,
-          latitude: lat,
-          longitude: lng,
-          type: 'custom'
-        });
-        this.taskState.addTurnpoint(wp.id);
-        this.map?.closePopup();
-      });
-    }, 0);
+  onEditDialogCancel(): void {
+    this.closeEditDialog();
+  }
+
+  private closeEditDialog(): void {
+    this.editDialogOpen.set(false);
+    this.editingWaypoint.set(null);
+    this.editIsCreate.set(false);
+    this.pendingCreateCoords = null;
+  }
+
+  private openEditDialog(wp: Waypoint): void {
+    this.editingWaypoint.set(wp);
+    this.editIsCreate.set(false);
+    this.editDialogOpen.set(true);
   }
 
   private waypointsToRender(): Waypoint[] {
@@ -534,6 +552,9 @@ export class MapViewComponent implements OnInit {
       case 'set-turnpoint':
         this.taskState.addTurnpoint(wp.id);
         return `« ${wp.name} » ajouté comme point de virage`;
+      case 'edit':
+        this.openEditDialog(wp);
+        return null;
       case 'remove-last':
         this.taskState.removeLastOccurrence(wp.id);
         return `« ${wp.name} » retiré du circuit`;
@@ -545,8 +566,8 @@ export class MapViewComponent implements OnInit {
         map?.setView([wp.latitude, wp.longitude], Math.max(map.getZoom(), 11));
         return null;
       }
-      case 'delete-custom':
-        if (wp.type !== 'custom') return null;
+      case 'delete-waypoint':
+        if (!confirm(`Supprimer « ${wp.name} » de la base ?`)) return null;
         this.taskState.removeAllOccurrences(wp.id);
         this.waypointService.deleteWaypoint(wp.id);
         return `Point « ${wp.name} » supprimé`;

@@ -18,7 +18,8 @@ interface PersistedTaskState {
   /** @deprecated migré vers circuitLegs */
   selectedWaypointIds?: string[];
   taskName: string;
-  activeDatabaseId: string | null;
+  /** @deprecated — source CUP gérée par CupDatabaseService */
+  activeDatabaseId?: string | null;
 }
 
 @Injectable({
@@ -30,7 +31,6 @@ export class TaskStateService {
   circuitLegs = signal<CircuitLeg[]>([]);
   selectedWaypointIds = computed(() => this.circuitLegs().map(leg => leg.waypointId));
   taskName = signal<string>(defaultTaskName());
-  activeDatabaseId = signal<string | null>(null);
 
   selectedCount = computed(() => this.circuitLegs().length);
 
@@ -49,7 +49,6 @@ export class TaskStateService {
         this.circuitLegs.set(this.inferLegsFromLegacyIds(data.selectedWaypointIds));
       }
       this.taskName.set(data.taskName ?? defaultTaskName());
-      this.activeDatabaseId.set(data.activeDatabaseId ?? null);
     } catch {
       /* ignore corrupt state */
     }
@@ -58,8 +57,7 @@ export class TaskStateService {
   private saveToStorage(): void {
     const data: PersistedTaskState = {
       circuitLegs: this.circuitLegs(),
-      taskName: this.taskName(),
-      activeDatabaseId: this.activeDatabaseId()
+      taskName: this.taskName()
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   }
@@ -117,11 +115,6 @@ export class TaskStateService {
 
   setTaskName(name: string): void {
     this.taskName.set(name);
-    this.saveToStorage();
-  }
-
-  setActiveDatabaseId(id: string | null): void {
-    this.activeDatabaseId.set(id);
     this.saveToStorage();
   }
 

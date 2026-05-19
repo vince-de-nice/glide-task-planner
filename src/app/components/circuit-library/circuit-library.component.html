@@ -10,45 +10,49 @@
 
   <div class="quick-load">
     <label class="vav-label" for="quickCircuit">Chargement rapide</label>
-    <select id="quickCircuit" class="vav-select" (change)="onQuickSelect($event)" [disabled]="circuits().length === 0">
-      <option value="">— Choisir un circuit —</option>
-      @for (c of circuits(); track c.id) {
-        <option [value]="c.id">
-          {{ c.label }} ({{ c.waypoints.length }} pts)@if (c.profile.pilotName) { — {{ c.profile.pilotName }} }
-        </option>
-      }
-    </select>
+    <p-select
+      inputId="quickCircuit"
+      [options]="circuitQuickOptions()"
+      optionLabel="label"
+      optionValue="id"
+      placeholder="— Choisir un circuit —"
+      [showClear]="true"
+      [ngModel]="quickPickId()"
+      (ngModelChange)="onQuickPickChange($event)"
+      [disabled]="circuits().length === 0"
+      size="small"
+      styleClass="lib-quick-select"
+    />
   </div>
 
   <div class="save-panel">
     <h4>{{ editingId() ? 'Mettre à jour' : 'Enregistrer le circuit actuel' }}</h4>
     <div class="save-fields">
       <input
-        type="text"
-        class="vav-input"
+        pInputText
+        fluid
         placeholder="Nom du circuit (ex. 500 km Vinon)"
         [ngModel]="saveLabel()"
         (ngModelChange)="saveLabel.set($event)"
       />
       <input
-        type="text"
-        class="vav-input"
+        pInputText
+        fluid
         placeholder="Note (pilote, machine…)"
         [ngModel]="saveNotes()"
         (ngModelChange)="saveNotes.set($event)"
       />
     </div>
     <div class="save-actions">
-      <button
-        type="button"
-        class="vav-btn vav-btn--success"
-        (click)="requestSave()"
+      <p-button
+        [label]="editingId() ? 'Mettre à jour' : 'Enregistrer'"
+        icon="pi pi-save"
+        severity="success"
+        (onClick)="requestSave()"
         [disabled]="!canSave() || (!saveLabel().trim() && !editingId())"
-      >
-        {{ editingId() ? 'Mettre à jour' : 'Enregistrer' }}
-      </button>
+      />
       @if (editingId()) {
-        <button type="button" class="vav-btn vav-btn--ghost" (click)="cancelUpdate()">Annuler</button>
+        <p-button label="Annuler" [text]="true" (onClick)="cancelUpdate()" />
       }
     </div>
     @if (!canSave()) {
@@ -58,19 +62,18 @@
 
   <div class="lib-toolbar">
     <input
+      pInputText
+      fluid
+      pSize="small"
+      class="filter-input"
       type="search"
-      class="vav-input filter-input"
       placeholder="Filtrer…"
       [ngModel]="filterQuery()"
       (ngModelChange)="filterQuery.set($event)"
     />
-    <button type="button" class="vav-btn vav-btn--secondary vav-btn--sm" (click)="exportAll()" [disabled]="circuits().length === 0">
-      Exporter
-    </button>
-    <label class="vav-btn vav-btn--secondary vav-btn--sm file-btn">
-      Importer
-      <input type="file" accept=".json,application/json" (change)="onImportFile($event)" hidden />
-    </label>
+    <input #libJsonImport type="file" accept=".json,application/json" (change)="onImportFile($event)" hidden />
+    <p-button label="Exporter" icon="pi pi-download" size="small" severity="secondary" [disabled]="circuits().length === 0" (onClick)="exportAll()" />
+    <p-button label="Importer" icon="pi pi-upload" size="small" severity="secondary" (onClick)="libJsonImport.click()" />
   </div>
 
   <ul class="circuit-list vav-scroll">
@@ -85,11 +88,11 @@
           }
         </button>
         <div class="circuit-actions">
-          <button type="button" class="vav-btn vav-btn--ghost vav-btn--icon" title="Charger" (click)="loadCircuit(c.id)">↵</button>
-          <button type="button" class="vav-btn vav-btn--ghost vav-btn--icon" title="Mettre à jour" (click)="startUpdate(c, $event)">✎</button>
-          <button type="button" class="vav-btn vav-btn--ghost vav-btn--icon" title="Dupliquer" (click)="duplicateCircuit(c.id, $event)">⧉</button>
-          <button type="button" class="vav-btn vav-btn--ghost vav-btn--icon" title="Renommer" (click)="startRename(c, $event)">Aa</button>
-          <button type="button" class="vav-btn vav-btn--ghost vav-btn--icon danger" title="Supprimer" (click)="deleteCircuit(c.id, $event)">×</button>
+          <p-button icon="pi pi-play" [text]="true" size="small" title="Charger" (onClick)="loadCircuit(c.id)" />
+          <p-button icon="pi pi-pencil" [text]="true" size="small" title="Mettre à jour" (onClick)="startUpdate(c, $event)" />
+          <p-button icon="pi pi-copy" [text]="true" size="small" title="Dupliquer" (onClick)="duplicateCircuit(c.id, $event)" />
+          <p-button icon="pi pi-file-edit" [text]="true" size="small" title="Renommer" (onClick)="startRename(c, $event)" />
+          <p-button icon="pi pi-trash" [text]="true" size="small" severity="danger" title="Supprimer" (onClick)="deleteCircuit(c.id, $event)" />
         </div>
       </li>
     } @empty {

@@ -5,10 +5,11 @@ export type WaypointMapAction =
   | 'set-departure'
   | 'set-arrival'
   | 'set-turnpoint'
+  | 'edit'
   | 'remove-last'
   | 'remove-all'
   | 'center'
-  | 'delete-custom';
+  | 'delete-waypoint';
 
 export interface WaypointContextPopupModel {
   waypoint: Waypoint;
@@ -77,6 +78,7 @@ export function buildWaypointContextPopupHtml(model: WaypointContextPopupModel):
       ? [actionButton('set-arrival', 'Définir atterrissage', 'primary')]
       : []),
     actionButton('set-turnpoint', 'Définir point de virage'),
+    actionButton('edit', 'Modifier'),
     ...(inCircuit
       ? [
           actionButton(
@@ -89,9 +91,7 @@ export function buildWaypointContextPopupHtml(model: WaypointContextPopupModel):
         ]
       : []),
     actionButton('center', 'Centrer sur la carte'),
-    ...(waypoint.type === 'custom'
-      ? [actionButton('delete-custom', 'Supprimer ce point', 'danger')]
-      : [])
+    actionButton('delete-waypoint', 'Supprimer ce point', 'danger')
   ];
 
   return `

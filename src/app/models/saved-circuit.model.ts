@@ -22,7 +22,9 @@ export interface SavedCircuit {
   taskName: string;
   profile: FlarmProfile;
   waypoints: WaypointSnapshot[];
+  /** @deprecated */
   databaseId?: string | null;
+  sourceUrl?: string | null;
   notes?: string;
   createdAt: string;
   updatedAt: string;

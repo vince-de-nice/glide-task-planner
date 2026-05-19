@@ -5,13 +5,23 @@
         <h1>VAV</h1>
         <p class="tagline">Déclaration de vol FLARM</p>
       </div>
-      <nav class="main-nav">
-        <a routerLink="/declaration" routerLinkActive="active" class="nav-link">
-          Déclaration
-        </a>
-        <a routerLink="/waypoints" routerLinkActive="active" class="nav-link">
-          Waypoints
-        </a>
+      <nav class="main-nav" aria-label="Navigation principale">
+        <p-button
+          label="Déclaration"
+          [rounded]="true"
+          size="small"
+          [text]="!isDeclaration()"
+          [severity]="isDeclaration() ? 'primary' : 'secondary'"
+          (onClick)="goDeclaration()"
+        />
+        <p-button
+          label="Waypoints"
+          [rounded]="true"
+          size="small"
+          [text]="!isWaypoints()"
+          [severity]="isWaypoints() ? 'primary' : 'secondary'"
+          (onClick)="goWaypoints()"
+        />
       </nav>
     </div>
   </header>

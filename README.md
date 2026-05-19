@@ -4,13 +4,13 @@ Application web pour composer une tâche à partir de waypoints (fichiers SeeYou
 
 ## Fonctionnalités
 
-- Catalogue de bases CUP 2026 intégrées (France, Suisse, Allemagne)
-- Import de votre propre fichier `.cup`
+- **Base CUP par défaut** : fichier livré `public/assets/cup/default.cup` (chargé automatiquement au premier lancement si aucune base en localStorage)
+- Import d’un autre fichier `.cup` ou chargement par URL (`?cup=/chemin/relatif.cup` ou URL absolue)
 - Recherche et filtres par type de point
 - Composition de tâche sur liste et carte (Leaflet)
 - Aperçu et téléchargement du fichier FLARM
 - Bibliothèque de circuits (localStorage + export/import JSON, profil FLARM inclus)
-- Sauvegarde / restauration JSON des waypoints
+- Interface **PrimeNG** (thème Aura) : boutons, champs, listes déroulantes, dialogues
 
 ## Prérequis
 
@@ -24,12 +24,14 @@ npm install
 ng serve
 ```
 
+Pour **mettre l’application sur un site Internet** (hébergeur classique, Netlify, etc.), voir **[install.md](install.md)** (guide pas à pas, y compris pour un public non technique).
+
 Ouvrir [http://localhost:4200](http://localhost:4200) → page **Déclaration**.
 
 ## Utilisation pilote
 
-1. Choisir une **base de points** (catalogue ou import `.cup`)
-2. Ajouter les points à la tâche (liste ou carte) dans l’ordre souhaité
+1. La **base de points** se charge depuis `default.cup` (ou depuis la copie déjà enregistrée dans le navigateur) ; vous pouvez importer un autre `.cup` ou charger une URL
+2. Ajouter les points à la tâche via **Choisir des points** sous la liste du circuit, dans l’ordre souhaité
 3. Nommer la tâche, vérifier l’**aperçu** du fichier
 4. **Télécharger** `flarmcfg.txt` et le copier sur carte SD / clé USB FLARM
 5. **Redémarrer** l’appareil FLARM
@@ -45,7 +47,7 @@ $PFLAC,S,ADDWP,4710283N,00902433E,Schaenis
 
 ## Données waypoints
 
-Les fichiers du catalogue proviennent de sources publiques (WSTX, Soaring Spot). **Données non officielles** — vérifiez toujours les documents de la compétition.
+Remplacez ou mettez à jour **`public/assets/cup/default.cup`** pour votre base par défaut. Les sources listées dans `public/config/cup-sources.json` peuvent pointer vers ce même fichier (`/assets/cup/default.cup`) ou d’autres URLs. **Données non officielles** — vérifiez toujours les documents de la compétition.
 
 ## Projet d’origine
 

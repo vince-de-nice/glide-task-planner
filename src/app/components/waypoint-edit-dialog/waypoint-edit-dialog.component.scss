@@ -1,0 +1,24 @@
+.wp-edit-dialog__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.wp-edit-dialog__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.wp-edit-dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.wp-edit-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}

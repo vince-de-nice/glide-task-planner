@@ -65,6 +65,36 @@
   gap: 0.5rem;
 }
 
+.decl-db__url-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 1 1 200px;
+  min-width: 0;
+}
+
+.decl-db__url-input {
+  flex: 1 1 160px;
+  min-width: 120px;
+}
+
+.decl-db__source {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  color: var(--vav-text-muted);
+}
+
+.decl-db__source-url {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.68rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
 .decl-db__step {
   flex-shrink: 0;
   width: 1.5rem;
@@ -83,6 +113,12 @@
   flex: 1 1 10rem;
   min-width: 0;
   min-height: 38px;
+}
+
+.decl-db__quick-src {
+  flex: 1 1 10rem;
+  min-width: 8rem;
+  max-width: 20rem;
 }
 
 .decl-db__pill {
@@ -185,16 +221,39 @@
   }
 }
 
-.decl-tabs__count {
-  font-size: 0.75rem;
-  padding: 0.1rem 0.4rem;
-  border-radius: 999px;
-  background: rgb(255 255 255 / 25%);
+.decl-tabs__select {
+  width: 100%;
+}
 
-  .decl-tabs__btn:not(.is-active) & {
-    background: var(--vav-bg);
-    color: var(--vav-text-muted);
-  }
+:host ::ng-deep .decl-tabs__select .p-selectbutton,
+:host ::ng-deep .decl-tabs__select .p-select-button {
+  display: flex;
+  width: 100%;
+}
+
+:host ::ng-deep .decl-tabs__select .p-togglebutton,
+:host ::ng-deep .decl-tabs__select .p-button {
+  flex: 1;
+}
+
+.decl-wp-dialog__meta {
+  margin: 0 0 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.decl-wp-dialog__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--vav-border);
+  flex-shrink: 0;
+}
+
+.decl-wp-dialog__foot--split {
+  justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 /* Option A : carte 58 % | circuit 42 % */
@@ -217,7 +276,6 @@
 }
 
 .decl-panel--map {
-  position: relative;
   grid-column: 1;
 }
 
@@ -239,21 +297,6 @@
     display: flex;
     width: 100%;
   }
-}
-
-.decl-fab {
-  display: none;
-  position: absolute;
-  right: 1rem;
-  bottom: 1rem;
-  z-index: 20;
-  width: 3rem;
-  height: 3rem;
-  padding: 0;
-  border-radius: 50%;
-  font-size: 1.5rem;
-  line-height: 1;
-  box-shadow: var(--vav-shadow);
 }
 
 /* Panneau circuit */
@@ -308,6 +351,17 @@
   overflow-y: auto;
 }
 
+.decl-circuit__add {
+  flex-shrink: 0;
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid var(--vav-border);
+  background: #f8fafc;
+}
+
+:host ::ng-deep .decl-circuit__add .p-button {
+  width: 100%;
+}
+
 .decl-circuit__foot {
   flex-shrink: 0;
   padding: 0.6rem 0.75rem;
@@ -324,6 +378,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
+  justify-content: flex-end;
 }
 
 .decl-panel__meta {
@@ -601,15 +656,5 @@
   .decl-workspace--map .decl-panel--map,
   .decl-workspace--task .decl-panel--circuit {
     display: flex;
-  }
-
-  .decl-fab {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .decl-db__toolbar .vav-btn--primary {
-    display: none;
   }
 }

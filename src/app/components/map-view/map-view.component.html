@@ -3,21 +3,18 @@
     @if (taskDistanceKm(); as km) {
       <span class="map-task-distance" title="Distance tâche hors branches décollage / atterrissage">{{ km }}</span>
     }
-    <button type="button" class="vav-btn vav-btn--secondary vav-btn--sm" (click)="centerOnTask()">Centrer tâche</button>
-    <button type="button" class="vav-btn vav-btn--secondary vav-btn--sm" (click)="centerOnAll()">Tous les points</button>
-    <button type="button" class="vav-btn vav-btn--ghost vav-btn--sm" (click)="clearSelection()">Effacer</button>
+    <p-button label="Centrer tâche" size="small" severity="secondary" (onClick)="centerOnTask()" />
+    <p-button label="Tous les points" size="small" severity="secondary" (onClick)="centerOnAll()" />
+    <p-button label="Effacer" size="small" [outlined]="true" (onClick)="clearSelection()" />
   </div>
   <div class="map-airspace-bar">
-    <button
-      type="button"
-      class="vav-btn vav-btn--sm"
-      [class.vav-btn--primary]="airspaceVisible()"
-      [class.vav-btn--secondary]="!airspaceVisible()"
+    <p-button
+      [label]="airspaceLoading() ? 'Chargement…' : airspaceVisible() ? 'Masquer espaces aériens' : 'Espaces aériens'"
+      size="small"
+      [severity]="airspaceVisible() ? 'primary' : 'secondary'"
       [disabled]="airspaceLoading() || !mapReady()"
-      (click)="toggleAirspaceLayer()"
-    >
-      {{ airspaceLoading() ? 'Chargement…' : airspaceVisible() ? 'Masquer espaces aériens' : 'Espaces aériens' }}
-    </button>
+      (onClick)="toggleAirspaceLayer()"
+    />
     @if (airspaceConfigReady() && !airspaceLayerService.hasOpenAipKey()) {
       <label class="map-airspace-bar__region">
         <span class="sr-only">Région POAFF</span>
@@ -61,6 +58,14 @@
     (leafletMapZoomEnd)="onMapZoomEnd()"
   ></div>
   <p class="map-hint">
-    Espaces aériens : POAFF/SIA (France) ou OpenAIP avec clé · pastilles · noms au zoom ≥ 11 · double-clic : nouveau point
+    Espaces aériens : POAFF/SIA (France) ou OpenAIP avec clé · pastilles · noms au zoom ≥ 11 · double-clic : nouveau point · clic : menu
   </p>
 </div>
+
+<app-waypoint-edit-dialog
+  [open]="editDialogOpen()"
+  [waypoint]="editingWaypoint()"
+  [isCreate]="editIsCreate()"
+  (save)="onEditDialogSave($event)"
+  (cancel)="onEditDialogCancel()"
+/>

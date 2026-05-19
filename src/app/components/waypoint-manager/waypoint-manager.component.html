@@ -8,22 +8,31 @@
       </p>
     </div>
     <div class="wp-header__actions">
-      <button type="button" class="vav-btn vav-btn--secondary vav-btn--sm" (click)="exportJson()">Exporter JSON</button>
-      <label class="vav-btn vav-btn--secondary vav-btn--sm file-btn">
-        Importer JSON
-        <input type="file" accept=".json,application/json" (change)="onImportJson($event)" hidden />
-      </label>
-      <button
-        type="button"
-        class="vav-btn vav-btn--ghost vav-btn--sm wp-btn-danger"
-        (click)="clearAll()"
+      <input #wpCupFile type="file" accept=".cup" (change)="onCupFileSelected($event)" hidden />
+      <p-button label="Importer .cup" icon="pi pi-upload" size="small" severity="secondary" (onClick)="wpCupFile.click()" />
+      <p-button
+        label="Exporter .cup"
+        icon="pi pi-file-export"
+        size="small"
+        [outlined]="true"
         [disabled]="waypoints().length === 0"
-      >
-        Tout effacer
-      </button>
-      <button type="button" class="vav-btn vav-btn--primary vav-btn--sm" (click)="toggleAddForm()">
-        {{ showAddForm() ? 'Fermer' : 'Ajouter' }}
-      </button>
+        (onClick)="exportCup()"
+      />
+      <p-button
+        label="Tout effacer"
+        icon="pi pi-trash"
+        size="small"
+        severity="danger"
+        [outlined]="true"
+        [disabled]="waypoints().length === 0"
+        (onClick)="clearAll()"
+      />
+      <p-button
+        [label]="showAddForm() ? 'Fermer' : 'Ajouter'"
+        [icon]="showAddForm() ? 'pi pi-times' : 'pi pi-plus'"
+        size="small"
+        (onClick)="toggleAddForm()"
+      />
     </div>
   </header>
 
@@ -38,27 +47,31 @@
         <div class="wp-form__grid">
           <label class="wp-field">
             <span class="vav-label">Nom *</span>
-            <input class="vav-input" type="text" [(ngModel)]="newWaypoint().name" name="name" required />
+            <input pInputText fluid pSize="small" type="text" [(ngModel)]="newWaypoint().name" name="name" required />
           </label>
           <label class="wp-field">
             <span class="vav-label">Type</span>
-            <select class="vav-select" [(ngModel)]="newWaypoint().type" name="type">
-              @for (t of waypointTypes; track t.value) {
-                <option [value]="t.value">{{ t.label }}</option>
-              }
-            </select>
+            <p-select
+              [options]="waypointTypes"
+              optionLabel="label"
+              optionValue="value"
+              [(ngModel)]="newWaypoint().type"
+              name="type"
+              size="small"
+              styleClass="wp-type-select"
+            />
           </label>
           <label class="wp-field">
             <span class="vav-label">Latitude *</span>
-            <input class="vav-input" type="number" step="any" [(ngModel)]="newWaypoint().latitude" name="latitude" required />
+            <input pInputText fluid pSize="small" type="number" step="any" [(ngModel)]="newWaypoint().latitude" name="latitude" required />
           </label>
           <label class="wp-field">
             <span class="vav-label">Longitude *</span>
-            <input class="vav-input" type="number" step="any" [(ngModel)]="newWaypoint().longitude" name="longitude" required />
+            <input pInputText fluid pSize="small" type="number" step="any" [(ngModel)]="newWaypoint().longitude" name="longitude" required />
           </label>
           <label class="wp-field">
             <span class="vav-label">Altitude (m)</span>
-            <input class="vav-input" type="number" [(ngModel)]="newWaypoint().elevation" name="elevation" />
+            <input pInputText fluid pSize="small" type="number" [(ngModel)]="newWaypoint().elevation" name="elevation" />
           </label>
         </div>
         <label class="wp-field wp-field--full">
@@ -66,10 +79,8 @@
           <textarea class="vav-textarea" [(ngModel)]="newWaypoint().description" name="description" rows="3"></textarea>
         </label>
         <div class="wp-form__actions">
-          <button type="submit" class="vav-btn vav-btn--success">
-            {{ editingWaypoint() ? 'Mettre à jour' : 'Ajouter' }}
-          </button>
-          <button type="button" class="vav-btn vav-btn--ghost" (click)="cancelEdit()">Annuler</button>
+          <p-button [label]="editingWaypoint() ? 'Mettre à jour' : 'Ajouter'" icon="pi pi-check" type="submit" severity="success" />
+          <p-button label="Annuler" [text]="true" (onClick)="cancelEdit()" type="button" />
         </div>
       </form>
     </section>
@@ -100,8 +111,8 @@
               <td class="wp-hide-sm">{{ waypoint.longitude.toFixed(6) }}</td>
               <td class="wp-hide-sm">{{ waypoint.elevation || '—' }}</td>
               <td class="wp-actions">
-                <button type="button" class="vav-btn vav-btn--ghost vav-btn--sm" (click)="editWaypoint(waypoint)">Modifier</button>
-                <button type="button" class="vav-btn vav-btn--ghost vav-btn--sm wp-btn-danger" (click)="deleteWaypoint(waypoint.id)">Suppr.</button>
+                <p-button label="Modifier" size="small" [text]="true" (onClick)="editWaypoint(waypoint)" />
+                <p-button label="Suppr." size="small" severity="danger" [text]="true" (onClick)="deleteWaypoint(waypoint.id)" />
               </td>
             </tr>
           }
