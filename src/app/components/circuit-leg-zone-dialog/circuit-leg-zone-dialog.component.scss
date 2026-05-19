@@ -1,7 +1,7 @@
 .leg-zone-dialog__meta {
   margin: 0 0 0.75rem;
   font-size: 0.8125rem;
-  color: var(--vav-text-muted);
+  color: var(--gc-text-muted);
 }
 
 .leg-zone-dialog__field {
@@ -12,7 +12,7 @@
 
   label {
     font-size: 0.75rem;
-    color: var(--vav-text-muted);
+    color: var(--gc-text-muted);
   }
 
   &--row {
@@ -30,7 +30,7 @@
 
 .leg-zone-dialog__hint {
   font-size: 0.6875rem;
-  color: var(--vav-text-muted);
+  color: var(--gc-text-muted);
   line-height: 1.35;
 }
 
@@ -41,7 +41,7 @@
 
 .leg-zone-dialog__sep {
   border: none;
-  border-top: 1px solid var(--vav-border);
+  border-top: 1px solid var(--gc-border);
   margin: 0.75rem 0;
 }
 

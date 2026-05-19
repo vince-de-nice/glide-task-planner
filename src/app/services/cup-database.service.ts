@@ -12,10 +12,13 @@ import { CupWriterService } from './cup-writer.service';
 import { CupTaskWriterService } from './cup-task-writer.service';
 import { TaskDeclarationResolver } from './task-declaration.resolver';
 import { decodeCupFileBytes } from '../utils/cup-text-encoding.util';
+import { readMigratedLocalStorage } from '../utils/local-storage-migrate.util';
 
-const STORAGE_KEY = 'vav_cup_database';
+const STORAGE_KEY = 'gc_cup_database';
+const LEGACY_STORAGE_KEYS = ['vav_cup_database'];
 const LEGACY_WAYPOINTS_KEY = 'vav_waypoints';
-const RECENT_URLS_KEY = 'vav_cup_recent_urls';
+const RECENT_URLS_KEY = 'gc_cup_recent_urls';
+const LEGACY_RECENT_URLS_KEYS = ['vav_cup_recent_urls'];
 const MAX_RECENT_URLS = 8;
 const DEFAULT_HEADER =
   'name,code,country,lat,lon,elev,style,rwdir,rwlen,rwwidth,freq,desc,userdata,pics';
@@ -69,7 +72,7 @@ export class CupDatabaseService {
 
   getRecentUrls(): string[] {
     try {
-      const raw = localStorage.getItem(RECENT_URLS_KEY);
+      const raw = readMigratedLocalStorage(RECENT_URLS_KEY, LEGACY_RECENT_URLS_KEYS);
       if (!raw) return [];
       const parsed = JSON.parse(raw) as string[];
       return Array.isArray(parsed) ? parsed : [];
@@ -225,7 +228,7 @@ export class CupDatabaseService {
   }
 
   private loadFromStorage(): void {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = readMigratedLocalStorage(STORAGE_KEY, LEGACY_STORAGE_KEYS);
     if (raw) {
       try {
         const data = JSON.parse(raw) as CupDatabaseState;

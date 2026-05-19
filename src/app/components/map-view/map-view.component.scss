@@ -19,9 +19,9 @@
 .map-toolbar-wrap {
   flex-shrink: 0;
   margin-bottom: 0.35rem;
-  border: 1px solid var(--vav-border);
-  border-radius: var(--vav-radius-sm);
-  background: var(--vav-surface);
+  border: 1px solid var(--gc-border);
+  border-radius: var(--gc-radius-sm);
+  background: var(--gc-surface);
   overflow: hidden;
 }
 
@@ -88,7 +88,7 @@
 .map-airspace-switch__label {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--vav-text-secondary);
+  color: var(--gc-text-secondary);
   white-space: nowrap;
   line-height: 1;
 }
@@ -98,8 +98,8 @@
   padding: 0.35rem 0.5rem 0.4rem;
   font-size: 0.68rem;
   line-height: 1.35;
-  color: var(--vav-text-muted);
-  border-top: 1px solid var(--vav-border);
+  color: var(--gc-text-muted);
+  border-top: 1px solid var(--gc-border);
   background: #f8fafc;
 }
 
@@ -107,7 +107,7 @@
   flex: 1 1 100%;
   font-size: 0.8125rem;
   font-weight: 700;
-  color: var(--vav-primary);
+  color: var(--gc-primary);
   line-height: 1.2;
 
   @media (min-width: 520px) {
@@ -133,7 +133,7 @@
 .map-airspace-bar__status {
   flex: 1 1 100%;
   font-size: 0.68rem;
-  color: var(--vav-text-muted);
+  color: var(--gc-text-muted);
   line-height: 1.3;
 }
 
@@ -149,7 +149,7 @@
   border: 0;
 }
 
-:host ::ng-deep .vav-airspace-popup {
+:host ::ng-deep .gc-airspace-popup {
   font-size: 0.8rem;
   max-width: 260px;
 
@@ -158,7 +158,7 @@
   }
 
   &__desc {
-    color: var(--vav-text-muted);
+    color: var(--gc-text-muted);
     font-size: 0.75rem;
   }
 }
@@ -171,9 +171,9 @@
   margin-bottom: 0.35rem;
   padding: 0.35rem 0.45rem;
   flex-shrink: 0;
-  border: 1px solid var(--vav-border);
-  border-radius: var(--vav-radius-sm);
-  background: var(--vav-surface);
+  border: 1px solid var(--gc-border);
+  border-radius: var(--gc-radius-sm);
+  background: var(--gc-surface);
 }
 
 .map-filter-switch {
@@ -182,7 +182,7 @@
   gap: 0.35rem;
   padding: 0.2rem 0.45rem 0.2rem 0.35rem;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--filter-color, #ea580c) 40%, var(--vav-border));
+  border: 1px solid color-mix(in srgb, var(--filter-color, #ea580c) 40%, var(--gc-border));
   background: color-mix(in srgb, var(--filter-color, #ea580c) 8%, #fff);
   cursor: pointer;
   user-select: none;
@@ -193,20 +193,20 @@
 
   .pi {
     font-size: 0.75rem;
-    color: var(--filter-color, var(--vav-primary));
+    color: var(--filter-color, var(--gc-primary));
   }
 
   &--off {
     opacity: 0.55;
-    background: var(--vav-bg);
-    border-color: var(--vav-border);
+    background: var(--gc-bg);
+    border-color: var(--gc-border);
 
     .pi {
-      color: var(--vav-text-muted);
+      color: var(--gc-text-muted);
     }
 
     .map-filter-switch__label {
-      color: var(--vav-text-muted);
+      color: var(--gc-text-muted);
     }
   }
 }
@@ -214,7 +214,7 @@
 .map-filter-switch__label {
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--vav-text);
+  color: var(--gc-text);
   line-height: 1;
   white-space: nowrap;
 }
@@ -225,8 +225,8 @@
   min-height: 220px;
   width: 100%;
   height: 100%;
-  border-radius: var(--vav-radius-sm);
-  border: 1px solid var(--vav-border-strong);
+  border-radius: var(--gc-radius-sm);
+  border: 1px solid var(--gc-border-strong);
   overflow: hidden;
   background: #1e293b;
 }
@@ -234,18 +234,18 @@
 .map-hint {
   flex-shrink: 0;
   font-size: 0.75rem;
-  color: var(--vav-text-muted);
+  color: var(--gc-text-muted);
   margin: 0.4rem 0 0;
   line-height: 1.35;
 }
 
-:host ::ng-deep .vav-map-marker-icon {
+:host ::ng-deep .gc-map-marker-icon {
   background: transparent !important;
   border: none !important;
   cursor: pointer;
 }
 
-:host ::ng-deep .vav-map-label {
+:host ::ng-deep .gc-map-label {
   display: flex;
   align-items: center;
   box-sizing: border-box;
@@ -255,7 +255,7 @@
   cursor: pointer;
 }
 
-:host ::ng-deep .vav-map-label__dot {
+:host ::ng-deep .gc-map-label__dot {
   flex-shrink: 0;
   width: 6px;
   height: 6px;
@@ -263,13 +263,13 @@
   background: var(--map-accent, #ea580c);
 }
 
-:host ::ng-deep .vav-map-label__text {
+:host ::ng-deep .gc-map-label__text {
   display: none;
   flex: 1 1 auto;
   min-width: 0;
   margin-left: 2px;
   white-space: nowrap;
-  font-family: var(--vav-font);
+  font-family: var(--gc-font);
   font-size: 0.65rem;
   font-weight: 500;
   line-height: 1.1;
@@ -289,83 +289,83 @@
   cursor: pointer;
 }
 
-:host ::ng-deep .leaflet-container.vav-map-labels-visible .vav-map-label__text {
+:host ::ng-deep .leaflet-container.gc-map-labels-visible .gc-map-label__text {
   display: block;
 }
 
-:host ::ng-deep .vav-wp-context-leaflet .leaflet-popup-content-wrapper {
-  border-radius: var(--vav-radius-sm);
+:host ::ng-deep .gc-wp-context-leaflet .leaflet-popup-content-wrapper {
+  border-radius: var(--gc-radius-sm);
   padding: 0;
 }
 
-:host ::ng-deep .vav-wp-context-leaflet .leaflet-popup-content {
+:host ::ng-deep .gc-wp-context-leaflet .leaflet-popup-content {
   margin: 0;
   min-width: 220px;
 }
 
-:host ::ng-deep .vav-wp-ctx {
+:host ::ng-deep .gc-wp-ctx {
   padding: 0.65rem 0.75rem 0.75rem;
-  font-family: var(--vav-font);
-  color: var(--vav-text);
+  font-family: var(--gc-font);
+  color: var(--gc-text);
 }
 
-:host ::ng-deep .vav-wp-ctx__title {
+:host ::ng-deep .gc-wp-ctx__title {
   margin: 0 0 0.2rem;
   font-size: 0.95rem;
 }
 
-:host ::ng-deep .vav-wp-ctx__meta {
+:host ::ng-deep .gc-wp-ctx__meta {
   margin: 0 0 0.15rem;
   font-size: 0.78rem;
-  color: var(--vav-text-muted);
+  color: var(--gc-text-muted);
 }
 
-:host ::ng-deep .vav-wp-ctx__circuit {
+:host ::ng-deep .gc-wp-ctx__circuit {
   margin: 0.35rem 0 0.5rem;
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--vav-text);
+  color: var(--gc-text);
 }
 
-:host ::ng-deep .vav-wp-ctx__actions {
+:host ::ng-deep .gc-wp-ctx__actions {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
   margin-top: 0.5rem;
 }
 
-:host ::ng-deep .vav-wp-ctx__btn {
+:host ::ng-deep .gc-wp-ctx__btn {
   width: 100%;
   min-height: 36px;
   padding: 0.4rem 0.65rem;
-  border-radius: var(--vav-radius-sm);
-  border: 1px solid var(--vav-border);
-  background: var(--vav-surface);
-  color: var(--vav-text);
+  border-radius: var(--gc-radius-sm);
+  border: 1px solid var(--gc-border);
+  background: var(--gc-surface);
+  color: var(--gc-text);
   font-size: 0.82rem;
   font-weight: 600;
   text-align: left;
   cursor: pointer;
 }
 
-:host ::ng-deep .vav-wp-ctx__btn--primary {
-  background: var(--vav-primary);
-  border-color: var(--vav-primary);
+:host ::ng-deep .gc-wp-ctx__btn--primary {
+  background: var(--gc-primary);
+  border-color: var(--gc-primary);
   color: #fff;
 }
 
-:host ::ng-deep .vav-wp-ctx__btn--ghost {
+:host ::ng-deep .gc-wp-ctx__btn--ghost {
   background: transparent;
-  color: var(--vav-text-muted);
+  color: var(--gc-text-muted);
 }
 
-:host ::ng-deep .vav-wp-ctx__btn--danger {
+:host ::ng-deep .gc-wp-ctx__btn--danger {
   color: #b91c1c;
   border-color: #fecaca;
   background: #fef2f2;
 }
 
-:host ::ng-deep .vav-wp-ctx__btn:hover {
+:host ::ng-deep .gc-wp-ctx__btn:hover {
   filter: brightness(0.97);
 }
 
@@ -376,14 +376,14 @@
     width: 100%;
     margin: 0.5rem 0;
     padding: 0.5rem;
-    border: 1px solid var(--vav-border);
-    border-radius: var(--vav-radius-sm);
+    border: 1px solid var(--gc-border);
+    border-radius: var(--gc-radius-sm);
     box-sizing: border-box;
   }
 
   .poi-coords {
     font-size: 0.8rem;
-    color: var(--vav-text-muted);
+    color: var(--gc-text-muted);
     margin: 0.25rem 0;
   }
 
@@ -395,9 +395,9 @@
     button {
       min-height: 36px;
       padding: 0.35rem 0.75rem;
-      border-radius: var(--vav-radius-sm);
-      border: 1px solid var(--vav-border);
-      background: var(--vav-surface);
+      border-radius: var(--gc-radius-sm);
+      border: 1px solid var(--gc-border);
+      background: var(--gc-surface);
       cursor: pointer;
     }
   }

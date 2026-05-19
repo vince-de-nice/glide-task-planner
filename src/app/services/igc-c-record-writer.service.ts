@@ -21,7 +21,7 @@ export class IgcCRecordWriterService {
     const min = String(d.getUTCMinutes()).padStart(2, '0');
     const ss = String(d.getUTCSeconds()).padStart(2, '0');
     const tt = String(turnPointCount).padStart(2, '0');
-    const desc = declaration.taskName.substring(0, 40).trim() || 'VAV Task';
+    const desc = declaration.taskName.substring(0, 40).trim() || 'Tâche';
 
     lines.push(
       `C ${dd} ${mm} ${yy} ${hh} ${min} ${ss} 000000 0000 ${tt} ${desc}`

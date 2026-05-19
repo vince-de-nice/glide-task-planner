@@ -1,7 +1,9 @@
 import { Injectable, signal } from '@angular/core';
 import { DEFAULT_FLARM_PROFILE, FlarmProfile } from '../models/flarm-profile.model';
+import { readMigratedLocalStorage } from '../utils/local-storage-migrate.util';
 
-const STORAGE_KEY = 'vav_flarm_profile';
+const STORAGE_KEY = 'gc_flarm_profile';
+const LEGACY_STORAGE_KEYS = ['vav_flarm_profile'];
 
 @Injectable({
   providedIn: 'root'
@@ -15,7 +17,7 @@ export class FlarmProfileService {
 
   private loadFromStorage(): void {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = readMigratedLocalStorage(STORAGE_KEY, LEGACY_STORAGE_KEYS);
       if (!raw) return;
       const data = JSON.parse(raw) as Partial<FlarmProfile>;
       this.profile.set({

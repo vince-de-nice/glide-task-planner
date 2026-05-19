@@ -34,9 +34,9 @@ export function buildMapMarkerHtml(model: MapMarkerViewModel): string {
   const suffix = model.suffix ? ` ${escapeHtml(model.suffix)}` : '';
 
   return `
-    <div class="vav-map-label" style="--map-accent:${color}">
-      <span class="vav-map-label__dot" aria-hidden="true"></span>
-      <span class="vav-map-label__text">${name}${suffix}</span>
+    <div class="gc-map-label" style="--map-accent:${color}">
+      <span class="gc-map-label__dot" aria-hidden="true"></span>
+      <span class="gc-map-label__text">${name}${suffix}</span>
     </div>
   `;
 }

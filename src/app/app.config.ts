@@ -5,7 +5,7 @@ import { providePrimeNG } from 'primeng/config';
 import { ConfirmationService, MessageService } from 'primeng/api';
 
 import { routes } from './app.routes';
-import { VavTheme } from './config/vav-theme.preset';
+import { GcTheme } from './config/gc-theme.preset';
 import { CupDatabaseService } from './services/cup-database.service';
 
 export const appConfig: ApplicationConfig = {
@@ -16,7 +16,7 @@ export const appConfig: ApplicationConfig = {
     ConfirmationService,
     providePrimeNG({
       theme: {
-        preset: VavTheme,
+        preset: GcTheme,
         options: {
           darkModeSelector: false
         }

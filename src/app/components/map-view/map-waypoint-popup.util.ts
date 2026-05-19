@@ -30,7 +30,7 @@ function escapeHtml(text: string): string {
 export { waypointTypeLabel } from '../../utils/waypoint-type-display.util';
 
 function actionButton(action: WaypointMapAction, label: string, variant = 'secondary'): string {
-  return `<button type="button" class="vav-wp-ctx__btn vav-wp-ctx__btn--${variant}" data-action="${action}">${escapeHtml(label)}</button>`;
+  return `<button type="button" class="gc-wp-ctx__btn gc-wp-ctx__btn--${variant}" data-action="${action}">${escapeHtml(label)}</button>`;
 }
 
 function formatCircuitRolesForWaypoint(legs: CircuitLeg[], waypointId: string): string {
@@ -51,12 +51,12 @@ export function buildWaypointContextPopupHtml(model: WaypointContextPopupModel):
   const count = circuitIndices.length;
   const coords = `${waypoint.latitude.toFixed(5)}°, ${waypoint.longitude.toFixed(5)}°`;
   const codeLine = waypoint.code
-    ? `<p class="vav-wp-ctx__meta">${escapeHtml(waypoint.code)}${waypoint.country ? ` · ${escapeHtml(waypoint.country)}` : ''}</p>`
+    ? `<p class="gc-wp-ctx__meta">${escapeHtml(waypoint.code)}${waypoint.country ? ` · ${escapeHtml(waypoint.country)}` : ''}</p>`
     : '';
 
   const roleDetail = inCircuit ? formatCircuitRolesForWaypoint(circuitLegs, waypoint.id) : '';
   const circuitLine = inCircuit
-    ? `<p class="vav-wp-ctx__circuit">Circuit : ${escapeHtml(roleDetail)}${count > 1 ? ` · ${count}×` : ''}</p>`
+    ? `<p class="gc-wp-ctx__circuit">Circuit : ${escapeHtml(roleDetail)}${count > 1 ? ` · ${count}×` : ''}</p>`
     : '';
 
   const actions: string[] = [
@@ -84,13 +84,13 @@ export function buildWaypointContextPopupHtml(model: WaypointContextPopupModel):
   ];
 
   return `
-    <div class="vav-wp-ctx" role="menu" aria-label="Actions sur ${escapeHtml(waypoint.name)}">
-      <p class="vav-wp-ctx__title"><strong>${escapeHtml(waypoint.name)}</strong></p>
-      <p class="vav-wp-ctx__meta">${escapeHtml(typeLabel)}</p>
+    <div class="gc-wp-ctx" role="menu" aria-label="Actions sur ${escapeHtml(waypoint.name)}">
+      <p class="gc-wp-ctx__title"><strong>${escapeHtml(waypoint.name)}</strong></p>
+      <p class="gc-wp-ctx__meta">${escapeHtml(typeLabel)}</p>
       ${codeLine}
-      <p class="vav-wp-ctx__meta">${coords}</p>
+      <p class="gc-wp-ctx__meta">${coords}</p>
       ${circuitLine}
-      <div class="vav-wp-ctx__actions">
+      <div class="gc-wp-ctx__actions">
         ${actions.join('')}
       </div>
     </div>

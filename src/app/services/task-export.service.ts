@@ -144,7 +144,7 @@ export class TaskExportService {
       return { error: result.error };
     }
 
-    const base = safeExportBasename(ctx.taskName, 'vav-task');
+    const base = safeExportBasename(ctx.taskName, 'circuit');
 
     if (format === 'cupx') {
       await this.downloadCupx(result.content, `${base}.cupx`);

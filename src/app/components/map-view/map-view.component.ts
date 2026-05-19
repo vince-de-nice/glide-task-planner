@@ -343,7 +343,7 @@ export class MapViewComponent implements OnInit {
     if (!map) return;
     map
       .getContainer()
-      .classList.toggle('vav-map-labels-visible', map.getZoom() >= MIN_ZOOM_FOR_LABELS);
+      .classList.toggle('gc-map-labels-visible', map.getZoom() >= MIN_ZOOM_FOR_LABELS);
   }
 
   onMapDoubleClick(event: LeafletMouseEvent): void {
@@ -450,7 +450,7 @@ export class MapViewComponent implements OnInit {
         : [3, 3];
 
       const icon = divIcon({
-        className: 'vav-map-marker-icon',
+        className: 'gc-map-marker-icon',
         html: markerHtml,
         iconSize,
         iconAnchor
@@ -685,14 +685,14 @@ export class MapViewComponent implements OnInit {
 
     const popupInstance = popup({
       closeOnClick: true,
-      className: 'vav-wp-context-leaflet'
+      className: 'gc-wp-context-leaflet'
     })
       .setLatLng([wp.latitude, wp.longitude])
       .setContent(html)
       .openOn(this.map);
 
     const container = popupInstance.getElement();
-    const menu = container?.querySelector('.vav-wp-ctx');
+    const menu = container?.querySelector('.gc-wp-ctx');
     if (!menu) return;
 
     menu.addEventListener('click', event => {

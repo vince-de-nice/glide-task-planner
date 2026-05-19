@@ -17,7 +17,10 @@ import { WaypointService } from './waypoint.service';
 import { defaultTaskName } from './flarm-config.service';
 import { DEFAULT_TASK_EXPORT_RADIUS_M } from '../models/task-declaration.model';
 
-const STORAGE_KEY = 'vav_task_state';
+import { readMigratedLocalStorage } from '../utils/local-storage-migrate.util';
+
+const STORAGE_KEY = 'gc_task_state';
+const LEGACY_STORAGE_KEYS = ['vav_task_state'];
 
 interface PersistedTaskState {
   circuitLegs?: CircuitLeg[];
@@ -48,7 +51,7 @@ export class TaskStateService {
 
   private loadFromStorage(): void {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = readMigratedLocalStorage(STORAGE_KEY, LEGACY_STORAGE_KEYS);
       if (!raw) return;
       const data = JSON.parse(raw) as PersistedTaskState;
       if (data.circuitLegs?.length) {

@@ -30,7 +30,7 @@ export class CupTaskWriterService {
     waypointNamesById: Map<string, string>,
     taskName: string
   ): string {
-    const desc = this.csvQuote(taskName || 'VAV Task');
+    const desc = this.csvQuote(taskName || 'Tâche');
     const refs = legs.map(leg => {
       const cupName = waypointNamesById.get(leg.waypointId) ?? '';
       const prefix = cupTaskPrefixForLegRole(leg.role);

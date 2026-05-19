@@ -22,7 +22,7 @@
   .lib-desc {
     margin: 0;
     font-size: 0.8125rem;
-    color: var(--vav-text-muted);
+    color: var(--gc-text-muted);
     line-height: 1.4;
   }
 }
@@ -34,7 +34,7 @@
 .quick-load {
   margin-bottom: 0.85rem;
 
-  .vav-label {
+  .gc-label {
     margin-bottom: 0.35rem;
   }
 }
@@ -42,9 +42,9 @@
 .save-panel {
   padding: 0.85rem;
   margin-bottom: 0.85rem;
-  background: var(--vav-surface);
-  border: 1px solid var(--vav-border);
-  border-radius: var(--vav-radius-sm);
+  background: var(--gc-surface);
+  border: 1px solid var(--gc-border);
+  border-radius: var(--gc-radius-sm);
 
   h4 {
     margin: 0 0 0.5rem;
@@ -68,7 +68,7 @@
   .hint {
     margin: 0.5rem 0 0;
     font-size: 0.8rem;
-    color: var(--vav-text-muted);
+    color: var(--gc-text-muted);
   }
 }
 
@@ -95,23 +95,23 @@
   margin: 0;
   padding: 0;
   max-height: min(280px, 40vh);
-  border: 1px solid var(--vav-border);
-  border-radius: var(--vav-radius-sm);
-  background: var(--vav-surface);
+  border: 1px solid var(--gc-border);
+  border-radius: var(--gc-radius-sm);
+  background: var(--gc-surface);
 }
 
 .circuit-list li {
   display: flex;
   align-items: stretch;
   gap: 0.25rem;
-  border-bottom: 1px solid var(--vav-border);
+  border-bottom: 1px solid var(--gc-border);
 
   &:last-child {
     border-bottom: none;
   }
 
   &.active {
-    background: var(--vav-primary-soft);
+    background: var(--gc-primary-soft);
   }
 }
 
@@ -123,7 +123,7 @@
   border: none;
   background: transparent;
   cursor: pointer;
-  min-height: var(--vav-touch);
+  min-height: var(--gc-touch);
   font: inherit;
 
   .circuit-title {
@@ -137,13 +137,13 @@
   .circuit-date {
     display: block;
     font-size: 0.75rem;
-    color: var(--vav-text-muted);
+    color: var(--gc-text-muted);
   }
 
   .circuit-notes {
     display: block;
     font-size: 0.75rem;
-    color: var(--vav-text-secondary);
+    color: var(--gc-text-secondary);
     font-style: italic;
     margin-top: 0.2rem;
   }
@@ -157,14 +157,14 @@
   gap: 0.15rem;
 
   .danger {
-    color: var(--vav-danger);
+    color: var(--gc-danger);
   }
 }
 
 .empty {
   padding: 1rem;
   text-align: center;
-  color: var(--vav-text-muted);
+  color: var(--gc-text-muted);
   font-style: italic;
   font-size: 0.875rem;
 }

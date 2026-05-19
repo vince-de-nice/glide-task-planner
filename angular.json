@@ -7,7 +7,7 @@
   },
   "newProjectRoot": "projects",
   "projects": {
-    "vav-angular": {
+    "gestionnaire-circuit": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -67,10 +67,10 @@
           },
           "configurations": {
             "production": {
-              "buildTarget": "vav-angular:build:production"
+              "buildTarget": "gestionnaire-circuit:build:production"
             },
             "development": {
-              "buildTarget": "vav-angular:build:development"
+              "buildTarget": "gestionnaire-circuit:build:development"
             }
           },
           "defaultConfiguration": "development"

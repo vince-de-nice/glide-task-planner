@@ -65,15 +65,10 @@ import { SplitButton } from 'primeng/splitbutton';
 import { InputNumber } from 'primeng/inputnumber';
 import { MenuItem } from 'primeng/api';
 
-const DISCLAIMER_SEEN_KEY = 'vav_disclaimer_seen';
+const DISCLAIMER_SEEN_KEY = 'gc_disclaimer_seen';
+const DISCLAIMER_LEGACY_KEY = 'vav_disclaimer_seen';
 
 type MobileTab = 'map' | 'task';
-
-interface WorkflowStepUi {
-  label: string;
-  done: boolean;
-  active: boolean;
-}
 
 @Component({
   selector: 'app-declaration',
@@ -288,16 +283,6 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     ];
   });
 
-  workflowSteps = computed((): WorkflowStepUi[] => {
-    const hasBase = this.waypoints().length > 0;
-    const hasCircuit = this.selectedWaypointIds().length >= 2;
-    return [
-      { label: 'Base', done: hasBase, active: !hasBase },
-      { label: 'Circuit', done: hasCircuit, active: hasBase && !hasCircuit },
-      { label: 'Export', done: hasCircuit, active: hasBase && hasCircuit }
-    ];
-  });
-
   cupMenuItems = computed<MenuItem[]>(() => [
     {
       label: 'Importer .cup',
@@ -381,7 +366,7 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   ngOnInit(): void {
     this.taskState.setDefaultZoneRadiusM(this.exportRadiusM());
     this.cupPanelExpanded.set(this.waypoints().length === 0);
-    if (!localStorage.getItem(DISCLAIMER_SEEN_KEY) && this.disclaimer()) {
+    if (!this.isDisclaimerSeen() && this.disclaimer()) {
       this.disclaimerAccordionIndex.set(0);
     }
     void this.initCupSources();
@@ -475,6 +460,14 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
 
   toggleCupPanel(): void {
     this.cupPanelExpanded.update(v => !v);
+  }
+
+  private isDisclaimerSeen(): boolean {
+    if (localStorage.getItem(DISCLAIMER_SEEN_KEY)) return true;
+    if (!localStorage.getItem(DISCLAIMER_LEGACY_KEY)) return false;
+    localStorage.setItem(DISCLAIMER_SEEN_KEY, '1');
+    localStorage.removeItem(DISCLAIMER_LEGACY_KEY);
+    return true;
   }
 
   onDisclaimerToggle(index: number | number[] | string | string[] | null | undefined): void {
@@ -598,7 +591,7 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
 
   exportCup(): void {
     const content = this.cupDatabase.exportCup();
-    const label = this.cupDatabase.getSourceLabel().replace(/[^\w.-]+/g, '_') || 'vav-export';
+    const label = this.cupDatabase.getSourceLabel().replace(/[^\w.-]+/g, '_') || 'circuit-export';
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);

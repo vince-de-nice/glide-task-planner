@@ -15,6 +15,6 @@ describe('map-marker.util', () => {
     expect(html).toContain('Vinon (1,5)');
     expect(html).not.toContain('<svg');
     expect(html).not.toContain('text-shadow');
-    expect(html).toContain('vav-map-label__text');
+    expect(html).toContain('gc-map-label__text');
   });
 });

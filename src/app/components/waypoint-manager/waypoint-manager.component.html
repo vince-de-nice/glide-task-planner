@@ -37,16 +37,16 @@
   </header>
 
   @if (showAddForm()) {
-    <section class="wp-form vav-card">
+    <section class="wp-form gc-card">
       <h3>{{ editingWaypoint() ? 'Modifier le waypoint' : 'Nouveau waypoint' }}</h3>
       <form (ngSubmit)="saveWaypoint()">
         <div class="wp-form__grid">
           <label class="wp-field">
-            <span class="vav-label">Nom *</span>
+            <span class="gc-label">Nom *</span>
             <input pInputText fluid pSize="small" type="text" [(ngModel)]="newWaypoint().name" name="name" required />
           </label>
           <label class="wp-field">
-            <span class="vav-label">Type</span>
+            <span class="gc-label">Type</span>
             <p-select
               [options]="waypointTypes"
               optionLabel="label"
@@ -58,21 +58,21 @@
             />
           </label>
           <label class="wp-field">
-            <span class="vav-label">Latitude *</span>
+            <span class="gc-label">Latitude *</span>
             <input pInputText fluid pSize="small" type="number" step="any" [(ngModel)]="newWaypoint().latitude" name="latitude" required />
           </label>
           <label class="wp-field">
-            <span class="vav-label">Longitude *</span>
+            <span class="gc-label">Longitude *</span>
             <input pInputText fluid pSize="small" type="number" step="any" [(ngModel)]="newWaypoint().longitude" name="longitude" required />
           </label>
           <label class="wp-field">
-            <span class="vav-label">Altitude (m)</span>
+            <span class="gc-label">Altitude (m)</span>
             <input pInputText fluid pSize="small" type="number" [(ngModel)]="newWaypoint().elevation" name="elevation" />
           </label>
         </div>
         <label class="wp-field wp-field--full">
-          <span class="vav-label">Description</span>
-          <textarea class="vav-textarea" [(ngModel)]="newWaypoint().description" name="description" rows="3"></textarea>
+          <span class="gc-label">Description</span>
+          <textarea class="gc-textarea" [(ngModel)]="newWaypoint().description" name="description" rows="3"></textarea>
         </label>
         <div class="wp-form__actions">
           <p-button [label]="editingWaypoint() ? 'Mettre à jour' : 'Ajouter'" icon="pi pi-check" type="submit" severity="success" />
@@ -83,7 +83,7 @@
   }
 
   @if (waypoints().length > 0) {
-    <div class="wp-table-wrap vav-card">
+    <div class="wp-table-wrap gc-card">
       <table class="wp-table">
         <thead>
           <tr>
@@ -104,7 +104,7 @@
               </td>
               <td>
                 <span
-                  class="vav-wp-type-badge"
+                  class="gc-wp-type-badge"
                   [style.--wp-type-color]="waypointTypeDisplay(waypoint.type).color"
                 >
                   <i [class]="waypointTypeDisplay(waypoint.type).icon" aria-hidden="true"></i>
@@ -124,6 +124,6 @@
       </table>
     </div>
   } @else {
-    <p class="wp-empty vav-card">Aucun waypoint. Chargez une base sur la page Déclaration ou ajoutez-en manuellement.</p>
+    <p class="wp-empty gc-card">Aucun waypoint. Chargez une base sur la page Déclaration ou ajoutez-en manuellement.</p>
   }
 </div>

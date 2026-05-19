@@ -5,12 +5,12 @@
   <header class="app-header">
     <div class="header-content">
       <div class="logo">
-        <h1>VAV</h1>
-        <p class="tagline">Déclaration de vol FLARM</p>
+        <h1>Gestionnaire de circuit</h1>
+        <p class="tagline">Composition et export de tâches planeur</p>
       </div>
       <nav class="main-nav" aria-label="Navigation principale">
         <p-button
-          label="Déclaration"
+          label="Circuit"
           [rounded]="true"
           size="small"
           [text]="!isDeclaration()"
@@ -34,11 +34,6 @@
   </main>
 
   <footer class="app-footer">
-    <p>&copy; {{ currentYear }} VAV — Génération de flarmcfg.txt pour planeur</p>
-    <p class="footer-links">
-      <a href="https://sourceforge.net/projects/vav/" target="_blank" rel="noopener">
-        Projet VAV d'origine
-      </a>
-    </p>
+    <p>&copy; {{ currentYear }} Gestionnaire de circuit</p>
   </footer>
 </div>

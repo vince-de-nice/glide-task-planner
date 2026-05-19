@@ -1,8 +1,8 @@
 import { definePreset } from '@primeuix/themes';
 import Aura from '@primeuix/themes/aura';
 
-/** Thème Aura avec palette primaire alignée sur le design VAV. */
-export const VavTheme = definePreset(Aura, {
+/** Thème Aura avec palette primaire de l’application. */
+export const GcTheme = definePreset(Aura, {
   semantic: {
     primary: {
       50: '#eff6ff',

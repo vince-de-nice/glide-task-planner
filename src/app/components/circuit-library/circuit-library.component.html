@@ -5,11 +5,11 @@
   </header>
 
   @if (importMessage()) {
-    <p class="vav-alert vav-alert--success import-msg">{{ importMessage() }}</p>
+    <p class="gc-alert gc-alert--success import-msg">{{ importMessage() }}</p>
   }
 
   <div class="quick-load">
-    <label class="vav-label" for="quickCircuit">Chargement rapide</label>
+    <label class="gc-label" for="quickCircuit">Chargement rapide</label>
     <p-select
       inputId="quickCircuit"
       [options]="circuitQuickOptions()"
@@ -76,7 +76,7 @@
     <p-button label="Importer" icon="pi pi-upload" size="small" severity="secondary" (onClick)="libJsonImport.click()" />
   </div>
 
-  <ul class="circuit-list vav-scroll">
+  <ul class="circuit-list gc-scroll">
     @for (c of filteredCircuits(); track c.id) {
       <li [class.active]="isActive(c.id)">
         <button type="button" class="circuit-main" (click)="loadCircuit(c.id)">

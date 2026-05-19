@@ -5,8 +5,10 @@ import { SavedCircuit, SavedCircuitExport, WaypointSnapshot } from '../models/sa
 import { Waypoint } from '../models/waypoint.model';
 import { TaskStateService } from './task-state.service';
 import { WaypointService } from './waypoint.service';
+import { readMigratedLocalStorage } from '../utils/local-storage-migrate.util';
 
-const STORAGE_KEY = 'vav_saved_circuits';
+const STORAGE_KEY = 'gc_saved_circuits';
+const LEGACY_STORAGE_KEYS = ['vav_saved_circuits'];
 const LEGACY_KEY = 'vav_circuits';
 
 @Injectable({
@@ -26,7 +28,7 @@ export class SavedCircuitService {
   }
 
   private loadFromStorage(): void {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = readMigratedLocalStorage(STORAGE_KEY, LEGACY_STORAGE_KEYS);
     if (raw) {
       try {
         const parsed = JSON.parse(raw) as SavedCircuit[];
@@ -270,7 +272,7 @@ export class SavedCircuitService {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `vav-circuits-${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = `circuits-${new Date().toISOString().slice(0, 10)}.json`;
     link.click();
     URL.revokeObjectURL(url);
   }

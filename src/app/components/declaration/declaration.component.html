@@ -1,22 +1,5 @@
 <div class="declaration">
-  <header class="decl-hero">
-    <h1>Déclaration FLARM</h1>
-  </header>
-
-  <nav class="decl-workflow" aria-label="Étapes">
-    @for (step of workflowSteps(); track step.label; let i = $index) {
-      <div
-        class="decl-workflow__step"
-        [class.decl-workflow__step--done]="step.done"
-        [class.decl-workflow__step--active]="step.active"
-      >
-        <span class="decl-workflow__num">{{ i + 1 }}</span>
-        <span class="decl-workflow__label">{{ step.label }}</span>
-      </div>
-    }
-  </nav>
-
-  <section class="decl-db vav-card" aria-label="Base de points">
+  <section class="decl-db gc-card" aria-label="Base de points">
     @if (!cupPanelExpanded()) {
       <div class="decl-db__summary">
         <p-tag [value]="cupMeta().sourceLabel || 'Aucune base'" severity="info" />
@@ -157,13 +140,13 @@
     [class.decl-workspace--map]="mobileTab() === 'map'"
     [class.decl-workspace--task]="mobileTab() === 'task'"
   >
-    <section class="decl-panel decl-panel--map vav-card" aria-label="Carte">
+    <section class="decl-panel decl-panel--map gc-card" aria-label="Carte">
       <div class="decl-map-wrap">
         <app-map-view (actionMessage)="showAddToast($event)" />
       </div>
     </section>
 
-    <section class="decl-panel decl-panel--circuit vav-card" aria-label="Circuit et export">
+    <section class="decl-panel decl-panel--circuit gc-card" aria-label="Circuit et export">
       <header class="decl-circuit__head">
         <div class="decl-circuit__title-row">
           <h2 class="decl-section-title">Circuit</h2>
@@ -190,7 +173,7 @@
         }
         <label class="decl-circuit__task-name">
           <span class="decl-circuit__task-name-head">
-            <span class="vav-label">Nom de tâche (NEWTASK)</span>
+            <span class="gc-label">Nom de tâche (NEWTASK)</span>
             <span class="decl-circuit__char-count">{{ taskName().length }}/50</span>
           </span>
           <input
@@ -229,7 +212,7 @@
                   <span class="decl-circuit-list__line">
                     <span class="decl-circuit-list__main">
                       <span
-                        class="vav-wp-type-badge"
+                        class="gc-wp-type-badge"
                         [style.--wp-type-color]="waypointTypeDisplay(item.waypoint.type).color"
                         [attr.title]="waypointTypeDisplay(item.waypoint.type).description"
                       >
@@ -411,7 +394,7 @@
     </div>
   </div>
   <div class="decl-list-body">
-    <ul class="decl-wp-list vav-scroll" aria-label="Page {{ currentPage() }}">
+    <ul class="decl-wp-list gc-scroll" aria-label="Page {{ currentPage() }}">
       @for (wp of paginatedWaypoints(); track wp.id) {
         <li>
           <button
@@ -432,7 +415,7 @@
               }
             </span>
             <span
-              class="vav-wp-type-badge"
+              class="gc-wp-type-badge"
               [style.--wp-type-color]="waypointTypeDisplay(wp.type).color"
               [attr.title]="waypointTypeDisplay(wp.type).description"
             >
@@ -469,7 +452,7 @@
         />
       </div>
       <label class="decl-pager__size">
-        <span class="vav-label vav-label--invisible">Par page</span>
+        <span class="gc-label gc-label--invisible">Par page</span>
         <p-select
           [options]="pageSizeOptions"
           [ngModel]="pageSize()"
@@ -498,7 +481,7 @@
 >
   <div class="decl-form-grid">
     <label class="decl-field">
-      <span class="vav-label">Pilote</span>
+      <span class="gc-label">Pilote</span>
       <input
         pInputText
         fluid
@@ -509,7 +492,7 @@
       />
     </label>
     <label class="decl-field">
-      <span class="vav-label">Type planeur</span>
+      <span class="gc-label">Type planeur</span>
       <input
         pInputText
         fluid
@@ -520,7 +503,7 @@
       />
     </label>
     <label class="decl-field">
-      <span class="vav-label">Immatriculation</span>
+      <span class="gc-label">Immatriculation</span>
       <input
         pInputText
         fluid
@@ -531,7 +514,7 @@
       />
     </label>
     <label class="decl-field">
-      <span class="vav-label">ID compétition</span>
+      <span class="gc-label">ID compétition</span>
       <input
         pInputText
         fluid
@@ -542,7 +525,7 @@
       />
     </label>
     <label class="decl-field">
-      <span class="vav-label">Classe</span>
+      <span class="gc-label">Classe</span>
       <input
         pInputText
         fluid
@@ -553,7 +536,7 @@
       />
     </label>
     <label class="decl-field">
-      <span class="vav-label">LOGINT (s)</span>
+      <span class="gc-label">LOGINT (s)</span>
       <input
         pInputText
         fluid

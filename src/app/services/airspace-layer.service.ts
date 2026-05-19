@@ -210,10 +210,10 @@ export class AirspaceLayerService {
     const name = p.nameV ?? p.id ?? 'Zone';
     const vertical = [p.lower, p.upper].filter(Boolean).join(' → ');
     layer.bindPopup(
-      `<div class="vav-airspace-popup"><strong>${this.escapeHtml(name)}</strong>` +
+      `<div class="gc-airspace-popup"><strong>${this.escapeHtml(name)}</strong>` +
         (p.class ? `<p>Type : ${this.escapeHtml(p.class)}</p>` : '') +
         (vertical ? `<p>${this.escapeHtml(vertical)}</p>` : '') +
-        (p.desc ? `<p class="vav-airspace-popup__desc">${this.escapeHtml(p.desc)}</p>` : '') +
+        (p.desc ? `<p class="gc-airspace-popup__desc">${this.escapeHtml(p.desc)}</p>` : '') +
         `</div>`
     );
   }
