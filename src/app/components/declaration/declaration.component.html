@@ -204,7 +204,7 @@
           />
         </label>
         <p class="decl-circuit__hint">
-          Décollage / atterrissage : aérodromes en 1<sup>er</sup> / dernier · distance hors branches déco/attero
+          Décollage et atterrissage sur aérodromes (1<sup>er</sup> / dernier) · distance hors branches déco/attero
         </p>
       </header>
 
@@ -221,28 +221,36 @@
                   <i class="pi pi-arrows-v"></i>
                 </span>
                 <span class="decl-circuit-list__num" aria-hidden="true">{{ i + 1 }}</span>
-                <p-tag
-                  [value]="circuitRoleLabel(item.leg.role)"
-                  [severity]="item.leg.role === 'departure' || item.leg.role === 'arrival' ? 'success' : 'info'"
-                  styleClass="decl-circuit-list__role"
-                />
                 <button
                   type="button"
                   class="decl-circuit-list__body"
                   (click)="onCircuitItemClick(item)"
                 >
-                  <span class="decl-circuit-list__name">{{ item.waypoint.name }}</span>
-                  @if (legFromIndex(i); as leg) {
+                  <span class="decl-circuit-list__line">
                     <span
-                      class="decl-circuit-list__leg"
-                      [class.decl-circuit-list__leg--off]="!leg.counted"
+                      class="vav-wp-type-badge"
+                      [style.--wp-type-color]="waypointTypeDisplay(item.waypoint.type).color"
+                      [attr.title]="waypointTypeDisplay(item.waypoint.type).description"
                     >
-                      {{ leg.distance.toFixed(1) }} km
-                      @if (!leg.counted) {
-                        <span class="decl-circuit-list__leg-badge">hors tâche</span>
-                      }
+                      <i [class]="waypointTypeDisplay(item.waypoint.type).icon" aria-hidden="true"></i>
+                      <span>{{ waypointTypeDisplay(item.waypoint.type).shortLabel }}</span>
                     </span>
-                  }
+                    @if (item.leg.role === 'departure' || item.leg.role === 'arrival') {
+                      <span class="decl-circuit-list__role">{{ circuitRoleLabel(item.leg.role) }}</span>
+                    }
+                    <span class="decl-circuit-list__name">{{ item.waypoint.name }}</span>
+                    @if (legFromIndex(i); as leg) {
+                      <span
+                        class="decl-circuit-list__leg"
+                        [class.decl-circuit-list__leg--off]="!leg.counted"
+                      >
+                        {{ leg.distance.toFixed(1) }} km
+                        @if (!leg.counted) {
+                          <span class="decl-circuit-list__leg-badge">hors tâche</span>
+                        }
+                      </span>
+                    }
+                  </span>
                 </button>
                 <p-button
                   icon="pi pi-times"
@@ -345,8 +353,9 @@
       @for (f of typeFilters; track f.id) {
         <p-button
           size="small"
-          [text]="true"
+          [text]="typeFilter() !== f.id"
           [severity]="typeFilter() === f.id ? 'primary' : 'secondary'"
+          [icon]="f.icon"
           (onClick)="setTypeFilter(f.id)"
           [label]="f.label"
         />
@@ -374,7 +383,14 @@
                 <span class="decl-wp-row__code">{{ wp.code }}</span>
               }
             </span>
-            <span class="decl-wp-row__type">{{ typeLabel(wp.type) }}</span>
+            <span
+              class="vav-wp-type-badge"
+              [style.--wp-type-color]="waypointTypeDisplay(wp.type).color"
+              [attr.title]="waypointTypeDisplay(wp.type).description"
+            >
+              <i [class]="waypointTypeDisplay(wp.type).icon" aria-hidden="true"></i>
+              <span>{{ waypointTypeDisplay(wp.type).shortLabel }}</span>
+            </span>
           </button>
         </li>
       } @empty {

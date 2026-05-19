@@ -513,7 +513,7 @@
 
 .decl-circuit-list__item {
   display: grid;
-  grid-template-columns: 1.25rem 1.1rem auto minmax(0, 1fr) 2.25rem;
+  grid-template-columns: 1.25rem 1.1rem minmax(0, 1fr) 2.25rem;
   align-items: center;
   gap: 0.35rem 0.4rem;
   padding: 0.3rem 0.35rem 0.3rem 0.25rem;
@@ -566,17 +566,7 @@
   line-height: 1;
 }
 
-:host ::ng-deep .decl-circuit-list__role.p-tag {
-  font-size: 0.625rem;
-  padding: 0.1rem 0.35rem;
-  white-space: nowrap;
-}
-
 .decl-circuit-list__body {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.1rem;
   min-width: 0;
   padding: 0;
   border: none;
@@ -586,8 +576,31 @@
   font: inherit;
 }
 
-.decl-circuit-list__name {
+.decl-circuit-list__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.45rem;
   width: 100%;
+  min-width: 0;
+}
+
+.decl-circuit-list__role {
+  flex-shrink: 0;
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  padding: 0.12rem 0.35rem;
+  border-radius: 4px;
+  color: #166534;
+  background: #dcfce7;
+}
+
+.decl-circuit-list__name {
+  flex: 1 1 8rem;
+  min-width: 0;
   font-weight: 600;
   font-size: 0.8125rem;
   line-height: 1.25;
@@ -597,6 +610,7 @@
 }
 
 .decl-circuit-list__leg {
+  flex-shrink: 0;
   font-size: 0.6875rem;
   font-weight: 600;
   color: var(--vav-primary);
@@ -780,16 +794,6 @@
 .decl-wp-row__code {
   font-size: 0.75rem;
   color: var(--vav-text-muted);
-}
-
-.decl-wp-row__type {
-  flex-shrink: 0;
-  font-size: 0.625rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  padding: 0.15rem 0.35rem;
-  border-radius: 4px;
-  background: #e2e8f0;
 }
 
 .decl-pager {

@@ -37,6 +37,11 @@ import { Waypoint, WaypointTypeFilter } from '../../models/waypoint.model';
 import { FlarmProfileService } from '../../services/flarm-profile.service';
 import { UiFeedbackService } from '../../services/ui-feedback.service';
 import { CircuitListItem } from '../../models/circuit-list-item.model';
+import {
+  waypointTypeDisplay,
+  WAYPOINT_TYPE_DISPLAY,
+  WAYPOINT_TYPE_ORDER
+} from '../../utils/waypoint-type-display.util';
 import { Button } from 'primeng/button';
 import { Select } from 'primeng/select';
 import { InputText } from 'primeng/inputtext';
@@ -272,12 +277,15 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     );
   }
 
-  readonly typeFilters: { id: WaypointTypeFilter; label: string }[] = [
-    { id: 'all', label: 'Tous' },
-    { id: 'airfield', label: 'Aérodromes' },
-    { id: 'landable', label: 'Atterrissables' },
-    { id: 'turnpoint', label: 'Turnpoints' },
-    { id: 'custom', label: 'Perso' }
+  readonly waypointTypeDisplay = waypointTypeDisplay;
+
+  readonly typeFilters: { id: WaypointTypeFilter; label: string; icon: string }[] = [
+    { id: 'all', label: 'Tous', icon: 'pi pi-list' },
+    ...WAYPOINT_TYPE_ORDER.map(t => ({
+      id: t as WaypointTypeFilter,
+      label: WAYPOINT_TYPE_DISPLAY[t].label,
+      icon: WAYPOINT_TYPE_DISPLAY[t].icon
+    }))
   ];
 
   ngOnInit(): void {
@@ -658,13 +666,4 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
 
   circuitRoleLabel = circuitRoleShortLabel;
 
-  typeLabel(type: Waypoint['type']): string {
-    const labels: Record<Waypoint['type'], string> = {
-      turnpoint: 'TP',
-      airfield: 'AD',
-      landable: 'AL',
-      custom: 'P'
-    };
-    return labels[type];
-  }
 }

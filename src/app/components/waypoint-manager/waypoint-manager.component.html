@@ -102,7 +102,15 @@
                 <strong>{{ waypoint.name }}</strong>
                 <span class="wp-coords wp-show-sm">{{ waypoint.latitude.toFixed(4) }}, {{ waypoint.longitude.toFixed(4) }}</span>
               </td>
-              <td><span class="wp-badge">{{ typeLabel(waypoint.type) }}</span></td>
+              <td>
+                <span
+                  class="vav-wp-type-badge"
+                  [style.--wp-type-color]="waypointTypeDisplay(waypoint.type).color"
+                >
+                  <i [class]="waypointTypeDisplay(waypoint.type).icon" aria-hidden="true"></i>
+                  {{ waypointTypeDisplay(waypoint.type).shortLabel }}
+                </span>
+              </td>
               <td class="wp-hide-sm">{{ waypoint.latitude.toFixed(6) }}</td>
               <td class="wp-hide-sm">{{ waypoint.longitude.toFixed(6) }}</td>
               <td class="wp-hide-sm">{{ waypoint.elevation || '—' }}</td>

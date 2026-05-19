@@ -6,6 +6,11 @@ import { WaypointService } from '../../services/waypoint.service';
 import { CupDatabaseService } from '../../services/cup-database.service';
 import { CupLoaderService } from '../../services/cup-loader.service';
 import { Waypoint, WaypointType } from '../../models/waypoint.model';
+import {
+  waypointTypeDisplay,
+  WAYPOINT_TYPE_DISPLAY,
+  WAYPOINT_TYPE_ORDER
+} from '../../utils/waypoint-type-display.util';
 import { Button } from 'primeng/button';
 import { InputText } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
@@ -37,12 +42,13 @@ export class WaypointManagerComponent {
     description: ''
   });
 
-  readonly waypointTypes: { value: WaypointType; label: string }[] = [
-    { value: 'turnpoint', label: 'Turnpoint' },
-    { value: 'airfield', label: 'Aérodrome' },
-    { value: 'landable', label: 'Atterrissable' },
-    { value: 'custom', label: 'Personnalisé' }
-  ];
+  readonly waypointTypeDisplay = waypointTypeDisplay;
+
+  readonly waypointTypes = WAYPOINT_TYPE_ORDER.map(t => ({
+    value: t,
+    label: WAYPOINT_TYPE_DISPLAY[t].description,
+    icon: WAYPOINT_TYPE_DISPLAY[t].icon
+  }));
 
   toggleAddForm(): void {
     this.showAddForm.update(v => !v);
@@ -139,10 +145,6 @@ export class WaypointManagerComponent {
     if (!ok) return;
     this.waypointService.clearWaypoints();
     this.uiFeedback.success('Tous les waypoints ont été effacés');
-  }
-
-  typeLabel(type: WaypointType): string {
-    return this.waypointTypes.find(t => t.value === type)?.label ?? type;
   }
 
   private resetForm(): void {

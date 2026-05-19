@@ -27,18 +27,7 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
-export function waypointTypeLabel(type: WaypointType): string {
-  switch (type) {
-    case 'airfield':
-      return 'Aérodrome';
-    case 'landable':
-      return 'Posé possible';
-    case 'custom':
-      return 'Point personnalisé';
-    default:
-      return 'Point de virage';
-  }
-}
+export { waypointTypeLabel } from '../../utils/waypoint-type-display.util';
 
 function actionButton(action: WaypointMapAction, label: string, variant = 'secondary'): string {
   return `<button type="button" class="vav-wp-ctx__btn vav-wp-ctx__btn--${variant}" data-action="${action}">${escapeHtml(label)}</button>`;

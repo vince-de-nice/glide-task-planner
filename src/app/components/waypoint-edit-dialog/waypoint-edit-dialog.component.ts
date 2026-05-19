@@ -2,6 +2,7 @@ import { Component, input, output, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Waypoint, WaypointType } from '../../models/waypoint.model';
+import { WAYPOINT_TYPE_DISPLAY, WAYPOINT_TYPE_ORDER } from '../../utils/waypoint-type-display.util';
 import { Dialog } from 'primeng/dialog';
 import { Button } from 'primeng/button';
 import { InputText } from 'primeng/inputtext';
@@ -26,12 +27,10 @@ export class WaypointEditDialogComponent {
 
   form = signal<WaypointEditPayload>(this.emptyForm());
 
-  readonly types: { value: WaypointType; label: string }[] = [
-    { value: 'turnpoint', label: 'Point de virage' },
-    { value: 'airfield', label: 'Aérodrome' },
-    { value: 'landable', label: 'Posé possible' },
-    { value: 'custom', label: 'Personnalisé' }
-  ];
+  readonly types = WAYPOINT_TYPE_ORDER.map(t => ({
+    value: t,
+    label: WAYPOINT_TYPE_DISPLAY[t].description
+  }));
 
   constructor() {
     effect(() => {

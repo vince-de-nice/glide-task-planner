@@ -87,6 +87,27 @@ a {
   overflow: hidden;
 }
 
+/** Badge type de waypoint (TP, AD, AL…) — icône + abréviation, couleur via --wp-type-color */
+.vav-wp-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  flex-shrink: 0;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--wp-type-color, #94a3b8) 45%, var(--vav-border));
+  background: color-mix(in srgb, var(--wp-type-color, #94a3b8) 10%, #fff);
+  color: var(--wp-type-color, var(--vav-text-muted));
+  line-height: 1;
+
+  .pi {
+    font-size: 0.65rem;
+  }
+}
+
 .vav-input--sm,
 .vav-select--sm {
   min-height: 36px;

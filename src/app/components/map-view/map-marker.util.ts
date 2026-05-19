@@ -1,4 +1,5 @@
 import { WaypointType } from '../../models/waypoint.model';
+import { waypointTypeColor } from '../../utils/waypoint-type-display.util';
 
 export interface MapMarkerViewModel {
   name: string;
@@ -16,16 +17,7 @@ function escapeHtml(text: string): string {
 }
 
 export function markerAccentColor(type: WaypointType): string {
-  switch (type) {
-    case 'airfield':
-      return '#2563eb';
-    case 'landable':
-      return '#16a34a';
-    case 'custom':
-      return '#9333ea';
-    default:
-      return '#ea580c';
-  }
+  return waypointTypeColor(type);
 }
 
 /** Rôles aérodrome affichés sur la carte : decollage, atterrissage */

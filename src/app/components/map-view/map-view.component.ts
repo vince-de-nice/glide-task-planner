@@ -48,6 +48,7 @@ import { Toolbar } from 'primeng/toolbar';
 import { ToggleSwitch } from 'primeng/toggleswitch';
 import { Tooltip } from 'primeng/tooltip';
 import { UiFeedbackService } from '../../services/ui-feedback.service';
+import { waypointTypeMapFilters } from '../../utils/waypoint-type-display.util';
 
 const SATELLITE_TILES = {
   url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -63,17 +64,7 @@ const SATELLITE_LABELS = {
 /** Texte des libellés visible à partir de ce zoom Leaflet (plus on zoome, plus z est grand). */
 const MIN_ZOOM_FOR_LABELS = 11;
 
-const MAP_TYPE_FILTERS: {
-  type: WaypointType;
-  label: string;
-  color: string;
-  icon: string;
-}[] = [
-  { type: 'turnpoint', label: 'Turnpoints', color: '#ea580c', icon: 'pi pi-flag' },
-  { type: 'airfield', label: 'Aérodromes', color: '#2563eb', icon: 'pi pi-building' },
-  { type: 'landable', label: 'Atterrissables', color: '#16a34a', icon: 'pi pi-map-marker' },
-  { type: 'custom', label: 'Perso', color: '#9333ea', icon: 'pi pi-star' }
-];
+const MAP_TYPE_FILTERS = waypointTypeMapFilters();
 
 @Component({
   selector: 'app-map-view',
