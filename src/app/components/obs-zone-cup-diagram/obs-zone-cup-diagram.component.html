@@ -1,0 +1,84 @@
+@if (diagram(); as d) {
+  <div class="cup-diagram" role="figure" aria-label="Schéma des paramètres CUP">
+    <svg
+      class="cup-diagram__svg"
+      [attr.viewBox]="viewBox"
+      aria-hidden="true"
+    >
+      <defs>
+        <marker id="cup-arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 Z" fill="#2563eb" />
+        </marker>
+      </defs>
+      @for (c of d.circles; track c.paramKey) {
+        <circle
+          [attr.cx]="c.cx"
+          [attr.cy]="c.cy"
+          [attr.r]="c.r"
+          [attr.fill]="c.fill"
+          [attr.stroke]="c.stroke"
+          [attr.stroke-width]="1.75"
+          [attr.stroke-dasharray]="c.strokeDasharray"
+          class="cup-diagram__shape"
+          [class.cup-diagram__shape--active]="true"
+        />
+      }
+      @for (a of d.arcs; track a.paramKey) {
+        <path
+          [attr.d]="a.pathD"
+          [attr.fill]="a.fill"
+          [attr.stroke]="a.stroke"
+          stroke-width="1.75"
+          class="cup-diagram__shape"
+        />
+      }
+      @for (ln of d.lines; track $index) {
+        <line
+          [attr.x1]="ln.x1"
+          [attr.y1]="ln.y1"
+          [attr.x2]="ln.x2"
+          [attr.y2]="ln.y2"
+          [attr.stroke]="ln.stroke"
+          [attr.stroke-width]="ln.strokeWidth ?? 2"
+          [attr.stroke-dasharray]="ln.strokeDasharray"
+          stroke-linecap="round"
+        />
+      }
+      @if (d.styleArrow; as sa) {
+        <line
+          [attr.x1]="sa.x1"
+          [attr.y1]="sa.y1"
+          [attr.x2]="sa.x2"
+          [attr.y2]="sa.y2"
+          [attr.stroke]="sa.stroke"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          marker-end="url(#cup-arrow)"
+        />
+      }
+      <circle class="cup-diagram__center" [attr.cx]="110" [attr.cy]="78" r="3.5" />
+      @for (lb of d.labels; track lb.text) {
+        <text
+          class="cup-diagram__dim-label"
+          [attr.x]="lb.x"
+          [attr.y]="lb.y"
+          [attr.text-anchor]="lb.anchor ?? 'middle'"
+        >{{ lb.text }}</text>
+      }
+    </svg>
+
+    <ul class="cup-diagram__legend">
+      @for (p of d.params; track p.key) {
+        <li
+          class="cup-diagram__param"
+          [class.cup-diagram__param--active]="p.active"
+          [attr.data-param]="p.key"
+        >
+          <span class="cup-diagram__param-key">{{ p.cupLabel }}</span>
+          <span class="cup-diagram__param-val">{{ p.value }}</span>
+          <span class="cup-diagram__param-hint">{{ p.hint }}</span>
+        </li>
+      }
+    </ul>
+  </div>
+}

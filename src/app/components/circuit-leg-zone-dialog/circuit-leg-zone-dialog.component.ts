@@ -7,6 +7,7 @@ import { Select } from 'primeng/select';
 import { InputNumber } from 'primeng/inputnumber';
 import { Checkbox } from 'primeng/checkbox';
 import { ObsZonePreviewComponent } from '../obs-zone-preview/obs-zone-preview.component';
+import { ObsZoneCupDiagramComponent } from '../obs-zone-cup-diagram/obs-zone-cup-diagram.component';
 import { CircuitLeg, circuitRoleShortLabel } from '../../models/circuit.model';
 import { Waypoint } from '../../models/waypoint.model';
 import {
@@ -39,7 +40,8 @@ export interface CircuitLegZoneDialogSave {
     Select,
     InputNumber,
     Checkbox,
-    ObsZonePreviewComponent
+    ObsZonePreviewComponent,
+    ObsZoneCupDiagramComponent
   ],
   templateUrl: './circuit-leg-zone-dialog.component.html',
   styleUrl: './circuit-leg-zone-dialog.component.scss'
@@ -69,6 +71,8 @@ export class CircuitLegZoneDialogComponent {
   line = signal(false);
   useCustomElevation = signal(false);
   elevationM = signal<number | null>(null);
+  /** Remonte les champs numériques après chargement (évite p-inputNumber vide). */
+  zoneFormMounted = signal(false);
 
   readonly presetOptions = computed(() => {
     const role = this.leg()?.role;
@@ -103,23 +107,30 @@ export class CircuitLegZoneDialogComponent {
     return formatElevationDisplay(resolveLegElevationM(wp, leg));
   });
 
+  readonly normalizedZoneFromForm = computed(() => {
+    const leg = this.leg();
+    if (!leg) return null;
+    return normalizeObservationZone(
+      this.buildZoneFromForm(),
+      leg.role,
+      this.defaultRadiusM()
+    );
+  });
+
   readonly zonePreview = computed(() => {
-    const zone = this.buildZoneFromForm();
-    return observationZoneShortLabel(zone);
+    const zone = this.normalizedZoneFromForm();
+    return zone ? observationZoneShortLabel(zone) : '—';
   });
 
   readonly previewView = computed(() => {
     const leg = this.leg();
     const wp = this.waypoint();
-    if (!leg || !wp) return null;
+    const zone = this.normalizedZoneFromForm();
+    if (!leg || !wp || !zone) return null;
 
     const draftLeg: CircuitLeg = {
       ...leg,
-      obsZone: normalizeObservationZone(
-        this.buildZoneFromForm(),
-        leg.role,
-        this.defaultRadiusM()
-      )
+      obsZone: zone
     };
 
     const legs = this.taskState.circuitLegs();
@@ -144,10 +155,15 @@ export class CircuitLegZoneDialogComponent {
 
   constructor() {
     effect(() => {
-      if (!this.visible()) return;
+      if (!this.visible()) {
+        this.zoneFormMounted.set(false);
+        return;
+      }
       const leg = this.leg();
       const wp = this.waypoint();
       if (!leg) return;
+
+      this.zoneFormMounted.set(false);
       const zone = normalizeObservationZone(
         leg.obsZone,
         leg.role,
@@ -164,7 +180,34 @@ export class CircuitLegZoneDialogComponent {
       const elev = leg.elevationM ?? wp?.elevation;
       this.useCustomElevation.set(leg.elevationM != null);
       this.elevationM.set(elev ?? null);
+      this.zoneFormMounted.set(true);
     });
+  }
+
+  onR1Change(value: number | null): void {
+    const n = value != null && Number.isFinite(value) ? Math.round(value) : this.defaultRadiusM();
+    this.r1M.set(Math.max(50, n));
+    this.presetId.set('custom');
+  }
+
+  onA1Change(value: number | null | undefined): void {
+    this.a1Deg.set(value != null && Number.isFinite(value) ? Math.round(value) : null);
+    this.presetId.set('custom');
+  }
+
+  onA2Change(value: number | null | undefined): void {
+    this.a2Deg.set(value != null && Number.isFinite(value) ? Math.round(value) : null);
+    this.presetId.set('custom');
+  }
+
+  onA12Change(value: number | null | undefined): void {
+    this.a12Deg.set(value != null && Number.isFinite(value) ? Math.round(value) : null);
+    this.presetId.set('custom');
+  }
+
+  onOptionalRadiusChange(value: number | null | undefined): void {
+    this.r2M.set(value != null && Number.isFinite(value) && value > 0 ? Math.round(value) : null);
+    this.presetId.set('custom');
   }
 
   onPresetChange(value: unknown): void {

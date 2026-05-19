@@ -246,6 +246,9 @@ export function observationZoneShortLabel(zone: ObservationZoneConfig): string {
   if (zone.r2M && zone.r2M > 1000) {
     return `Secteur ${(zone.r1M / 1000).toFixed(0)} km`;
   }
+  if (zone.a1Deg != null && zone.a1Deg > 0 && zone.a1Deg < 360) {
+    return `Secteur ${zone.a1Deg}° · ${zone.r1M} m`;
+  }
   if (zone.cupStyle === 1) {
     return `Cyl. sym. ${zone.r1M} m`;
   }

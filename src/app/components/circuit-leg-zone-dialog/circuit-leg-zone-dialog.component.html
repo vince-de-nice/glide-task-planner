@@ -6,7 +6,9 @@
   [closable]="true"
   [dismissableMask]="true"
   [draggable]="false"
-  [style]="{ width: 'min(100vw - 1rem, 480px)' }"
+  styleClass="leg-zone-dialog-panel"
+  [style]="{ width: 'min(96vw, 920px)', maxWidth: '920px' }"
+  [contentStyle]="{ overflow: 'auto', maxHeight: 'min(88vh, 720px)' }"
 >
   <p class="leg-zone-dialog__meta">
     Point {{ legIndex() + 1 }} · {{ roleLabel() }}
@@ -29,99 +31,122 @@
     }
   </div>
 
-  <div class="leg-zone-dialog__grid">
-    <div class="leg-zone-dialog__field">
-      <label for="zone-style">Style CUP</label>
-      <p-select
-        inputId="zone-style"
-        [options]="cupStyleOptions"
-        optionLabel="label"
-        optionValue="value"
-        [ngModel]="cupStyle()"
-        (ngModelChange)="cupStyle.set($event); presetId.set('custom')"
-        fluid
-        size="small"
-      />
-    </div>
-    <div class="leg-zone-dialog__field">
-      <label for="zone-r1">R1 (m)</label>
-      <p-inputNumber
-        inputId="zone-r1"
-        [ngModel]="r1M()"
-        (ngModelChange)="r1M.set(+$event); presetId.set('custom')"
-        [min]="50"
-        [max]="100000"
-        size="small"
-        fluid
-      />
-    </div>
-    <div class="leg-zone-dialog__field">
-      <label for="zone-a1">A1 (°)</label>
-      <p-inputNumber
-        inputId="zone-a1"
-        [ngModel]="a1Deg()"
-        (ngModelChange)="a1Deg.set($event); presetId.set('custom')"
-        [min]="0"
-        [max]="360"
-        size="small"
-        fluid
-      />
-    </div>
-    <div class="leg-zone-dialog__field">
-      <label for="zone-r2">R2 (m)</label>
-      <p-inputNumber
-        inputId="zone-r2"
-        [ngModel]="r2M()"
-        (ngModelChange)="r2M.set($event); presetId.set('custom')"
-        [min]="0"
-        [max]="100000"
-        size="small"
-        fluid
-      />
-    </div>
-    <div class="leg-zone-dialog__field">
-      <label for="zone-a2">A2 (°)</label>
-      <p-inputNumber
-        inputId="zone-a2"
-        [ngModel]="a2Deg()"
-        (ngModelChange)="a2Deg.set($event); presetId.set('custom')"
-        [min]="0"
-        [max]="360"
-        size="small"
-        fluid
-      />
-    </div>
-    <div class="leg-zone-dialog__field">
-      <label for="zone-a12">A12 (°)</label>
-      <p-inputNumber
-        inputId="zone-a12"
-        [ngModel]="a12Deg()"
-        (ngModelChange)="a12Deg.set($event); presetId.set('custom')"
-        [min]="0"
-        [max]="360"
-        size="small"
-        fluid
-      />
-    </div>
-  </div>
+  <div class="leg-zone-dialog__cup-layout">
+    <div class="leg-zone-dialog__cup-fields">
+      @if (zoneFormMounted()) {
+      <div class="leg-zone-dialog__grid">
+        <div class="leg-zone-dialog__field">
+          <label for="zone-style">Style CUP</label>
+          <p-select
+            inputId="zone-style"
+            [options]="cupStyleOptions"
+            optionLabel="label"
+            optionValue="value"
+            [ngModel]="cupStyle()"
+            (ngModelChange)="cupStyle.set($event); presetId.set('custom')"
+            fluid
+            size="small"
+          />
+        </div>
+        <div class="leg-zone-dialog__field">
+          <label for="zone-r1">R1 (m)</label>
+          <p-inputNumber
+            inputId="zone-r1"
+            [ngModel]="r1M()"
+            (ngModelChange)="onR1Change($event)"
+            [showButtons]="true"
+            [min]="50"
+            [max]="100000"
+            size="small"
+            fluid
+          />
+        </div>
+        <div class="leg-zone-dialog__field">
+          <label for="zone-a1">A1 (°)</label>
+          <p-inputNumber
+            inputId="zone-a1"
+            [ngModel]="a1Deg()"
+            (ngModelChange)="onA1Change($event)"
+            [min]="0"
+            [max]="360"
+            [showClear]="true"
+            size="small"
+            fluid
+          />
+        </div>
+        <div class="leg-zone-dialog__field">
+          <label for="zone-r2">R2 (m)</label>
+          <p-inputNumber
+            inputId="zone-r2"
+            [ngModel]="r2M()"
+            (ngModelChange)="onOptionalRadiusChange($event)"
+            [showClear]="true"
+            [min]="0"
+            [max]="100000"
+            size="small"
+            fluid
+          />
+        </div>
+        <div class="leg-zone-dialog__field">
+          <label for="zone-a2">A2 (°)</label>
+          <p-inputNumber
+            inputId="zone-a2"
+            [ngModel]="a2Deg()"
+            (ngModelChange)="onA2Change($event)"
+            [showClear]="true"
+            [min]="0"
+            [max]="360"
+            size="small"
+            fluid
+          />
+        </div>
+        <div class="leg-zone-dialog__field">
+          <label for="zone-a12">A12 (°)</label>
+          <p-inputNumber
+            inputId="zone-a12"
+            [ngModel]="a12Deg()"
+            (ngModelChange)="onA12Change($event)"
+            [showClear]="true"
+            [min]="0"
+            [max]="360"
+            size="small"
+            fluid
+          />
+        </div>
+      </div>
 
-  <div class="leg-zone-dialog__field leg-zone-dialog__field--row">
-    <p-checkbox
-      [ngModel]="line()"
-      (ngModelChange)="line.set($event); presetId.set('custom')"
-      [binary]="true"
-      inputId="zone-line"
-    />
-    <label for="zone-line">Ligne (CUP Line=1)</label>
-  </div>
+      <div class="leg-zone-dialog__field leg-zone-dialog__field--row">
+        <p-checkbox
+          [ngModel]="line()"
+          (ngModelChange)="line.set($event); presetId.set('custom')"
+          [binary]="true"
+          inputId="zone-line"
+        />
+        <label for="zone-line">Ligne (CUP Line=1)</label>
+      </div>
+      }
+    </div>
 
-  <div class="leg-zone-dialog__preview-block">
-    <p class="leg-zone-dialog__preview">Aperçu zone : <strong>{{ zonePreview() }}</strong></p>
-    <app-obs-zone-preview
-      class="leg-zone-dialog__preview-shape"
-      [previewView]="previewView()"
-      [role]="leg()?.role ?? 'turnpoint'"
-    />
+    <section class="leg-zone-dialog__cup-visual" aria-labelledby="cup-visual-title">
+      <h3 id="cup-visual-title" class="leg-zone-dialog__cup-visual-title">
+        Schéma des paramètres CUP
+      </h3>
+      <p class="leg-zone-dialog__hint leg-zone-dialog__cup-visual-lead">
+        Vue de dessus (nord en haut). Les paramètres actifs sont mis en évidence.
+      </p>
+      <app-obs-zone-cup-diagram [zone]="normalizedZoneFromForm()" />
+
+      <div class="leg-zone-dialog__preview-block leg-zone-dialog__preview-block--compact">
+        <p class="leg-zone-dialog__preview">
+          Aperçu sur la tâche : <strong>{{ zonePreview() }}</strong>
+        </p>
+        <app-obs-zone-preview
+          class="leg-zone-dialog__preview-shape"
+          [previewView]="previewView()"
+          [role]="leg()?.role ?? 'turnpoint'"
+        />
+      </div>
+    </section>
   </div>
 
   <hr class="leg-zone-dialog__sep" />
