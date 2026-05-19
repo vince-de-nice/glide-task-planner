@@ -98,7 +98,12 @@ function orientationMarkers(
   ctx: ObsZoneLegContext,
   shape: ObsZoneMapShape
 ): ObsZonePreviewLine[] {
-  if (shape.kind === 'sector' || shape.kind === 'ring-sector' || shape.kind === 'line') {
+  if (
+    shape.kind === 'sector' ||
+    shape.kind === 'ring-sector' ||
+    shape.kind === 'fai-keyhole' ||
+    shape.kind === 'line'
+  ) {
     return [];
   }
 
@@ -181,14 +186,18 @@ function pt(bearingDeg: number, radius: number): string {
 /**
  * Contour unique keyhole FAI = union(secteur 0→R2/A2, anneau R2→R1/A1).
  *
- * Périmètre (7 segments) :
- *   1. Centre → (bA2L, R2)           ligne radiale gauche du secteur intérieur
- *   2. Arc CCW sur R2 : bA2L → bA1L  encoche gauche (sweep=0)
- *   3. (bA1L, R2) → (bA1L, R1)       ligne radiale sortante gauche de l'anneau
- *   4. Arc CW sur R1 : bA1L → bA1R   arc extérieur (sweep=1)
- *   5. (bA1R, R1) → (bA1R, R2)       ligne radiale rentrante droite de l'anneau
- *   6. Arc CCW sur R2 : bA1R → bA2R  encoche droite (sweep=0)
- *   7. Z ferme (bA2R, R2) → centre   ligne radiale droite du secteur intérieur
+ * Périmètre (7 segments), sens horaire :
+ *   1. Centre → (bA2L, R2)          ligne radiale gauche du secteur intérieur
+ *   2. Arc sur R2 : bA2L → bA1L     encoche gauche
+ *   3. (bA1L, R2) → (bA1L, R1)      ligne radiale sortante gauche de l'anneau
+ *   4. Arc CW sur R1 : bA1L → bA1R  arc extérieur (toujours sweep=1)
+ *   5. (bA1R, R1) → (bA1R, R2)      ligne radiale rentrante droite de l'anneau
+ *   6. Arc sur R2 : bA1R → bA2R     encoche droite
+ *   7. Z ferme (bA2R, R2) → centre  ligne radiale droite du secteur intérieur
+ *
+ * Direction des encoches R2 :
+ *   A2 < A1 → bA2 est entre bA1L et bA1R → encoches CCW (sweep=0)
+ *   A2 > A1 → bA2 dépasse bA1 → encoches CW (sweep=1)
  */
 export function faiKeyholeOutlinePathD(
   bA2Left: number,
@@ -198,19 +207,22 @@ export function faiKeyholeOutlinePathD(
   outerR: number,
   innerR: number
 ): string {
-  const gapSpan = ((bA2Left - bA1Left) % 360 + 360) % 360;
+  const halfGap = Math.abs(((bA2Left - bA1Left + 180) % 360) - 180);
+  const gapLarge = halfGap > 90 ? 1 : 0;
   const outerSpan = ((bA1Right - bA1Left) % 360 + 360) % 360;
-  const gapLarge = gapSpan > 180 ? 1 : 0;
   const outerLarge = outerSpan > 180 ? 1 : 0;
+
+  const a2WideThanA1 = ((bA2Left - bA1Left + 360) % 360) > 180;
+  const gapSweep = a2WideThanA1 ? 1 : 0;
 
   return [
     `M ${CX} ${CY}`,
     `L ${pt(bA2Left, innerR)}`,
-    `A ${innerR} ${innerR} 0 ${gapLarge} 0 ${pt(bA1Left, innerR)}`,
+    `A ${innerR} ${innerR} 0 ${gapLarge} ${gapSweep} ${pt(bA1Left, innerR)}`,
     `L ${pt(bA1Left, outerR)}`,
     `A ${outerR} ${outerR} 0 ${outerLarge} 1 ${pt(bA1Right, outerR)}`,
     `L ${pt(bA1Right, innerR)}`,
-    `A ${innerR} ${innerR} 0 ${gapLarge} 0 ${pt(bA2Right, innerR)}`,
+    `A ${innerR} ${innerR} 0 ${gapLarge} ${gapSweep} ${pt(bA2Right, innerR)}`,
     'Z'
   ].join(' ');
 }

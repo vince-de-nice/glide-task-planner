@@ -30,6 +30,7 @@ import {
 import {
   buildCircuitObsZoneShapes,
   extendBoundsWithShape,
+  faiKeyholePolygonLatLngs,
   obsZoneMapColors,
   ringSectorPolygonLatLngs,
   sectorPolygonLatLngs
@@ -545,6 +546,25 @@ export class MapViewComponent implements OnInit {
           fill: false,
           fillOpacity: 0
         });
+      } else if (
+        shape.kind === 'fai-keyhole' &&
+        shape.radiusM != null &&
+        shape.innerRadiusM != null &&
+        shape.startBearingDeg != null &&
+        shape.endBearingDeg != null &&
+        shape.innerStartBearingDeg != null &&
+        shape.innerEndBearingDeg != null
+      ) {
+        const pts = faiKeyholePolygonLatLngs(
+          shape.center,
+          shape.radiusM,
+          shape.innerRadiusM,
+          shape.innerStartBearingDeg,
+          shape.innerEndBearingDeg,
+          shape.startBearingDeg,
+          shape.endBearingDeg
+        );
+        layer = polygon(pts, style);
       } else if (
         (shape.kind === 'sector' || shape.kind === 'ring-sector') &&
         shape.radiusM != null &&

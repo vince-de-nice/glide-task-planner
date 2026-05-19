@@ -4,7 +4,8 @@ import {
   cupFixedAxisBearingDeg,
   cupZoneReferenceBearingDeg,
   destinationPoint,
-  buildObsZoneMapShapes
+  buildObsZoneMapShapes,
+  faiKeyholePolygonLatLngs
 } from './obs-zone-map.util';
 import { CircuitLeg } from '../models/circuit.model';
 import { Waypoint } from '../models/waypoint.model';
@@ -109,7 +110,7 @@ describe('obs-zone-map.util', () => {
     expect(shapes[0].endBearingDeg).toBeCloseTo(292.5, 5);
   });
 
-  it('builds FAI keyhole as ring-sector plus inner sector', () => {
+  it('builds FAI keyhole as single fai-keyhole shape', () => {
     const wp: Waypoint = {
       id: 't',
       name: 'TP',
@@ -139,10 +140,29 @@ describe('obs-zone-map.util', () => {
       departure: null,
       defaultRadiusM: 400
     });
-    expect(shapes).toHaveLength(2);
-    expect(shapes[0].kind).toBe('ring-sector');
-    expect(shapes[1].kind).toBe('sector');
-    expect(shapes[1].radiusM).toBe(12000);
-    expect(shapes[1].endBearingDeg! - shapes[1].startBearingDeg!).toBeCloseTo(12, 0);
+    expect(shapes).toHaveLength(1);
+    expect(shapes[0].kind).toBe('fai-keyhole');
+    expect(shapes[0].radiusM).toBe(30000);
+    expect(shapes[0].innerRadiusM).toBe(12000);
+    expect(shapes[0].endBearingDeg! - shapes[0].startBearingDeg!).toBeCloseTo(45, 0);
+    expect(shapes[0].innerEndBearingDeg! - shapes[0].innerStartBearingDeg!).toBeCloseTo(12, 0);
+  });
+
+  it('faiKeyholePolygonLatLngs starts at center and closes keyhole outline', () => {
+    const center: [number, number] = [45, 6];
+    const brg = 270;
+    const pts = faiKeyholePolygonLatLngs(
+      center,
+      30000,
+      12000,
+      brg - 6,
+      brg + 6,
+      brg - 22.5,
+      brg + 22.5,
+      4
+    );
+    expect(pts[0]).toEqual(center);
+    expect(pts.length).toBeGreaterThan(8);
+    expect(pts[pts.length - 1][0]).not.toBe(center[0]);
   });
 });

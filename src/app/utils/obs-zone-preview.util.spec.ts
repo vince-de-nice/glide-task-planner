@@ -108,17 +108,24 @@ describe('obs-zone-preview.util', () => {
     expect(view?.pathD).toContain('M');
   });
 
-  it('faiKeyholeOutline has 3 arcs (2 CCW encoches + 1 CW extérieur) and 3 L segments', () => {
+  it('faiKeyholeOutline A2<A1: encoches CCW (sweep=0)', () => {
+    // A1=45, A2=12, axis=270 => bA2L=264, bA2R=276, bA1L=247.5, bA1R=292.5
     const path = faiKeyholeOutlinePathD(264, 276, 247.5, 292.5, 14, 5.6);
     expect(path.match(/\bA\b/g)?.length).toBe(3);
-    expect(path.match(/\bL\b/g)?.length).toBe(3);
-    expect(path).toMatch(/^M /);
-    expect(path).toMatch(/Z$/);
-    // CCW encoches use sweep-flag 0, outer arc uses sweep-flag 1
     const arcs = path.match(/A [\d.]+ [\d.]+ 0 \d \d/g)!;
     expect(arcs[0]).toMatch(/0 0 0/); // left gap CCW
     expect(arcs[1]).toMatch(/0 0 1/); // outer CW
     expect(arcs[2]).toMatch(/0 0 0/); // right gap CCW
+  });
+
+  it('faiKeyholeOutline A2>A1: encoches CW (sweep=1)', () => {
+    // A1=90, A2=180, axis=310 => bA2L=220, bA2R=400(40), bA1L=265, bA1R=355
+    const path = faiKeyholeOutlinePathD(220, 400, 265, 355, 14, 5.6);
+    expect(path.match(/\bA\b/g)?.length).toBe(3);
+    const arcs = path.match(/A [\d.]+ [\d.]+ 0 \d \d/g)!;
+    expect(arcs[0]).toMatch(/0 0 1/); // left gap CW
+    expect(arcs[1]).toMatch(/0 0 1/); // outer CW
+    expect(arcs[2]).toMatch(/0 0 1/); // right gap CW
   });
 
   it('builds single-path keyhole for FAI sector', () => {
@@ -144,7 +151,7 @@ describe('obs-zone-preview.util', () => {
       departure: null,
       defaultRadiusM: 400
     });
-    expect(view?.kind).toBe('ring-sector');
+    expect(view?.kind).toBe('fai-keyhole');
     expect(view?.pathDs?.length).toBe(1);
     expect(view?.pathDs?.[0]).toMatch(/^M /);
     expect(view?.pathDs?.[0]).toContain('Z');

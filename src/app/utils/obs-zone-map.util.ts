@@ -8,7 +8,12 @@ import { Waypoint } from '../models/waypoint.model';
 
 export type LatLngTuple = [number, number];
 
-export type ObsZoneMapShapeKind = 'circle' | 'sector' | 'ring-sector' | 'line';
+export type ObsZoneMapShapeKind =
+  | 'circle'
+  | 'sector'
+  | 'ring-sector'
+  | 'fai-keyhole'
+  | 'line';
 
 export interface ObsZoneMapShape {
   kind: ObsZoneMapShapeKind;
@@ -18,8 +23,12 @@ export interface ObsZoneMapShape {
   /** Cercle plein ou secteur : rayon extérieur (m). */
   radiusM?: number;
   innerRadiusM?: number;
+  /** Bords A1 (anneau) : start = gauche, end = droite. */
   startBearingDeg?: number;
   endBearingDeg?: number;
+  /** Bords A2 (secteur intérieur), keyhole FAI uniquement. */
+  innerStartBearingDeg?: number;
+  innerEndBearingDeg?: number;
   linePoints?: LatLngTuple[];
   label: string;
 }
@@ -96,6 +105,66 @@ export function ringSectorPolygonLatLngs(
   steps = 36
 ): LatLngTuple[] {
   return ringSectorPolygon(center, outerM, innerM, startBearingDeg, endBearingDeg, steps);
+}
+
+/** Points d’arc de `fromBrg` vers `toBrg` (sans le point de départ). */
+function arcPointsBetween(
+  center: LatLngTuple,
+  radiusM: number,
+  fromBrg: number,
+  toBrg: number,
+  clockwise: boolean,
+  steps = 16
+): LatLngTuple[] {
+  const [lat, lon] = center;
+  const pts: LatLngTuple[] = [];
+  if (clockwise) {
+    let start = fromBrg;
+    let end = toBrg;
+    while (end <= start) {
+      end += 360;
+    }
+    for (let i = 1; i <= steps; i++) {
+      const b = start + ((end - start) * i) / steps;
+      pts.push(destinationPoint(lat, lon, b % 360, radiusM));
+    }
+  } else {
+    let start = fromBrg;
+    let end = toBrg;
+    while (start <= end) {
+      start += 360;
+    }
+    for (let i = 1; i <= steps; i++) {
+      const b = start - ((start - end) * i) / steps;
+      pts.push(destinationPoint(lat, lon, ((b % 360) + 360) % 360, radiusM));
+    }
+  }
+  return pts;
+}
+
+/**
+ * Polygone keyhole FAI (union secteur A2 + anneau A1), même périmètre que l’aperçu SVG.
+ */
+export function faiKeyholePolygonLatLngs(
+  center: LatLngTuple,
+  outerM: number,
+  innerM: number,
+  bA2Left: number,
+  bA2Right: number,
+  bA1Left: number,
+  bA1Right: number,
+  steps = 16
+): LatLngTuple[] {
+  const [lat, lon] = center;
+  const gapCW = ((bA2Left - bA1Left + 360) % 360) > 180;
+  const pts: LatLngTuple[] = [center];
+  pts.push(destinationPoint(lat, lon, bA2Left, innerM));
+  pts.push(...arcPointsBetween(center, innerM, bA2Left, bA1Left, gapCW, steps));
+  pts.push(destinationPoint(lat, lon, bA1Left, outerM));
+  pts.push(...arcPointsBetween(center, outerM, bA1Left, bA1Right, true, steps));
+  pts.push(destinationPoint(lat, lon, bA1Right, innerM));
+  pts.push(...arcPointsBetween(center, innerM, bA1Right, bA2Right, gapCW, steps));
+  return pts;
 }
 
 function arcPolygon(
@@ -261,29 +330,37 @@ export function buildObsZoneMapShapes(ctx: ObsZoneLegContext): ObsZoneMapShape[]
   if (zone.r2M != null && zone.r2M > 0 && zone.a1Deg != null) {
     const brg = cupZoneReferenceBearingDeg(zone, ctx);
     const halfA1 = zone.a1Deg / 2;
-    const shapes: ObsZoneMapShape[] = [
+    const bA1Left = brg - halfA1;
+    const bA1Right = brg + halfA1;
+
+    if (hasFaiInnerSector(zone)) {
+      const halfA2 = zone.a2Deg! / 2;
+      return [
+        {
+          ...base,
+          kind: 'fai-keyhole',
+          radiusM: zone.r1M,
+          innerRadiusM: zone.r2M,
+          startBearingDeg: bA1Left,
+          endBearingDeg: bA1Right,
+          innerStartBearingDeg: brg - halfA2,
+          innerEndBearingDeg: brg + halfA2,
+          label: `Secteur FAI ${zone.r1M / 1000} km`
+        }
+      ];
+    }
+
+    return [
       {
         ...base,
         kind: 'ring-sector',
         radiusM: zone.r1M,
         innerRadiusM: zone.r2M,
-        startBearingDeg: brg - halfA1,
-        endBearingDeg: brg + halfA1,
+        startBearingDeg: bA1Left,
+        endBearingDeg: bA1Right,
         label: `Secteur ${zone.r1M / 1000} km`
       }
     ];
-    if (hasFaiInnerSector(zone)) {
-      const halfA2 = zone.a2Deg! / 2;
-      shapes.push({
-        ...base,
-        kind: 'sector',
-        radiusM: zone.r2M,
-        startBearingDeg: brg - halfA2,
-        endBearingDeg: brg + halfA2,
-        label: `Keyhole · A2 ${zone.a2Deg}°`
-      });
-    }
-    return shapes;
   }
 
   if (zone.a1Deg != null && zone.a1Deg > 0 && zone.a1Deg < 360) {
@@ -353,7 +430,28 @@ export function extendBoundsWithShape(
   if (shape.linePoints) {
     pts.push(...shape.linePoints);
   }
-  if (shape.radiusM != null) {
+  if (
+    shape.kind === 'fai-keyhole' &&
+    shape.radiusM != null &&
+    shape.innerRadiusM != null &&
+    shape.startBearingDeg != null &&
+    shape.endBearingDeg != null &&
+    shape.innerStartBearingDeg != null &&
+    shape.innerEndBearingDeg != null
+  ) {
+    pts.push(
+      ...faiKeyholePolygonLatLngs(
+        shape.center,
+        shape.radiusM,
+        shape.innerRadiusM,
+        shape.innerStartBearingDeg,
+        shape.innerEndBearingDeg,
+        shape.startBearingDeg,
+        shape.endBearingDeg,
+        8
+      )
+    );
+  } else if (shape.radiusM != null) {
     const [lat, lon] = shape.center;
     const r = shape.radiusM;
     for (const b of [0, 90, 180, 270]) {
