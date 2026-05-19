@@ -29,7 +29,7 @@ export interface ObsZonePreviewLine {
 
 export interface ObsZonePreviewView {
   kind: ObsZoneMapShapeKind;
-  /** Un ou plusieurs tracés (keyhole FAI = anneau + secteur intérieur). */
+  /** Tracés SVG (keyhole FAI = un seul contour). */
   pathDs?: string[];
   /** Premier tracé (compatibilité). */
   pathD?: string;
@@ -173,38 +173,72 @@ function previewInnerRadiusM(outerM: number, innerM: number): number {
   return Math.max(3, (innerM / outerM) * MAX_R);
 }
 
-/** Keyhole FAI : anneau (R2→R1, A1) + secteur intérieur (0→R2, A2), sans chevauchement. */
-function buildKeyholePreviewPaths(
-  shapes: ObsZoneMapShape[],
-  zone: ObservationZoneConfig
-): string[] {
-  const ring = shapes.find(s => s.kind === 'ring-sector');
-  if (!ring?.radiusM || !ring.innerRadiusM) {
-    return [];
-  }
-  const innerNorm = previewInnerRadiusM(ring.radiusM, ring.innerRadiusM);
-  const pathDs: string[] = [
-    sectorPathD(
-      ring.startBearingDeg ?? 0,
-      ring.endBearingDeg ?? 360,
-      MAX_R,
-      innerNorm
-    )
-  ];
+function pt(bearingDeg: number, radius: number): string {
+  const [x, y] = polar(bearingDeg, radius);
+  return `${x} ${y}`;
+}
 
-  const innerSector = shapes.find(s => s.kind === 'sector');
-  if (innerSector && hasFaiInnerSector(zone)) {
-    pathDs.push(
-      sectorPathD(
-        innerSector.startBearingDeg ?? 0,
-        innerSector.endBearingDeg ?? 360,
-        innerNorm,
-        0
-      )
-    );
-  }
+/**
+ * Contour unique keyhole FAI = union(secteur 0→R2/A2, anneau R2→R1/A1).
+ *
+ * Périmètre (7 segments) :
+ *   1. Centre → (bA2L, R2)           ligne radiale gauche du secteur intérieur
+ *   2. Arc CCW sur R2 : bA2L → bA1L  encoche gauche (sweep=0)
+ *   3. (bA1L, R2) → (bA1L, R1)       ligne radiale sortante gauche de l'anneau
+ *   4. Arc CW sur R1 : bA1L → bA1R   arc extérieur (sweep=1)
+ *   5. (bA1R, R1) → (bA1R, R2)       ligne radiale rentrante droite de l'anneau
+ *   6. Arc CCW sur R2 : bA1R → bA2R  encoche droite (sweep=0)
+ *   7. Z ferme (bA2R, R2) → centre   ligne radiale droite du secteur intérieur
+ */
+export function faiKeyholeOutlinePathD(
+  bA2Left: number,
+  bA2Right: number,
+  bA1Left: number,
+  bA1Right: number,
+  outerR: number,
+  innerR: number
+): string {
+  const gapSpan = ((bA2Left - bA1Left) % 360 + 360) % 360;
+  const outerSpan = ((bA1Right - bA1Left) % 360 + 360) % 360;
+  const gapLarge = gapSpan > 180 ? 1 : 0;
+  const outerLarge = outerSpan > 180 ? 1 : 0;
 
-  return pathDs;
+  return [
+    `M ${CX} ${CY}`,
+    `L ${pt(bA2Left, innerR)}`,
+    `A ${innerR} ${innerR} 0 ${gapLarge} 0 ${pt(bA1Left, innerR)}`,
+    `L ${pt(bA1Left, outerR)}`,
+    `A ${outerR} ${outerR} 0 ${outerLarge} 1 ${pt(bA1Right, outerR)}`,
+    `L ${pt(bA1Right, innerR)}`,
+    `A ${innerR} ${innerR} 0 ${gapLarge} 0 ${pt(bA2Right, innerR)}`,
+    'Z'
+  ].join(' ');
+}
+
+function faiKeyholePreviewPath(
+  zone: ObservationZoneConfig,
+  ctx: ObsZoneLegContext
+): string | null {
+  if (
+    !hasFaiInnerSector(zone) ||
+    zone.a1Deg == null ||
+    zone.r2M == null ||
+    zone.r2M <= 0
+  ) {
+    return null;
+  }
+  const brg = cupZoneReferenceBearingDeg(zone, ctx);
+  const halfA1 = zone.a1Deg / 2;
+  const halfA2 = zone.a2Deg! / 2;
+  const innerNorm = previewInnerRadiusM(zone.r1M, zone.r2M);
+  return faiKeyholeOutlinePathD(
+    brg - halfA2,
+    brg + halfA2,
+    brg - halfA1,
+    brg + halfA1,
+    MAX_R,
+    innerNorm
+  );
 }
 
 function shapeToPreviewPath(shape: ObsZoneMapShape): string | undefined {
@@ -256,15 +290,10 @@ function mapShapesToPreview(
     };
   }
 
-  const keyholePaths =
-    shapes.some(s => s.kind === 'ring-sector') && shapes.some(s => s.kind === 'sector')
-      ? buildKeyholePreviewPaths(shapes, zone)
-      : [];
-
-  const pathDs =
-    keyholePaths.length > 0
-      ? keyholePaths
-      : shapes.map(s => shapeToPreviewPath(s)).filter((d): d is string => Boolean(d));
+  const keyholePath = faiKeyholePreviewPath(zone, ctx);
+  const pathDs = keyholePath
+    ? [keyholePath]
+    : shapes.map(s => shapeToPreviewPath(s)).filter((d): d is string => Boolean(d));
 
   if (pathDs.length > 0) {
     return {

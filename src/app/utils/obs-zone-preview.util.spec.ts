@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildObsZonePreview } from './obs-zone-preview.util';
+import { buildObsZonePreview, faiKeyholeOutlinePathD } from './obs-zone-preview.util';
 import { CircuitLeg } from '../models/circuit.model';
 import { Waypoint } from '../models/waypoint.model';
 
@@ -108,7 +108,20 @@ describe('obs-zone-preview.util', () => {
     expect(view?.pathD).toContain('M');
   });
 
-  it('builds ring-sector for FAI sector', () => {
+  it('faiKeyholeOutline has 3 arcs (2 CCW encoches + 1 CW extérieur) and 3 L segments', () => {
+    const path = faiKeyholeOutlinePathD(264, 276, 247.5, 292.5, 14, 5.6);
+    expect(path.match(/\bA\b/g)?.length).toBe(3);
+    expect(path.match(/\bL\b/g)?.length).toBe(3);
+    expect(path).toMatch(/^M /);
+    expect(path).toMatch(/Z$/);
+    // CCW encoches use sweep-flag 0, outer arc uses sweep-flag 1
+    const arcs = path.match(/A [\d.]+ [\d.]+ 0 \d \d/g)!;
+    expect(arcs[0]).toMatch(/0 0 0/); // left gap CCW
+    expect(arcs[1]).toMatch(/0 0 1/); // outer CW
+    expect(arcs[2]).toMatch(/0 0 0/); // right gap CCW
+  });
+
+  it('builds single-path keyhole for FAI sector', () => {
     const leg: CircuitLeg = {
       waypointId: 't',
       role: 'turnpoint',
@@ -132,12 +145,10 @@ describe('obs-zone-preview.util', () => {
       defaultRadiusM: 400
     });
     expect(view?.kind).toBe('ring-sector');
-    expect(view?.pathDs?.length).toBe(2);
-    expect(view?.pathDs?.[0]).toContain('A');
-    expect(view?.pathDs?.[1]).toContain('M');
-    // Secteur intérieur : arc à rayon réduit (R2/R1), pas au rayon extérieur.
-    expect(view?.pathDs?.[1]).not.toMatch(/A 14 14/);
-    expect(view?.pathDs?.[1]).toMatch(/A [\d.]+ [\d.]+/);
+    expect(view?.pathDs?.length).toBe(1);
+    expect(view?.pathDs?.[0]).toMatch(/^M /);
+    expect(view?.pathDs?.[0]).toContain('Z');
+    expect(view?.pathDs?.[0].match(/\bA\b/g)?.length).toBe(3);
   });
 
   it('returns non-null for every preset type', () => {
