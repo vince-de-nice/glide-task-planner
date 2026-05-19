@@ -1,0 +1,125 @@
+:host {
+  display: block;
+  flex-shrink: 0;
+}
+
+.decl-section-title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.decl-db__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.decl-db__expanded-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.decl-db__expanded {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.decl-db__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.decl-db__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.decl-db {
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 0.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.decl-db__url-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.decl-db__url-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.decl-db__source {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--gc-text-muted);
+  line-height: 1.35;
+}
+
+.decl-db__source-url {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.68rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.decl-db__select {
+  flex: 1 1 10rem;
+  min-width: 0;
+  min-height: 38px;
+}
+
+:host ::ng-deep .decl-db__select {
+  width: 100%;
+
+  .p-select-label {
+    line-height: 1.25;
+  }
+}
+
+:host ::ng-deep .decl-db__message {
+  margin: 0;
+}
+
+:host ::ng-deep .decl-db__disclaimer-acc {
+  margin: 0;
+
+  .p-accordionheader {
+    padding: 0.45rem 0.65rem;
+    font-size: 0.8125rem;
+  }
+
+  .p-accordioncontent-content {
+    padding: 0 0.65rem 0.5rem;
+  }
+}
+
+.decl-db__disclaimer-text {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--gc-text-muted);
+}
+
+:host ::ng-deep .decl-db__url-row .p-button {
+  flex-shrink: 0;
+}

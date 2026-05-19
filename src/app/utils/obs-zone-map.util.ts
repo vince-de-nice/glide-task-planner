@@ -119,7 +119,7 @@ function arcPointsBetween(
   const [lat, lon] = center;
   const pts: LatLngTuple[] = [];
   if (clockwise) {
-    let start = fromBrg;
+    const start = fromBrg;
     let end = toBrg;
     while (end <= start) {
       end += 360;
@@ -130,7 +130,7 @@ function arcPointsBetween(
     }
   } else {
     let start = fromBrg;
-    let end = toBrg;
+    const end = toBrg;
     while (start <= end) {
       start += 360;
     }
@@ -175,7 +175,7 @@ function arcPolygon(
   steps = 36
 ): LatLngTuple[] {
   const [lat, lon] = center;
-  let start = startBearingDeg;
+  const start = startBearingDeg;
   let end = endBearingDeg;
   if (end < start) {
     end += 360;
@@ -198,7 +198,7 @@ function ringSectorPolygon(
   steps = 36
 ): LatLngTuple[] {
   const [lat, lon] = center;
-  let start = startBearingDeg;
+  const start = startBearingDeg;
   let end = endBearingDeg;
   if (end < start) {
     end += 360;

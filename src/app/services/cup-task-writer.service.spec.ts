@@ -16,10 +16,6 @@ describe('CupTaskWriterService', () => {
   });
 
   it('appends Related Tasks section', () => {
-    const legs: CircuitLeg[] = [
-      { waypointId: 'a', role: 'departure' },
-      { waypointId: 't', role: 'turnpoint' }
-    ];
     const names = new Map([
       ['a', 'HOME'],
       ['t', 'TP1']
@@ -39,7 +35,7 @@ describe('CupTaskWriterService', () => {
         }
       ]
     };
-    const legsWithZone: typeof legs = [
+    const legsWithZone: CircuitLeg[] = [
       {
         waypointId: 'a',
         role: 'departure',

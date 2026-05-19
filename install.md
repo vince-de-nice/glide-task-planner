@@ -1,6 +1,6 @@
 # Mettre l’application en ligne sur un site web
 
-Ce guide est écrit pour une personne **qui n’est pas informaticienne**. L’objectif est que l’application **Gestionnaire de circuit** soit visible dans un navigateur (Chrome, Firefox, Safari, Edge) à partir d’une adresse du type `https://votre-domaine.fr`.
+Ce guide est écrit pour une personne **qui n’est pas informaticienne**. L’objectif est que l’application **Glide Task Planner** soit visible dans un navigateur (Chrome, Firefox, Safari, Edge) à partir d’une adresse du type `https://votre-domaine.fr`.
 
 ---
 
@@ -28,7 +28,7 @@ npm run build
 
 Ensuite, elle doit vous envoyer une **archive ZIP** du contenu du dossier suivant (tout ce qu’il y a **à l’intérieur**, pas seulement le nom du dossier) :
 
-**`dist/gestionnaire-circuit/browser`**
+**`dist/glide-task-planner/browser`**
 
 C’est ce ZIP que vous décompresserez et placerez sur votre hébergement (voir Partie B).
 
@@ -44,7 +44,7 @@ C’est ce ZIP que vous décompresserez et placerez sur votre hébergement (voir
 3. **Aller dans le dossier du projet** avec la commande `cd` (change directory), en adaptant le chemin à votre machine, par exemple :
 
    ```bash
-   cd chemin/vers/gestionnaire-circuit
+   cd chemin/vers/glide-task-planner
    ```
 
 4. **Installer les dépendances** (une seule fois, ou après une mise à jour du projet) — inclut notamment **Leaflet**, **PrimeNG** et **JSZip** (export `.cupx`) :
@@ -61,7 +61,7 @@ C’est ce ZIP que vous décompresserez et placerez sur votre hébergement (voir
 
 6. Sur votre disque, ouvrez le dossier du projet puis :
 
-   **`dist` → `gestionnaire-circuit` → `browser`**
+   **`dist` → `glide-task-planner` → `browser`**
 
    Tout ce qui se trouve **dans** `browser` (fichiers et sous-dossiers comme `assets`, `config`, `index.html`, fichiers `.js`, `.css`, etc.) est ce que vous devez mettre sur le site web.
 
@@ -139,7 +139,7 @@ Quand le projet change :
 | Étape | Action |
 |--------|--------|
 | 1 | `npm install` puis `npm run build` (ou recevoir le ZIP du contenu de `browser`) |
-| 2 | Placer le contenu de **`dist/gestionnaire-circuit/browser`** à la racine web (là où est `index.html` pour les visiteurs) |
+| 2 | Placer le contenu de **`dist/glide-task-planner/browser`** à la racine web (là où est `index.html` pour les visiteurs) |
 | 3 | Configurer la redirection « SPA » si nécessaire (Apache `.htaccess` ou équivalent) |
 | 4 | Tester en HTTPS et en rechargeant une sous-page |
 

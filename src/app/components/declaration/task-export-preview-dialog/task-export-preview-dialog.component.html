@@ -1,0 +1,45 @@
+<p-dialog
+  [visible]="visible()"
+  (visibleChange)="onVisibleChange($event)"
+  header="Aperçu export"
+  [modal]="true"
+  [closable]="true"
+  [dismissableMask]="true"
+  [draggable]="false"
+  styleClass="decl-preview-dialog"
+  [style]="{ width: 'min(100vw - 1rem, 640px)' }"
+  [contentStyle]="{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }"
+>
+  <p class="decl-preview__reg">{{ resolvedRegulation().label }}</p>
+  @if (ruleValidation().errors.length > 0) {
+    <p-message severity="error">{{ ruleValidation().errors.join(' · ') }}</p-message>
+  }
+  <p-select
+    [options]="previewFormatOptions"
+    optionLabel="label"
+    optionValue="value"
+    [ngModel]="previewFormat()"
+    (ngModelChange)="previewFormat.set($event)"
+    size="small"
+    fluid
+    ariaLabel="Format d’aperçu"
+  />
+  <p-button
+    [label]="copyFeedback() ? 'Copié' : 'Copier'"
+    icon="pi pi-copy"
+    size="small"
+    severity="secondary"
+    (onClick)="copyPreview()"
+    [disabled]="!exportPreview()"
+  />
+  <textarea pTextarea fluid pSize="small" readonly [value]="exportPreview()" rows="14"></textarea>
+  <div class="decl-wp-dialog__foot decl-wp-dialog__foot--split">
+    <p-button
+      label="Télécharger"
+      icon="pi pi-download"
+      (onClick)="requestDownload()"
+      [disabled]="selectedWaypointIds().length === 0 || exportBlocked()"
+    />
+    <p-button label="Fermer" [outlined]="true" (onClick)="close()" />
+  </div>
+</p-dialog>

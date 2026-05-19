@@ -1,0 +1,136 @@
+.decl-wp-dialog__meta {
+  margin: 0 0 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.decl-list-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.decl-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.decl-list-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.decl-wp-list {
+  flex: 1;
+  min-height: 12rem;
+  max-height: min(52vh, 480px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  border: 1px solid var(--gc-border);
+  border-radius: var(--gc-radius-sm);
+}
+
+.decl-wp-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.4rem 0.65rem;
+  border: none;
+  border-bottom: 1px solid var(--gc-border);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  min-height: 40px;
+  font: inherit;
+
+  &:hover {
+    background: #f8fafc;
+  }
+
+  &.is-in-task {
+    background: var(--gc-primary-soft);
+  }
+}
+
+.decl-wp-row__badge {
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  background: var(--gc-primary);
+  color: #fff;
+
+  &--add {
+    background: #e2e8f0;
+    color: var(--gc-text-muted);
+  }
+}
+
+.decl-wp-row__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.decl-wp-row__name {
+  display: block;
+  font-weight: 600;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.decl-wp-row__code {
+  font-size: 0.75rem;
+  color: var(--gc-text-muted);
+}
+
+.decl-pager {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 0 0;
+}
+
+.decl-pager__nav {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin-left: auto;
+}
+
+.decl-pager__info,
+.decl-pager__page {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.decl-wp-dialog__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--gc-border);
+  flex-shrink: 0;
+}
+
+.decl-empty {
+  padding: 1rem;
+  text-align: center;
+  color: var(--gc-text-muted);
+  font-size: 0.875rem;
+}

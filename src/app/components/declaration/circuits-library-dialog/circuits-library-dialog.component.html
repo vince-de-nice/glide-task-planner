@@ -1,0 +1,23 @@
+<p-dialog
+  [visible]="visible()"
+  (visibleChange)="onVisibleChange($event)"
+  header="Mes circuits"
+  [modal]="true"
+  [closable]="true"
+  [dismissableMask]="true"
+  [draggable]="false"
+  [style]="{ width: 'min(100vw - 1rem, 640px)' }"
+  [contentStyle]="{ maxHeight: 'min(70dvh, 520px)', overflow: 'auto' }"
+>
+  @defer (when visible()) {
+    <app-circuit-library
+      [canSave]="canSave()"
+      [selectedCircuitId]="selectedCircuitId()"
+      (saveRequested)="saveRequested.emit($event)"
+      (circuitLoaded)="circuitLoaded.emit($event)"
+    />
+  }
+  <div class="decl-wp-dialog__foot">
+    <p-button label="Fermer" icon="pi pi-times" (onClick)="close()" />
+  </div>
+</p-dialog>

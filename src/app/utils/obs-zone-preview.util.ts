@@ -56,7 +56,7 @@ function sectorPathD(
   outerR = MAX_R,
   innerR = 0
 ): string {
-  let start = startBearingDeg;
+  const start = startBearingDeg;
   let end = endBearingDeg;
   while (end <= start) {
     end += 360;

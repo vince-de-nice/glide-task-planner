@@ -5,7 +5,7 @@ import { RouterLink } from '@angular/router';
 import { WaypointService } from '../../services/waypoint.service';
 import { CupDatabaseService } from '../../services/cup-database.service';
 import { CupLoaderService } from '../../services/cup-loader.service';
-import { Waypoint, WaypointType } from '../../models/waypoint.model';
+import { Waypoint } from '../../models/waypoint.model';
 import {
   waypointTypeDisplay,
   WAYPOINT_TYPE_DISPLAY,

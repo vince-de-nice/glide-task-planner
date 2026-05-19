@@ -80,7 +80,7 @@ export class FlarmConfigService {
   downloadFlarmCfg(
     waypoints: Waypoint[],
     declaration: FlarmDeclaration,
-    filename: string = 'flarmcfg.txt'
+    filename = 'flarmcfg.txt'
   ): void {
     const content = this.generateFlarmCfgTxt(waypoints, declaration);
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -115,7 +115,7 @@ function formatFlarmCoordinate(value: number, type: 'lat' | 'lon'): string {
     type === 'lat' ? (value >= 0 ? 'N' : 'S') : value >= 0 ? 'E' : 'W';
   const abs = Math.abs(value);
   let degrees = Math.floor(abs);
-  let minutesTotal = (abs - degrees) * 60;
+  const minutesTotal = (abs - degrees) * 60;
   let minutes = Math.floor(minutesTotal);
   let thousandths = Math.round((minutesTotal - minutes) * 1000);
 

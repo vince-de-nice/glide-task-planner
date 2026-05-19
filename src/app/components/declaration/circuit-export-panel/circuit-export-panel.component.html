@@ -1,0 +1,137 @@
+<div class="decl-circuit__tab-panel decl-circuit__tab-panel--export" role="tabpanel" aria-label="Export">
+  <div
+    class="decl-circuit__status-card"
+    [class.decl-circuit__status-card--ok]="!exportBlocked() && selectedWaypointIds().length > 0"
+    [class.decl-circuit__status-card--error]="exportBlocked()"
+    [class.decl-circuit__status-card--muted]="selectedWaypointIds().length === 0"
+  >
+    <i
+      class="decl-circuit__status-icon pi"
+      [class.pi-check-circle]="!exportBlocked() && selectedWaypointIds().length > 0"
+      [class.pi-times-circle]="exportBlocked()"
+      [class.pi-minus-circle]="selectedWaypointIds().length === 0 && !exportBlocked()"
+      aria-hidden="true"
+    ></i>
+    <span>
+      @if (selectedWaypointIds().length === 0) {
+        Ajoutez des points pour exporter
+      } @else if (exportBlocked()) {
+        Export bloqué — règlement non respecté
+      } @else {
+        Prêt à exporter · {{ resolvedRegulation().label }}
+      }
+    </span>
+  </div>
+
+  @if (exportBlocked()) {
+    <p-button
+      label="Corriger le règlement"
+      icon="pi pi-sliders-h"
+      size="small"
+      [outlined]="true"
+      styleClass="decl-circuit__goto-reg"
+      (onClick)="goToRegulation.emit()"
+    />
+  }
+
+  <section class="decl-circuit__export-section">
+    <h3 class="decl-circuit__export-section-title">Tâche</h3>
+    <label class="decl-circuit__task-name">
+      <span class="decl-circuit__task-name-head">
+        <span class="gc-label">Nom de tâche (NEWTASK)</span>
+        <span class="decl-circuit__char-count">{{ taskName().length }}/50</span>
+      </span>
+      <input
+        pInputText
+        fluid
+        pSize="small"
+        [ngModel]="taskName()"
+        (ngModelChange)="onTaskNameChange($event)"
+        placeholder="Circuit_500K"
+        maxlength="50"
+      />
+    </label>
+    @if (distanceResult(); as d) {
+      <p class="decl-circuit__export-meta">
+        {{ d.taskDistance.toFixed(1) }} km tâche
+        @if (d.totalDistance > d.taskDistance + 0.05) {
+          · {{ d.totalDistance.toFixed(1) }} km total
+        }
+        · {{ selectedWaypointIds().length }} point(s)
+      </p>
+    }
+  </section>
+
+  <section class="decl-circuit__export-section">
+    <div class="decl-circuit__export-section-head">
+      <h3 class="decl-circuit__export-section-title">Pilote et planeur</h3>
+      <p-button
+        label="Modifier"
+        icon="pi pi-user-edit"
+        [text]="true"
+        size="small"
+        (onClick)="openPilot.emit()"
+      />
+    </div>
+    @if (pilotSummary(); as summary) {
+      <p class="decl-circuit__pilot-summary">{{ summary }}</p>
+      <p class="decl-circuit__export-meta">LOGINT {{ flarmProfile().logInterval }} s</p>
+    } @else {
+      <p class="decl-circuit__pilot-summary decl-circuit__pilot-summary--empty">
+        Non renseigné — requis pour un export FLARM complet
+      </p>
+    }
+  </section>
+
+  <section class="decl-circuit__export-section">
+    <h3 class="decl-circuit__export-section-title">Formats de fichier</h3>
+    <div class="decl-circuit__export-grid">
+      @for (action of exportFormatActions; track action.format) {
+        <button
+          type="button"
+          class="decl-circuit__export-card"
+          [class.decl-circuit__export-card--primary]="action.primary"
+          [disabled]="selectedWaypointIds().length === 0 || exportBlocked()"
+          (click)="onExportClick(action.format, action.primary)"
+        >
+          <i [class]="action.icon + ' decl-circuit__export-card-icon'" aria-hidden="true"></i>
+          <span class="decl-circuit__export-card-label">{{ action.label }}</span>
+          <span class="decl-circuit__export-card-detail">{{ action.detail }}</span>
+        </button>
+      }
+    </div>
+    <p class="decl-circuit__flarm-hint">
+      FLARM : redémarrer l’appareil après copie sur SD/USB.
+    </p>
+  </section>
+
+  <section class="decl-circuit__export-section decl-circuit__export-section--actions">
+    <h3 class="decl-circuit__export-section-title">Bibliothèque</h3>
+    <div class="decl-circuit__export-actions">
+      <p-button
+        label="Mes circuits"
+        icon="pi pi-bookmark"
+        size="small"
+        [outlined]="true"
+        (onClick)="openCircuits.emit()"
+      />
+      <p-button
+        label="Aperçu export"
+        icon="pi pi-eye"
+        size="small"
+        [outlined]="true"
+        [disabled]="selectedWaypointIds().length === 0"
+        (onClick)="openPreview.emit()"
+      />
+      <p-button
+        label="Vider la tâche"
+        icon="pi pi-trash"
+        size="small"
+        severity="danger"
+        [outlined]="true"
+        [disabled]="selectedWaypointIds().length === 0"
+        (onClick)="requestClearTask.emit()"
+      />
+    </div>
+  </section>
+</div>

@@ -1,0 +1,131 @@
+<div class="decl-circuit__tab-panel" role="tabpanel" aria-label="Points du circuit">
+  @if (circuitLegs().length === 0) {
+    <p class="decl-circuit__hint decl-circuit__hint--tab">
+      Décollage et atterrissage sur aérodromes (1<sup>er</sup> / dernier) · distance hors branches déco/attero
+    </p>
+  }
+  <div class="decl-circuit__list-wrap">
+    @if (circuitListItems().length > 0) {
+      <ol
+        class="decl-circuit-list"
+        cdkDropList
+        (cdkDropListDropped)="onCircuitDrop($event)"
+      >
+        @for (item of circuitListItems(); track item.key) {
+          <li class="decl-circuit-list__item" cdkDrag>
+            <span class="decl-circuit-list__handle" cdkDragHandle aria-label="Réordonner">
+              <i class="pi pi-arrows-v"></i>
+            </span>
+            @if (legComplianceIcon(item.legIndex); as icon) {
+              <span
+                class="decl-circuit-list__compliance"
+                [class.decl-circuit-list__compliance--error]="legComplianceSeverity(item.legIndex) === 'error'"
+                [class.decl-circuit-list__compliance--warn]="legComplianceSeverity(item.legIndex) === 'warn'"
+                [pTooltip]="legComplianceTooltip(item.legIndex)"
+                tooltipPosition="left"
+              >
+                <i [class]="icon" aria-hidden="true"></i>
+              </span>
+            } @else {
+              <span class="decl-circuit-list__compliance decl-circuit-list__compliance--ok" aria-hidden="true"></span>
+            }
+            <span
+              class="decl-circuit-list__num"
+              [class.decl-circuit-list__num--error]="legComplianceSeverity(item.legIndex) === 'error'"
+              [class.decl-circuit-list__num--warn]="legComplianceSeverity(item.legIndex) === 'warn'"
+              aria-hidden="true"
+            >{{ item.legIndex + 1 }}</span>
+            <button
+              type="button"
+              class="decl-circuit-list__body"
+              (click)="circuitItemClick.emit(item)"
+            >
+              <span class="decl-circuit-list__line">
+                <span class="decl-circuit-list__main">
+                  <span
+                    class="gc-wp-type-badge"
+                    [style.--wp-type-color]="waypointTypeDisplay(item.waypoint.type).color"
+                    [attr.title]="waypointTypeDisplay(item.waypoint.type).description"
+                  >
+                    <i [class]="waypointTypeDisplay(item.waypoint.type).icon" aria-hidden="true"></i>
+                    <span>{{ waypointTypeDisplay(item.waypoint.type).shortLabel }}</span>
+                  </span>
+                  @if (item.leg.role === 'departure' || item.leg.role === 'arrival') {
+                    <span class="decl-circuit-list__role">{{ circuitRoleLabel(item.leg.role) }}</span>
+                  }
+                  <span class="decl-circuit-list__name">{{ item.waypoint.name }}</span>
+                </span>
+                <span class="decl-circuit-list__zone">{{ legZoneShort(item) }}</span>
+              </span>
+            </button>
+            <span
+              class="decl-circuit-list__zone-preview-wrap"
+              [pTooltip]="legZoneShort(item)"
+              tooltipPosition="top"
+            >
+              <app-obs-zone-preview
+                [previewView]="item.previewView"
+                [role]="item.leg.role"
+              />
+            </span>
+            @if (legFromIndex(item.legIndex); as leg) {
+              <span
+                class="decl-circuit-list__leg"
+                [class.decl-circuit-list__leg--off]="!leg.counted"
+              >
+                {{ leg.distance.toFixed(1) }} km
+                @if (!leg.counted) {
+                  <span class="decl-circuit-list__leg-badge">hors tâche</span>
+                }
+              </span>
+            }
+            <div class="decl-circuit-list__actions">
+              <p-button
+                icon="pi pi-cog"
+                [text]="true"
+                size="small"
+                styleClass="decl-circuit-list__action-btn"
+                (onClick)="openLegZone.emit({ legIndex: item.legIndex, event: $event })"
+                pTooltip="Zone et altitude"
+                tooltipPosition="left"
+                ariaLabel="Zone et altitude"
+              />
+              <p-button
+                icon="pi pi-times"
+                [text]="true"
+                size="small"
+                severity="danger"
+                styleClass="decl-circuit-list__action-btn decl-circuit-list__action-btn--danger"
+                (onClick)="removeItem.emit(item.legIndex)"
+                pTooltip="Retirer"
+                tooltipPosition="left"
+                ariaLabel="Retirer"
+              />
+            </div>
+          </li>
+        }
+      </ol>
+    } @else if (circuitLegs().length > 0) {
+      <p class="decl-empty decl-circuit__empty">
+        Points en cours de chargement depuis la base…
+      </p>
+    } @else {
+      <p class="decl-empty decl-circuit__empty">
+        Aucun point dans la tâche — ajoutez-en depuis la base ou la carte.
+      </p>
+    }
+  </div>
+
+  <div class="decl-circuit__add">
+    <p-button
+      label="Ajouter des points"
+      icon="pi pi-plus"
+      size="small"
+      [outlined]="true"
+      [disabled]="waypoints().length === 0"
+      (onClick)="addPoints.emit()"
+      [pTooltip]="waypoints().length === 0 ? 'Chargez d\'abord une base CUP' : ''"
+      tooltipPosition="top"
+    />
+  </div>
+</div>

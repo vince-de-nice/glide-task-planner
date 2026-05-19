@@ -12,6 +12,7 @@ import { CupWriterService } from './cup-writer.service';
 import { CupTaskWriterService } from './cup-task-writer.service';
 import { TaskDeclarationResolver } from './task-declaration.resolver';
 import { decodeCupFileBytes } from '../utils/cup-text-encoding.util';
+import { cupUrlRejectionMessage, isAllowedCupFetchUrl } from '../utils/cup-url.util';
 import { readMigratedLocalStorage } from '../utils/local-storage-migrate.util';
 
 const STORAGE_KEY = 'gc_cup_database';
@@ -109,6 +110,9 @@ export class CupDatabaseService {
   }
 
   async fetchAndApply(url: string, label?: string): Promise<number> {
+    if (!isAllowedCupFetchUrl(url)) {
+      throw new Error(cupUrlRejectionMessage(url));
+    }
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Impossible de charger le CUP (HTTP ${response.status})`);

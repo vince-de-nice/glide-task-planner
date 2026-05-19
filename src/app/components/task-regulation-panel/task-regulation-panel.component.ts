@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { Component, computed, inject, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Select } from 'primeng/select';
@@ -11,7 +11,6 @@ import { SelectButton } from 'primeng/selectbutton';
 import { Tooltip } from 'primeng/tooltip';
 import {
   TaskRegulationOverrides,
-  TaskRegulationState,
   TaskRuleProfileId,
   TaskStartKind
 } from '../../models/task-rule-profile.model';
@@ -71,7 +70,7 @@ export class TaskRegulationPanelComponent {
 
   onProfileChange(nextId: TaskRuleProfileId | null): void {
     if (!nextId || nextId === this.profileId()) return;
-    const previous = this.profileId();
+    const _previous = this.profileId();
     void this.uiFeedback
       .confirm({
         header: 'Changer de règlement',

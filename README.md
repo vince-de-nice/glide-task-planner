@@ -1,83 +1,49 @@
-# Gestionnaire de circuit
+# Glide Task Planner
 
-Application web pour composer une tâche à partir de waypoints (fichiers SeeYou `.cup`) et l’exporter vers plusieurs formats de déclaration de circuit.
+**EN** — Web app to build gliding tasks from CUP waypoints and export to FLARM, CUP, CUPX, XCSoar, and IGC C-records.  
+**FR** — Application web pour composer une tâche planeur à partir de waypoints SeeYou (`.cup`) et l’exporter vers plusieurs formats.
 
-## Fonctionnalités
+Repository: [github.com/vince-de-nice/glide-task-planner](https://github.com/vince-de-nice/glide-task-planner)
 
-- **Base CUP par défaut** : fichier livré `public/assets/cup/default.cup` (chargé automatiquement au premier lancement si aucune base en localStorage)
-- Import d’un autre fichier `.cup` ou chargement par URL (`?cup=/chemin/relatif.cup` ou URL absolue)
-- Recherche et filtres par type de point
-- Composition de tâche sur liste et carte (Leaflet)
-- **Export multi-formats** depuis le circuit composé (menu **Exporter FLARM** ▾) :
-  - **FLARM** — `flarmcfg.txt` (`$PFLAC` / FTD-014)
-  - **CUP** — waypoints + section `-----Related Tasks-----`
-  - **CUPX** — archive Naviter (`points.zip` + `pics.zip` minimal, sans photos)
-  - **XCSoar** — `.tsk` (XML, tâche type RT, cylindres)
-  - **IGC** — bloc **C-records** uniquement (déclaration pré-vol FAI, pas un fichier `.igc` complet)
-- Aperçu texte de tous les formats exportables
-- Bibliothèque de circuits (localStorage + export/import JSON, profil FLARM inclus)
-- Interface **PrimeNG** (thème Aura) : barre CUP repliable, panneau circuit avec réordonnancement, drawer de sélection des points, toasts et confirmations homogènes
+## Stack
 
-## Prérequis
+Angular 21 · PrimeNG · Leaflet · Vitest
 
-- Node.js 18+
-- npm
-
-## Installation
+## Quick start
 
 ```bash
 npm install
-ng serve
+npm start
 ```
 
-Pour **mettre l’application sur un site Internet** (hébergeur classique, Netlify, etc.), voir **[install.md](install.md)** (guide pas à pas, y compris pour un public non technique).
+Open [http://localhost:4200](http://localhost:4200) → **Circuit** page.
 
-Ouvrir [http://localhost:4200](http://localhost:4200) → page **Circuit**.
-
-## Utilisation
-
-1. **Base CUP** — la base se charge depuis `default.cup` (ou la copie enregistrée dans le navigateur) ; importez un autre `.cup` ou une URL si besoin (barre repliable après chargement)
-2. **Circuit** — choisissez un **règlement** (Club, SeeYou, FAI ligne+PEV, FAI cylindre, Personnalisé), ajoutez les points, réordonnez, nommez la tâche
-3. **Zones** — par point, icône engrenage : type de zone et altitude MSL ; **Appliquer le règlement aux points** pour réinitialiser selon le profil
-4. **Export** — menu **Exporter FLARM** ▾ (CUP avec ligne `Options`, TSK avec PEV si profil FAI, etc.)
-
-## Règlements de tâche
-
-| Profil | Usage |
-|--------|--------|
-| **Club** | Libre ; export possible avec avertissements |
-| **SeeYou standard** | Lignes départ/arrivée, `WpDis=False` |
-| **FAI — Ligne + PEV** | Aérodromes obligatoires, PEV 5–10 min, validation stricte |
-| **FAI — Cylindre départ** | Cylindre ≥ 10 km au départ |
-| **Personnalisé** | Rayons, PEV, NoStart, contraintes ajustables |
-
-**Limites :** l’application prépare et valide les fichiers de déclaration. Le **scoring officiel** (trace IGC, PEV sur l’enregistreur principal, vitesses au départ) reste du ressort du scorer. **FLARM** : waypoints uniquement, sans zones d’observation.
-
-Le premier point **aérodrome** du circuit est le décollage, le dernier aérodrome l’atterrissage ; les points intermédiaires sont des points de virage.
-
-## Formats exportés (v1)
-
-| Format | Fichier | Remarques |
-|--------|---------|-----------|
-| FLARM | `flarmcfg.txt` | `NEWTASK` + `ADDWP` ; pas de rayons |
-| CUP | `.cup` | Tâche SeeYou + `ObsZone` par point (Style, R1, A1, R2, Line…) |
-| CUPX | `.cupx` | `POINTS.CUP` dans `points.zip` ; pas d’images embarquées |
-| XCSoar | `.tsk` | Tâche RT ; zones Cylinder / Line / Sector + altitude MSL |
-| IGC | `*-c-records.txt` | Bloc C-records FAI (A3.5.4) ; pas les sections A/B/H/G |
-
-**Hors scope v1 :** import de tâches depuis IGC/TSK/CUPX, conversion croisée, génération automatique de circuits.
-
-## Exemple FLARM
-
-```
-$PFLAC,S,NEWTASK,Ma tache
-$PFLAC,S,ADDWP,4710283N,00902433E,Schaenis
+```bash
+npm test          # unit tests
+npm run lint      # ESLint
+npm run build     # production build → dist/glide-task-planner/browser
 ```
 
-## Données waypoints
+## Default CUP database
 
-Remplacez ou mettez à jour **`public/assets/cup/default.cup`** pour votre base par défaut. Les sources listées dans `public/config/cup-sources.json` peuvent pointer vers ce même fichier (`/assets/cup/default.cup`) ou d’autres URLs. **Données non officielles** — vérifiez toujours les documents de la compétition.
+The bundled file `public/assets/cup/default.cup` is about **500 KB**. It loads automatically on first visit when no database is stored in the browser. Enable **gzip/brotli** on your host for faster delivery (see [install.md](install.md)).
 
-## Licence
+## Features
+
+- Default and remote CUP import (`?cup=/assets/...` or `https://…`)
+- Task builder on list and map (Leaflet)
+- Observation zones (FAI keyhole, sectors, lines)
+- Multi-format export: FLARM, CUP, CUPX, XCSoar `.tsk`, IGC C-records
+- Saved circuits library (localStorage)
+
+## Deployment
+
+See **[install.md](install.md)** for step-by-step hosting (upload contents of `dist/glide-task-planner/browser`).
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
 
 Open source.

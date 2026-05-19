@@ -1,0 +1,118 @@
+<section class="decl-db gc-card" aria-label="Base de points">
+  @if (!panelExpanded()) {
+    <div class="decl-db__summary">
+      <p-tag [value]="cupMeta().sourceLabel || 'Aucune base'" severity="info" />
+      @if (waypoints().length > 0) {
+        <p-tag [value]="waypoints().length + ' pts'" />
+      }
+      @if (selectedWaypointIds().length > 0) {
+        <p-tag [value]="selectedWaypointIds().length + ' en tâche'" severity="success" />
+      }
+      @if (loading()) {
+        <p-tag value="Chargement…" severity="warn" />
+      }
+      <p-button
+        label="Changer de base"
+        icon="pi pi-database"
+        size="small"
+        [outlined]="true"
+        (onClick)="togglePanel()"
+      />
+      <p-button
+        icon="pi pi-ellipsis-v"
+        size="small"
+        [text]="true"
+        (onClick)="cupMenu.toggle($event)"
+        ariaLabel="Actions base"
+      />
+      <p-menu #cupMenu [model]="cupMenuItems()" [popup]="true" appendTo="body" />
+    </div>
+  } @else {
+    <div class="decl-db__expanded">
+      <div class="decl-db__expanded-head">
+        <h2 class="decl-section-title">Base de points</h2>
+        <p-button icon="pi pi-times" size="small" [text]="true" (onClick)="togglePanel()" ariaLabel="Replier" />
+      </div>
+      <div class="decl-db__form">
+        <p-select
+          styleClass="decl-db__select"
+          [options]="cupSources()"
+          optionLabel="label"
+          optionValue="url"
+          placeholder="Source connue…"
+          [showClear]="true"
+          [filter]="cupSources().length > 8"
+          filterPlaceholder="Filtrer…"
+          [ngModel]="cupQuickSourcePick()"
+          (ngModelChange)="onCupQuickPickChange($event)"
+          [disabled]="loading()"
+          size="small"
+        />
+        <div class="decl-db__url-row">
+          <input
+            pInputText
+            fluid
+            pSize="small"
+            class="decl-db__url-input"
+            type="url"
+            placeholder="URL du fichier .cup"
+            [ngModel]="cupUrlInput()"
+            (ngModelChange)="cupUrlInput.set($event)"
+            [disabled]="loading()"
+          />
+          <p-button
+            label="Charger"
+            icon="pi pi-download"
+            size="small"
+            [disabled]="loading() || !cupUrlInput().trim()"
+            (onClick)="loadFromUrlInput()"
+          />
+        </div>
+        <input #cupFileInput type="file" accept=".cup" (change)="onCupFileSelected($event)" hidden />
+        <div class="decl-db__actions">
+          <p-button
+            label="Importer .cup"
+            icon="pi pi-upload"
+            size="small"
+            severity="secondary"
+            [disabled]="loading()"
+            (onClick)="cupFileInput.click()"
+          />
+          <p-button
+            label="Exporter .cup"
+            icon="pi pi-file-export"
+            size="small"
+            [outlined]="true"
+            [disabled]="waypoints().length === 0"
+            (onClick)="exportCup()"
+          />
+        </div>
+      </div>
+    </div>
+  }
+  @if (cupMeta().sourceLabel && panelExpanded()) {
+    <p class="decl-db__source">
+      Base : <strong>{{ cupMeta().sourceLabel }}</strong>
+      @if (cupMeta().sourceUrl) {
+        <span class="decl-db__source-url" [title]="cupMeta().sourceUrl!">{{ cupMeta().sourceUrl }}</span>
+      }
+    </p>
+  }
+  @if (loadError()) {
+    <p-message severity="error" [text]="loadError()!" styleClass="decl-db__message" />
+  }
+  @if (disclaimer()) {
+    <p-accordion
+      [value]="disclaimerAccordionIndex()"
+      (valueChange)="onDisclaimerToggle($event)"
+      styleClass="decl-db__disclaimer-acc"
+    >
+      <p-accordionpanel [value]="0">
+        <p-accordionheader>Avertissement données</p-accordionheader>
+        <p-accordioncontent>
+          <p class="decl-db__disclaimer-text">{{ disclaimer() }}</p>
+        </p-accordioncontent>
+      </p-accordionpanel>
+    </p-accordion>
+  }
+</section>

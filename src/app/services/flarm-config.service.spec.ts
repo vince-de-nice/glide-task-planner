@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   FlarmConfigService,
   formatFlarmLatitude,
-  formatFlarmLongitude,
   defaultTaskName
 } from './flarm-config.service';
 import { FlarmDeclaration } from '../models/flarm-profile.model';

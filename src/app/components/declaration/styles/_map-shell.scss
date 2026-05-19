@@ -1,0 +1,27 @@
+:host {
+  display: contents;
+}
+
+.decl-panel--map {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.decl-map-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+
+  app-map-view {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    width: 100%;
+  }
+}

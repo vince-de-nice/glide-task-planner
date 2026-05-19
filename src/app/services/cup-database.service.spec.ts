@@ -44,4 +44,22 @@ describe('CupDatabaseService', () => {
     });
     expect(service.isFromUrl('https://example.com/task.cup')).toBe(true);
   });
+
+  it('fetchAndApply rejects javascript: URLs', async () => {
+    await expect(
+      service.fetchAndApply('javascript:alert(1)')
+    ).rejects.toThrow(/non autorisée/i);
+  });
+
+  it('fetchAndApply allows same-origin relative paths', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        arrayBuffer: async () => new TextEncoder().encode(SAMPLE_CUP).buffer
+      })
+    );
+    const count = await service.fetchAndApply('/assets/cup/default.cup');
+    expect(count).toBe(1);
+  });
 });

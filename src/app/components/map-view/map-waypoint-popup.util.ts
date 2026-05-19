@@ -1,5 +1,5 @@
 import { CircuitLeg, circuitRoleShortLabel } from '../../models/circuit.model';
-import { Waypoint, WaypointType } from '../../models/waypoint.model';
+import { Waypoint } from '../../models/waypoint.model';
 
 export type WaypointMapAction =
   | 'set-departure'

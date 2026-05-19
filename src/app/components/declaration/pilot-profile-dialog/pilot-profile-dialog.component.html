@@ -1,0 +1,83 @@
+<p-dialog
+  [visible]="visible()"
+  (visibleChange)="onVisibleChange($event)"
+  header="Pilote & planeur"
+  [modal]="true"
+  [closable]="true"
+  [dismissableMask]="true"
+  [draggable]="false"
+  [style]="{ width: 'min(100vw - 1rem, 520px)' }"
+>
+  <div class="decl-form-grid">
+    <label class="decl-field">
+      <span class="gc-label">Pilote</span>
+      <input
+        pInputText
+        fluid
+        [ngModel]="flarmProfile().pilotName"
+        (ngModelChange)="flarmProfileService.setPilotName($event)"
+        placeholder="Jean Dupont"
+        maxlength="47"
+      />
+    </label>
+    <label class="decl-field">
+      <span class="gc-label">Type planeur</span>
+      <input
+        pInputText
+        fluid
+        [ngModel]="flarmProfile().gliderType"
+        (ngModelChange)="flarmProfileService.setGliderType($event)"
+        placeholder="JS1-C"
+        maxlength="31"
+      />
+    </label>
+    <label class="decl-field">
+      <span class="gc-label">Immatriculation</span>
+      <input
+        pInputText
+        fluid
+        [ngModel]="flarmProfile().gliderId"
+        (ngModelChange)="flarmProfileService.setGliderId($event)"
+        placeholder="F-CINE"
+        maxlength="15"
+      />
+    </label>
+    <label class="decl-field">
+      <span class="gc-label">ID compétition</span>
+      <input
+        pInputText
+        fluid
+        [ngModel]="flarmProfile().compId"
+        (ngModelChange)="flarmProfileService.setCompId($event)"
+        placeholder="ZX"
+        maxlength="15"
+      />
+    </label>
+    <label class="decl-field">
+      <span class="gc-label">Classe</span>
+      <input
+        pInputText
+        fluid
+        [ngModel]="flarmProfile().compClass"
+        (ngModelChange)="flarmProfileService.setCompClass($event)"
+        placeholder="Standard"
+        maxlength="15"
+      />
+    </label>
+    <label class="decl-field">
+      <span class="gc-label">LOGINT (s)</span>
+      <input
+        pInputText
+        fluid
+        type="number"
+        min="1"
+        max="8"
+        [ngModel]="flarmProfile().logInterval"
+        (ngModelChange)="flarmProfileService.setLogInterval(+$event)"
+      />
+    </label>
+  </div>
+  <div class="decl-wp-dialog__foot">
+    <p-button label="Enregistrer" icon="pi pi-check" (onClick)="close()" />
+  </div>
+</p-dialog>

@@ -1,7 +1,7 @@
 import { Component, input, output, signal, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Waypoint, WaypointType } from '../../models/waypoint.model';
+import { Waypoint } from '../../models/waypoint.model';
 import { WAYPOINT_TYPE_DISPLAY, WAYPOINT_TYPE_ORDER } from '../../utils/waypoint-type-display.util';
 import { Dialog } from 'primeng/dialog';
 import { Button } from 'primeng/button';
@@ -23,7 +23,7 @@ export class WaypointEditDialogComponent {
   isCreate = input(false);
 
   save = output<WaypointEditPayload>();
-  cancel = output<void>();
+  dismissed = output<void>();
 
   form = signal<WaypointEditPayload>(this.emptyForm());
 
@@ -66,12 +66,12 @@ export class WaypointEditDialogComponent {
   }
 
   onCancel(): void {
-    this.cancel.emit();
+    this.dismissed.emit();
   }
 
   onDialogVisibleChange(visible: boolean): void {
     if (!visible) {
-      this.cancel.emit();
+      this.dismissed.emit();
     }
   }
 

@@ -7,7 +7,7 @@
   },
   "newProjectRoot": "projects",
   "projects": {
-    "gestionnaire-circuit": {
+    "glide-task-planner": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -34,7 +34,7 @@
               "node_modules/leaflet/dist/leaflet.css",
               "src/styles.scss"
             ],
-            "allowedCommonJsDependencies": ["leaflet"]
+            "allowedCommonJsDependencies": ["leaflet", "jszip"]
           },
           "configurations": {
             "production": {
@@ -67,16 +67,22 @@
           },
           "configurations": {
             "production": {
-              "buildTarget": "gestionnaire-circuit:build:production"
+              "buildTarget": "glide-task-planner:build:production"
             },
             "development": {
-              "buildTarget": "gestionnaire-circuit:build:development"
+              "buildTarget": "glide-task-planner:build:development"
             }
           },
           "defaultConfiguration": "development"
         },
         "test": {
           "builder": "@angular/build:unit-test"
+        },
+        "lint": {
+          "builder": "@angular-eslint/builder:lint",
+          "options": {
+            "lintFilePatterns": ["src/**/*.ts", "src/**/*.html"]
+          }
         }
       }
     }

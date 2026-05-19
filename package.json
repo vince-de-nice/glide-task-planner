@@ -1,13 +1,15 @@
 {
-  "name": "gestionnaire-circuit",
+  "name": "glide-task-planner",
   "version": "0.0.0",
+  "description": "Web app to build gliding tasks from CUP waypoints and export to FLARM, CUP, CUPX, XCSoar, and IGC C-records.",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
     "airspace:fetch": "node scripts/fetch-poaff-airspace.mjs",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "lint": "ng lint"
   },
   "private": true,
   "packageManager": "npm@11.6.0",
@@ -30,9 +32,14 @@
     "tslib": "^2.3.0"
   },
   "devDependencies": {
+    "@angular-eslint/builder": "^19.4.0",
     "@angular/build": "^21.2.11",
     "@angular/cli": "^21.2.11",
     "@angular/compiler-cli": "^21.2.0",
+    "@eslint/js": "^9.21.0",
+    "angular-eslint": "^19.4.0",
+    "eslint": "^9.21.0",
+    "typescript-eslint": "^8.25.0",
     "@types/jszip": "^3.4.0",
     "@types/leaflet": "^1.9.21",
     "jsdom": "^28.0.0",

@@ -1,0 +1,17 @@
+.decl-preview__reg {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--gc-text-muted);
+}
+
+.decl-wp-dialog__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.decl-wp-dialog__foot--split {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}

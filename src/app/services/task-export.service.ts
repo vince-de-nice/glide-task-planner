@@ -1,10 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { CircuitLeg } from '../models/circuit.model';
-import {
-  TaskDeclaration,
-  TaskExportOptions,
-  DEFAULT_TASK_EXPORT_RADIUS_M
-} from '../models/task-declaration.model';
+import { TaskDeclaration, TaskExportOptions } from '../models/task-declaration.model';
 import { Waypoint } from '../models/waypoint.model';
 import { FlarmDeclaration } from '../models/flarm-profile.model';
 import { FlarmConfigService, flarmCfgFilename } from './flarm-config.service';

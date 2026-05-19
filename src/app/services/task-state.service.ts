@@ -7,16 +7,13 @@ import {
   circuitRoleLabel,
   circuitRoleMapToken
 } from '../models/circuit.model';
-import { Waypoint } from '../models/waypoint.model';
 import {
   ObservationZoneConfig,
-  defaultObservationZoneForRole,
   normalizeObservationZone,
   observationZoneFromPreset
 } from '../models/observation-zone.model';
 import { WaypointService } from './waypoint.service';
 import { defaultTaskName } from './flarm-config.service';
-import { DEFAULT_TASK_EXPORT_RADIUS_M } from '../models/task-declaration.model';
 import {
   DEFAULT_TASK_REGULATION,
   TaskRegulationState,

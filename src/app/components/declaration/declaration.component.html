@@ -1,122 +1,5 @@
 <div class="declaration">
-  <section class="decl-db gc-card" aria-label="Base de points">
-    @if (!cupPanelExpanded()) {
-      <div class="decl-db__summary">
-        <p-tag [value]="cupMeta().sourceLabel || 'Aucune base'" severity="info" />
-        @if (waypoints().length > 0) {
-          <p-tag [value]="waypoints().length + ' pts'" />
-        }
-        @if (selectedWaypointIds().length > 0) {
-          <p-tag [value]="selectedWaypointIds().length + ' en tâche'" severity="success" />
-        }
-        @if (loading()) {
-          <p-tag value="Chargement…" severity="warn" />
-        }
-        <p-button
-          label="Changer de base"
-          icon="pi pi-database"
-          size="small"
-          [outlined]="true"
-          (onClick)="toggleCupPanel()"
-        />
-        <p-button
-          icon="pi pi-ellipsis-v"
-          size="small"
-          [text]="true"
-          (onClick)="cupMenu.toggle($event)"
-          ariaLabel="Actions base"
-        />
-        <p-menu #cupMenu [model]="cupMenuItems()" [popup]="true" appendTo="body" />
-      </div>
-    } @else {
-      <div class="decl-db__expanded">
-        <div class="decl-db__expanded-head">
-          <h2 class="decl-section-title">Base de points</h2>
-          <p-button icon="pi pi-times" size="small" [text]="true" (onClick)="toggleCupPanel()" ariaLabel="Replier" />
-        </div>
-        <div class="decl-db__form">
-        <p-select
-          styleClass="decl-db__select"
-          [options]="cupSources()"
-          optionLabel="label"
-          optionValue="url"
-          placeholder="Source connue…"
-          [showClear]="true"
-          [filter]="cupSources().length > 8"
-          filterPlaceholder="Filtrer…"
-          [ngModel]="cupQuickSourcePick()"
-          (ngModelChange)="onCupQuickPickChange($event)"
-          [disabled]="loading()"
-          size="small"
-        />
-        <div class="decl-db__url-row">
-          <input
-            pInputText
-            fluid
-            pSize="small"
-            class="decl-db__url-input"
-            type="url"
-            placeholder="URL du fichier .cup"
-            [ngModel]="cupUrlInput()"
-            (ngModelChange)="cupUrlInput.set($event)"
-            [disabled]="loading()"
-          />
-          <p-button
-            label="Charger"
-            icon="pi pi-download"
-            size="small"
-            [disabled]="loading() || !cupUrlInput().trim()"
-            (onClick)="loadFromUrlInput()"
-          />
-        </div>
-        <input #cupFileInput type="file" accept=".cup" (change)="onCupFileSelected($event)" hidden />
-        <div class="decl-db__actions">
-          <p-button
-            label="Importer .cup"
-            icon="pi pi-upload"
-            size="small"
-            severity="secondary"
-            [disabled]="loading()"
-            (onClick)="cupFileInput.click()"
-          />
-          <p-button
-            label="Exporter .cup"
-            icon="pi pi-file-export"
-            size="small"
-            [outlined]="true"
-            [disabled]="waypoints().length === 0"
-            (onClick)="exportCup()"
-          />
-        </div>
-        </div>
-      </div>
-    }
-    @if (cupMeta().sourceLabel && cupPanelExpanded()) {
-      <p class="decl-db__source">
-        Base : <strong>{{ cupMeta().sourceLabel }}</strong>
-        @if (cupMeta().sourceUrl) {
-          <span class="decl-db__source-url" [title]="cupMeta().sourceUrl!">{{ cupMeta().sourceUrl }}</span>
-        }
-      </p>
-    }
-    @if (loadError()) {
-      <p-message severity="error" [text]="loadError()!" styleClass="decl-db__message" />
-    }
-    @if (disclaimer()) {
-      <p-accordion
-        [value]="disclaimerAccordionIndex()"
-        (valueChange)="onDisclaimerToggle($event)"
-        styleClass="decl-db__disclaimer-acc"
-      >
-        <p-accordionpanel [value]="0">
-          <p-accordionheader>Avertissement données</p-accordionheader>
-          <p-accordioncontent>
-            <p class="decl-db__disclaimer-text">{{ disclaimer() }}</p>
-          </p-accordioncontent>
-        </p-accordionpanel>
-      </p-accordion>
-    }
-  </section>
+  <app-cup-toolbar (databaseLoaded)="onCupDatabaseLoaded()" />
 
   @if (circuitMessage()) {
     <p-message severity="success" [text]="circuitMessage()!" styleClass="decl-flash-msg" />
@@ -140,11 +23,7 @@
     [class.decl-workspace--map]="mobileTab() === 'map'"
     [class.decl-workspace--task]="mobileTab() === 'task'"
   >
-    <section class="decl-panel decl-panel--map gc-card" aria-label="Carte">
-      <div class="decl-map-wrap">
-        <app-map-view (actionMessage)="showAddToast($event)" />
-      </div>
-    </section>
+    <app-circuit-map-shell (actionMessage)="showAddToast($event)" />
 
     <section class="decl-panel decl-panel--circuit gc-card" aria-label="Circuit et export">
       <header class="decl-circuit__head">
@@ -188,138 +67,16 @@
 
       <div class="decl-circuit__tabs-body">
         @if (circuitTab() === 'points') {
-          <div class="decl-circuit__tab-panel" role="tabpanel" aria-label="Points du circuit">
-            @if (circuitLegs().length === 0) {
-              <p class="decl-circuit__hint decl-circuit__hint--tab">
-                Décollage et atterrissage sur aérodromes (1<sup>er</sup> / dernier) · distance hors branches déco/attero
-              </p>
-            }
-            <div class="decl-circuit__list-wrap">
-        @if (circuitListItems().length > 0) {
-          <ol
-            class="decl-circuit-list"
-            cdkDropList
-            (cdkDropListDropped)="onCircuitDrop($event)"
-          >
-            @for (item of circuitListItems(); track item.key) {
-              <li class="decl-circuit-list__item" cdkDrag>
-                <span class="decl-circuit-list__handle" cdkDragHandle aria-label="Réordonner">
-                  <i class="pi pi-arrows-v"></i>
-                </span>
-                @if (legComplianceIcon(item.legIndex); as icon) {
-                  <span
-                    class="decl-circuit-list__compliance"
-                    [class.decl-circuit-list__compliance--error]="legComplianceSeverity(item.legIndex) === 'error'"
-                    [class.decl-circuit-list__compliance--warn]="legComplianceSeverity(item.legIndex) === 'warn'"
-                    [pTooltip]="legComplianceTooltip(item.legIndex)"
-                    tooltipPosition="left"
-                  >
-                    <i [class]="icon" aria-hidden="true"></i>
-                  </span>
-                } @else {
-                  <span class="decl-circuit-list__compliance decl-circuit-list__compliance--ok" aria-hidden="true"></span>
-                }
-                <span
-                  class="decl-circuit-list__num"
-                  [class.decl-circuit-list__num--error]="legComplianceSeverity(item.legIndex) === 'error'"
-                  [class.decl-circuit-list__num--warn]="legComplianceSeverity(item.legIndex) === 'warn'"
-                  aria-hidden="true"
-                >{{ item.legIndex + 1 }}</span>
-                <button
-                  type="button"
-                  class="decl-circuit-list__body"
-                  (click)="onCircuitItemClick(item)"
-                >
-                  <span class="decl-circuit-list__line">
-                    <span class="decl-circuit-list__main">
-                      <span
-                        class="gc-wp-type-badge"
-                        [style.--wp-type-color]="waypointTypeDisplay(item.waypoint.type).color"
-                        [attr.title]="waypointTypeDisplay(item.waypoint.type).description"
-                      >
-                        <i [class]="waypointTypeDisplay(item.waypoint.type).icon" aria-hidden="true"></i>
-                        <span>{{ waypointTypeDisplay(item.waypoint.type).shortLabel }}</span>
-                      </span>
-                      @if (item.leg.role === 'departure' || item.leg.role === 'arrival') {
-                        <span class="decl-circuit-list__role">{{ circuitRoleLabel(item.leg.role) }}</span>
-                      }
-                      <span class="decl-circuit-list__name">{{ item.waypoint.name }}</span>
-                    </span>
-                    <span class="decl-circuit-list__zone">{{ legZoneShort(item) }}</span>
-                  </span>
-                </button>
-                <span
-                  class="decl-circuit-list__zone-preview-wrap"
-                  [pTooltip]="legZoneShort(item)"
-                  tooltipPosition="top"
-                >
-                  <app-obs-zone-preview
-                    [previewView]="item.previewView"
-                    [role]="item.leg.role"
-                  />
-                </span>
-                @if (legFromIndex(item.legIndex); as leg) {
-                  <span
-                    class="decl-circuit-list__leg"
-                    [class.decl-circuit-list__leg--off]="!leg.counted"
-                  >
-                    {{ leg.distance.toFixed(1) }} km
-                    @if (!leg.counted) {
-                      <span class="decl-circuit-list__leg-badge">hors tâche</span>
-                    }
-                  </span>
-                }
-                <div class="decl-circuit-list__actions">
-                  <p-button
-                    icon="pi pi-cog"
-                    [text]="true"
-                    size="small"
-                    styleClass="decl-circuit-list__action-btn"
-                    (onClick)="openLegZoneDialog(item.legIndex, $event)"
-                    pTooltip="Zone et altitude"
-                    tooltipPosition="left"
-                    ariaLabel="Zone et altitude"
-                  />
-                  <p-button
-                    icon="pi pi-times"
-                    [text]="true"
-                    size="small"
-                    severity="danger"
-                    styleClass="decl-circuit-list__action-btn decl-circuit-list__action-btn--danger"
-                    (onClick)="removeCircuitItem(item.legIndex)"
-                    pTooltip="Retirer"
-                    tooltipPosition="left"
-                    ariaLabel="Retirer"
-                  />
-                </div>
-              </li>
-            }
-          </ol>
-        } @else if (circuitLegs().length > 0) {
-          <p class="decl-empty decl-circuit__empty">
-            Points en cours de chargement depuis la base…
-          </p>
-        } @else {
-          <p class="decl-empty decl-circuit__empty">
-            Aucun point dans la tâche — ajoutez-en depuis la base ou la carte.
-          </p>
+          <app-circuit-points-panel
+            [distanceResult]="distanceResult()"
+            (circuitDrop)="onCircuitLegsReordered($event)"
+            (circuitItemClick)="onCircuitItemClick($event)"
+            (openLegZone)="openLegZoneDialog($event.legIndex, $event.event)"
+            (removeItem)="removeCircuitItem($event)"
+            (addPoints)="openWaypointDialog()"
+          />
         }
-            </div>
 
-            <div class="decl-circuit__add">
-        <p-button
-          label="Ajouter des points"
-          icon="pi pi-plus"
-          size="small"
-          [outlined]="true"
-          [disabled]="waypoints().length === 0"
-          (onClick)="openWaypointDialog()"
-          [pTooltip]="waypoints().length === 0 ? 'Chargez d\'abord une base CUP' : ''"
-          tooltipPosition="top"
-        />
-            </div>
-          </div>
-        }
 
         @if (circuitTab() === 'regulation') {
           <div
@@ -392,392 +149,39 @@
         }
 
         @if (circuitTab() === 'export') {
-          <div class="decl-circuit__tab-panel decl-circuit__tab-panel--export" role="tabpanel" aria-label="Export">
-            <div class="decl-circuit__status-card"
-              [class.decl-circuit__status-card--ok]="!exportBlocked() && selectedWaypointIds().length > 0"
-              [class.decl-circuit__status-card--error]="exportBlocked()"
-              [class.decl-circuit__status-card--muted]="selectedWaypointIds().length === 0"
-            >
-              <i
-                class="decl-circuit__status-icon pi"
-                [class.pi-check-circle]="!exportBlocked() && selectedWaypointIds().length > 0"
-                [class.pi-times-circle]="exportBlocked()"
-                [class.pi-minus-circle]="selectedWaypointIds().length === 0 && !exportBlocked()"
-                aria-hidden="true"
-              ></i>
-              <span>
-                @if (selectedWaypointIds().length === 0) {
-                  Ajoutez des points pour exporter
-                } @else if (exportBlocked()) {
-                  Export bloqué — règlement non respecté
-                } @else {
-                  Prêt à exporter · {{ resolvedRegulation().label }}
-                }
-              </span>
-            </div>
-
-            @if (exportBlocked()) {
-              <p-button
-                label="Corriger le règlement"
-                icon="pi pi-sliders-h"
-                size="small"
-                [outlined]="true"
-                styleClass="decl-circuit__goto-reg"
-                (onClick)="goToRegulationTab()"
-              />
-            }
-
-            <section class="decl-circuit__export-section">
-              <h3 class="decl-circuit__export-section-title">Tâche</h3>
-              <label class="decl-circuit__task-name">
-                <span class="decl-circuit__task-name-head">
-                  <span class="gc-label">Nom de tâche (NEWTASK)</span>
-                  <span class="decl-circuit__char-count">{{ taskName().length }}/50</span>
-                </span>
-                <input
-                  pInputText
-                  fluid
-                  pSize="small"
-                  [ngModel]="taskName()"
-                  (ngModelChange)="onTaskNameChange($event)"
-                  placeholder="Circuit_500K"
-                  maxlength="50"
-                />
-              </label>
-              @if (distanceResult(); as d) {
-                <p class="decl-circuit__export-meta">
-                  {{ d.taskDistance.toFixed(1) }} km tâche
-                  @if (d.totalDistance > d.taskDistance + 0.05) {
-                    · {{ d.totalDistance.toFixed(1) }} km total
-                  }
-                  · {{ selectedWaypointIds().length }} point(s)
-                </p>
-              }
-            </section>
-
-            <section class="decl-circuit__export-section">
-              <div class="decl-circuit__export-section-head">
-                <h3 class="decl-circuit__export-section-title">Pilote et planeur</h3>
-                <p-button
-                  label="Modifier"
-                  icon="pi pi-user-edit"
-                  [text]="true"
-                  size="small"
-                  (onClick)="openPilotDialog()"
-                />
-              </div>
-              @if (pilotSummary(); as summary) {
-                <p class="decl-circuit__pilot-summary">{{ summary }}</p>
-                <p class="decl-circuit__export-meta">LOGINT {{ flarmProfile().logInterval }} s</p>
-              } @else {
-                <p class="decl-circuit__pilot-summary decl-circuit__pilot-summary--empty">
-                  Non renseigné — requis pour un export FLARM complet
-                </p>
-              }
-            </section>
-
-            <section class="decl-circuit__export-section">
-              <h3 class="decl-circuit__export-section-title">Formats de fichier</h3>
-              <div class="decl-circuit__export-grid">
-                @for (action of exportFormatActions; track action.format) {
-                  <button
-                    type="button"
-                    class="decl-circuit__export-card"
-                    [class.decl-circuit__export-card--primary]="action.primary"
-                    [disabled]="selectedWaypointIds().length === 0 || exportBlocked()"
-                    (click)="action.primary ? downloadFlarm() : exportTask(action.format)"
-                  >
-                    <i [class]="action.icon + ' decl-circuit__export-card-icon'" aria-hidden="true"></i>
-                    <span class="decl-circuit__export-card-label">{{ action.label }}</span>
-                    <span class="decl-circuit__export-card-detail">{{ action.detail }}</span>
-                  </button>
-                }
-              </div>
-              <p class="decl-circuit__flarm-hint">
-                FLARM : redémarrer l’appareil après copie sur SD/USB.
-              </p>
-            </section>
-
-            <section class="decl-circuit__export-section decl-circuit__export-section--actions">
-              <h3 class="decl-circuit__export-section-title">Bibliothèque</h3>
-              <div class="decl-circuit__export-actions">
-                <p-button
-                  label="Mes circuits"
-                  icon="pi pi-bookmark"
-                  size="small"
-                  [outlined]="true"
-                  (onClick)="openCircuitsDialog()"
-                />
-                <p-button
-                  label="Aperçu export"
-                  icon="pi pi-eye"
-                  size="small"
-                  [outlined]="true"
-                  [disabled]="selectedWaypointIds().length === 0"
-                  (onClick)="openPreviewDialog()"
-                />
-                <p-button
-                  label="Vider la tâche"
-                  icon="pi pi-trash"
-                  size="small"
-                  severity="danger"
-                  [outlined]="true"
-                  [disabled]="selectedWaypointIds().length === 0"
-                  (onClick)="clearTaskWithConfirm()"
-                />
-              </div>
-            </section>
-          </div>
+          <app-circuit-export-panel
+            [distanceResult]="distanceResult()"
+            (goToRegulation)="goToRegulationTab()"
+            (openPilot)="openPilotDialog()"
+            (openCircuits)="openCircuitsDialog()"
+            (openPreview)="openPreviewDialog()"
+            (requestClearTask)="clearTaskWithConfirm()"
+            (downloadFlarm)="downloadFlarm()"
+            (exportFormat)="exportTask($event)"
+          />
         }
+
       </div>
     </section>
   </div>
 </div>
 
-<!-- Drawer : choix des waypoints -->
-<p-drawer
+<app-waypoint-picker-drawer
   [visible]="waypointDialogOpen()"
   (visibleChange)="onWaypointDrawerVisible($event)"
-  header="Choisir des points"
-  position="right"
-  styleClass="decl-wp-drawer"
-  [style]="{ width: 'min(100vw, 480px)' }"
-  [modal]="true"
-  [dismissible]="true"
-  [closeOnEscape]="true"
->
-  @if (filteredCount() > 0) {
-    <p class="decl-panel__meta decl-wp-dialog__meta">{{ filteredCount() }} résultat(s)</p>
-  }
-  <div class="decl-list-tools">
-    <input
-      pInputText
-      fluid
-      pSize="small"
-      type="search"
-      placeholder="Rechercher nom, code…"
-      [ngModel]="searchQuery()"
-      (ngModelChange)="onSearchChange($event)"
-    />
-    <div class="decl-chips" role="group" aria-label="Filtres">
-      @for (f of typeFilters; track f.id) {
-        <p-button
-          size="small"
-          [text]="typeFilter() !== f.id"
-          [severity]="typeFilter() === f.id ? 'primary' : 'secondary'"
-          [icon]="f.icon"
-          (onClick)="setTypeFilter(f.id)"
-          [label]="f.label"
-        />
-      }
-    </div>
-  </div>
-  <div class="decl-list-body">
-    <ul class="decl-wp-list gc-scroll" aria-label="Page {{ currentPage() }}">
-      @for (wp of paginatedWaypoints(); track wp.id) {
-        <li>
-          <button
-            type="button"
-            class="decl-wp-row"
-            [class.is-in-task]="getOccurrenceCount(wp.id) > 0"
-            (click)="onWaypointRowClick(wp.id, wp.name)"
-          >
-            @if (getOccurrenceCount(wp.id) > 0) {
-              <span class="decl-wp-row__badge">×{{ getOccurrenceCount(wp.id) }}</span>
-            } @else {
-              <span class="decl-wp-row__badge decl-wp-row__badge--add">+</span>
-            }
-            <span class="decl-wp-row__body">
-              <span class="decl-wp-row__name">{{ wp.name }}</span>
-              @if (wp.code) {
-                <span class="decl-wp-row__code">{{ wp.code }}</span>
-              }
-            </span>
-            <span
-              class="gc-wp-type-badge"
-              [style.--wp-type-color]="waypointTypeDisplay(wp.type).color"
-              [attr.title]="waypointTypeDisplay(wp.type).description"
-            >
-              <i [class]="waypointTypeDisplay(wp.type).icon" aria-hidden="true"></i>
-              <span>{{ waypointTypeDisplay(wp.type).shortLabel }}</span>
-            </span>
-          </button>
-        </li>
-      } @empty {
-        <li class="decl-empty">Aucun point ne correspond.</li>
-      }
-    </ul>
-  </div>
-  @if (filteredCount() > 0) {
-    <nav class="decl-pager" aria-label="Pagination des points">
-      <span class="decl-pager__info">{{ pageRangeStart() }}–{{ pageRangeEnd() }} / {{ filteredCount() }}</span>
-      <div class="decl-pager__nav">
-        <p-button
-          icon="pi pi-angle-left"
-          [text]="true"
-          size="small"
-          (onClick)="prevPage()"
-          [disabled]="currentPage() <= 1"
-          ariaLabel="Page précédente"
-        />
-        <span class="decl-pager__page">{{ currentPage() }} / {{ totalPages() }}</span>
-        <p-button
-          icon="pi pi-angle-right"
-          [text]="true"
-          size="small"
-          (onClick)="nextPage()"
-          [disabled]="currentPage() >= totalPages()"
-          ariaLabel="Page suivante"
-        />
-      </div>
-      <label class="decl-pager__size">
-        <span class="gc-label gc-label--invisible">Par page</span>
-        <p-select
-          [options]="pageSizeOptions"
-          [ngModel]="pageSize()"
-          (ngModelChange)="setPageSize(+$event)"
-          size="small"
-          ariaLabel="Points par page"
-        />
-      </label>
-    </nav>
-  }
-  <div class="decl-wp-dialog__foot">
-    <p-button label="Terminé" icon="pi pi-check" (onClick)="closeWaypointDialog()" />
-  </div>
-</p-drawer>
+  (waypointAdded)="showAddToast('« ' + $event + ' » ajouté comme point de virage')"
+/>
 
-<!-- Dialog : pilote & planeur -->
-<p-dialog
+<app-pilot-profile-dialog
   [visible]="pilotDialogOpen()"
   (visibleChange)="onPilotDialogVisible($event)"
-  header="Pilote & planeur"
-  [modal]="true"
-  [closable]="true"
-  [dismissableMask]="true"
-  [draggable]="false"
-  [style]="{ width: 'min(100vw - 1rem, 520px)' }"
->
-  <div class="decl-form-grid">
-    <label class="decl-field">
-      <span class="gc-label">Pilote</span>
-      <input
-        pInputText
-        fluid
-        [ngModel]="flarmProfile().pilotName"
-        (ngModelChange)="flarmProfileService.setPilotName($event)"
-        placeholder="Jean Dupont"
-        maxlength="47"
-      />
-    </label>
-    <label class="decl-field">
-      <span class="gc-label">Type planeur</span>
-      <input
-        pInputText
-        fluid
-        [ngModel]="flarmProfile().gliderType"
-        (ngModelChange)="flarmProfileService.setGliderType($event)"
-        placeholder="JS1-C"
-        maxlength="31"
-      />
-    </label>
-    <label class="decl-field">
-      <span class="gc-label">Immatriculation</span>
-      <input
-        pInputText
-        fluid
-        [ngModel]="flarmProfile().gliderId"
-        (ngModelChange)="flarmProfileService.setGliderId($event)"
-        placeholder="F-CINE"
-        maxlength="15"
-      />
-    </label>
-    <label class="decl-field">
-      <span class="gc-label">ID compétition</span>
-      <input
-        pInputText
-        fluid
-        [ngModel]="flarmProfile().compId"
-        (ngModelChange)="flarmProfileService.setCompId($event)"
-        placeholder="ZX"
-        maxlength="15"
-      />
-    </label>
-    <label class="decl-field">
-      <span class="gc-label">Classe</span>
-      <input
-        pInputText
-        fluid
-        [ngModel]="flarmProfile().compClass"
-        (ngModelChange)="flarmProfileService.setCompClass($event)"
-        placeholder="Standard"
-        maxlength="15"
-      />
-    </label>
-    <label class="decl-field">
-      <span class="gc-label">LOGINT (s)</span>
-      <input
-        pInputText
-        fluid
-        type="number"
-        min="1"
-        max="8"
-        [ngModel]="flarmProfile().logInterval"
-        (ngModelChange)="flarmProfileService.setLogInterval(+$event)"
-      />
-    </label>
-  </div>
-  <div class="decl-wp-dialog__foot">
-    <p-button label="Enregistrer" icon="pi pi-check" (onClick)="closePilotDialog()" />
-  </div>
-</p-dialog>
+/>
 
-<!-- Dialog : aperçu export -->
-<p-dialog
+<app-task-export-preview-dialog
   [visible]="previewDialogOpen()"
   (visibleChange)="onPreviewDialogVisible($event)"
-  header="Aperçu export"
-  [modal]="true"
-  [closable]="true"
-  [dismissableMask]="true"
-  [draggable]="false"
-  styleClass="decl-preview-dialog"
-  [style]="{ width: 'min(100vw - 1rem, 640px)' }"
-  [contentStyle]="{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }"
->
-  <p class="decl-preview__reg">{{ resolvedRegulation().label }}</p>
-  @if (ruleValidation().errors.length > 0) {
-    <p-message severity="error">{{ ruleValidation().errors.join(' · ') }}</p-message>
-  }
-  <p-select
-    [options]="previewFormatOptions"
-    optionLabel="label"
-    optionValue="value"
-    [ngModel]="previewFormat()"
-    (ngModelChange)="previewFormat.set($event)"
-    size="small"
-    fluid
-    ariaLabel="Format d’aperçu"
-  />
-  <p-button
-    [label]="copyFeedback() ? 'Copié' : 'Copier'"
-    icon="pi pi-copy"
-    size="small"
-    severity="secondary"
-    (onClick)="copyPreview()"
-    [disabled]="!exportPreview()"
-  />
-  <textarea pTextarea fluid pSize="small" readonly [value]="exportPreview()" rows="14"></textarea>
-  <div class="decl-wp-dialog__foot decl-wp-dialog__foot--split">
-    <p-button
-      label="Télécharger"
-      icon="pi pi-download"
-      (onClick)="exportTask(previewFormat()); closePreviewDialog()"
-      [disabled]="selectedWaypointIds().length === 0 || exportBlocked()"
-    />
-    <p-button label="Fermer" [outlined]="true" (onClick)="closePreviewDialog()" />
-  </div>
-</p-dialog>
+  (downloadRequested)="exportTask($event)"
+/>
 
 <app-circuit-leg-zone-dialog
   [visible]="legZoneDialogOpen()"
@@ -790,25 +194,11 @@
   (saved)="onLegZoneSaved($event)"
 />
 
-<!-- Dialog : bibliothèque de circuits -->
-<p-dialog
+<app-circuits-library-dialog
   [visible]="circuitsDialogOpen()"
   (visibleChange)="onCircuitsDialogVisible($event)"
-  header="Mes circuits"
-  [modal]="true"
-  [closable]="true"
-  [dismissableMask]="true"
-  [draggable]="false"
-  [style]="{ width: 'min(100vw - 1rem, 640px)' }"
-  [contentStyle]="{ maxHeight: 'min(70dvh, 520px)', overflow: 'auto' }"
->
-  <app-circuit-library
-    [canSave]="canSaveCircuit()"
-    [selectedCircuitId]="activeCircuitId()"
-    (saveRequested)="onCircuitSaveRequest($event)"
-    (circuitLoaded)="onCircuitLoaded($event)"
-  />
-  <div class="decl-wp-dialog__foot">
-    <p-button label="Fermer" icon="pi pi-times" (onClick)="closeCircuitsDialog()" />
-  </div>
-</p-dialog>
+  [canSave]="canSaveCircuit()"
+  [selectedCircuitId]="activeCircuitId()"
+  (saveRequested)="onCircuitSaveRequest($event)"
+  (circuitLoaded)="onCircuitLoaded($event)"
+/>

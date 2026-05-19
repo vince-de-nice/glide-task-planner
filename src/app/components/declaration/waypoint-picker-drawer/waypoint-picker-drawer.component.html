@@ -1,0 +1,111 @@
+<p-drawer
+  [visible]="visible()"
+  (visibleChange)="onVisibleChange($event)"
+  header="Choisir des points"
+  position="right"
+  styleClass="decl-wp-drawer"
+  [style]="{ width: 'min(100vw, 480px)' }"
+  [modal]="true"
+  [dismissible]="true"
+  [closeOnEscape]="true"
+>
+  @if (filteredCount() > 0) {
+    <p class="decl-panel__meta decl-wp-dialog__meta">{{ filteredCount() }} résultat(s)</p>
+  }
+  <div class="decl-list-tools">
+    <input
+      pInputText
+      fluid
+      pSize="small"
+      type="search"
+      placeholder="Rechercher nom, code…"
+      [ngModel]="searchQuery()"
+      (ngModelChange)="onSearchChange($event)"
+    />
+    <div class="decl-chips" role="group" aria-label="Filtres">
+      @for (f of typeFilters; track f.id) {
+        <p-button
+          size="small"
+          [text]="typeFilter() !== f.id"
+          [severity]="typeFilter() === f.id ? 'primary' : 'secondary'"
+          [icon]="f.icon"
+          (onClick)="setTypeFilter(f.id)"
+          [label]="f.label"
+        />
+      }
+    </div>
+  </div>
+  <div class="decl-list-body">
+    <ul class="decl-wp-list gc-scroll" aria-label="Page {{ currentPage() }}">
+      @for (wp of paginatedWaypoints(); track wp.id) {
+        <li>
+          <button
+            type="button"
+            class="decl-wp-row"
+            [class.is-in-task]="getOccurrenceCount(wp.id) > 0"
+            (click)="onWaypointRowClick(wp.id, wp.name)"
+          >
+            @if (getOccurrenceCount(wp.id) > 0) {
+              <span class="decl-wp-row__badge">×{{ getOccurrenceCount(wp.id) }}</span>
+            } @else {
+              <span class="decl-wp-row__badge decl-wp-row__badge--add">+</span>
+            }
+            <span class="decl-wp-row__body">
+              <span class="decl-wp-row__name">{{ wp.name }}</span>
+              @if (wp.code) {
+                <span class="decl-wp-row__code">{{ wp.code }}</span>
+              }
+            </span>
+            <span
+              class="gc-wp-type-badge"
+              [style.--wp-type-color]="waypointTypeDisplay(wp.type).color"
+              [attr.title]="waypointTypeDisplay(wp.type).description"
+            >
+              <i [class]="waypointTypeDisplay(wp.type).icon" aria-hidden="true"></i>
+              <span>{{ waypointTypeDisplay(wp.type).shortLabel }}</span>
+            </span>
+          </button>
+        </li>
+      } @empty {
+        <li class="decl-empty">Aucun point ne correspond.</li>
+      }
+    </ul>
+  </div>
+  @if (filteredCount() > 0) {
+    <nav class="decl-pager" aria-label="Pagination des points">
+      <span class="decl-pager__info">{{ pageRangeStart() }}–{{ pageRangeEnd() }} / {{ filteredCount() }}</span>
+      <div class="decl-pager__nav">
+        <p-button
+          icon="pi pi-angle-left"
+          [text]="true"
+          size="small"
+          (onClick)="prevPage()"
+          [disabled]="currentPage() <= 1"
+          ariaLabel="Page précédente"
+        />
+        <span class="decl-pager__page">{{ currentPage() }} / {{ totalPages() }}</span>
+        <p-button
+          icon="pi pi-angle-right"
+          [text]="true"
+          size="small"
+          (onClick)="nextPage()"
+          [disabled]="currentPage() >= totalPages()"
+          ariaLabel="Page suivante"
+        />
+      </div>
+      <label class="decl-pager__size">
+        <span class="gc-label gc-label--invisible">Par page</span>
+        <p-select
+          [options]="pageSizeOptions"
+          [ngModel]="pageSize()"
+          (ngModelChange)="setPageSize(+$event)"
+          size="small"
+          ariaLabel="Points par page"
+        />
+      </label>
+    </nav>
+  }
+  <div class="decl-wp-dialog__foot">
+    <p-button label="Terminé" icon="pi pi-check" (onClick)="close()" />
+  </div>
+</p-drawer>
