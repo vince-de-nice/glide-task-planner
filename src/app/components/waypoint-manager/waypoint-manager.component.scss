@@ -1,14 +1,23 @@
 :host {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .waypoint-manager {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
   max-width: var(--gc-container);
+  width: 100%;
   margin: 0 auto;
-  padding: clamp(0.75rem, 2vw, 1.25rem) clamp(0.75rem, 3vw, 1.5rem) 2rem;
+  padding: clamp(0.75rem, 2vw, 1.25rem) clamp(0.75rem, 3vw, 1.5rem) 1rem;
 }
 
 .wp-header {
+  flex-shrink: 0;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
@@ -54,6 +63,7 @@
 }
 
 .wp-form {
+  flex-shrink: 0;
   padding: 1.15rem;
   margin-bottom: 1rem;
 
@@ -87,7 +97,50 @@
 }
 
 .wp-table-wrap {
-  overflow-x: auto;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.wp-table-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem 0.5rem;
+  border-bottom: 1px solid var(--gc-border);
+}
+
+.wp-table-toolbar__row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.wp-search {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+
+  input {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+.wp-table-meta {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--gc-text-muted);
+}
+
+.wp-table-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -101,14 +154,25 @@
   td {
     padding: 0.75rem 1rem;
     text-align: left;
+    vertical-align: middle;
     border-bottom: 1px solid var(--gc-border);
   }
 
+  .wp-table__actions-col {
+    width: 1%;
+    white-space: nowrap;
+  }
+
   thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
     font-size: 0.8125rem;
     font-weight: 700;
     color: var(--gc-text-secondary);
     background: #f8fafc;
+    vertical-align: middle;
+    box-shadow: 0 1px 0 var(--gc-border);
   }
 
   tbody tr:hover {
@@ -129,6 +193,40 @@
 
 }
 
+.wp-table__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover {
+    color: var(--gc-primary);
+  }
+
+  i {
+    font-size: 0.75rem;
+    opacity: 0.75;
+  }
+}
+
+.wp-table__actions-label {
+  font-weight: 700;
+}
+
+.wp-code {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--gc-text-muted);
+}
+
 .wp-coords {
   display: block;
   font-size: 0.75rem;
@@ -137,14 +235,67 @@
   margin-top: 0.15rem;
 }
 
+.wp-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.65rem;
+  width: 100%;
+}
+
+.wp-pager__nav {
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+  margin-left: auto;
+}
+
+.wp-pager__info,
+.wp-pager__page {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--gc-text-secondary);
+}
+
+.wp-pager__size {
+  display: flex;
+  align-items: center;
+  min-width: 4.5rem;
+}
+
+:host ::ng-deep .wp-pager__size .p-select {
+  min-width: 4.25rem;
+}
+
+.wp-table__empty {
+  padding: 2rem 1rem !important;
+  text-align: center;
+  color: var(--gc-text-muted);
+}
+
+@media (min-width: 720px) {
+  .wp-table-toolbar__row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .wp-pager {
+    width: auto;
+    flex: 1 1 auto;
+    justify-content: flex-end;
+  }
+}
+
 .wp-show-sm {
   display: none;
 }
 
 .wp-actions {
-  white-space: nowrap;
-  display: flex;
+  display: inline-flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.35rem;
 }
 

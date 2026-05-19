@@ -83,23 +83,139 @@
   }
 
   @if (waypoints().length > 0) {
+    <ng-template #wpPager>
+      <nav class="wp-pager" aria-label="Pagination des waypoints">
+        <span class="wp-pager__info">{{ pageRangeStart() }}–{{ pageRangeEnd() }} sur {{ totalCount() }}</span>
+        <div class="wp-pager__nav">
+          <p-button
+            icon="pi pi-angle-double-left"
+            [text]="true"
+            size="small"
+            (onClick)="firstPage()"
+            [disabled]="currentPage() <= 1"
+            ariaLabel="Première page"
+          />
+          <p-button
+            icon="pi pi-angle-left"
+            [text]="true"
+            size="small"
+            (onClick)="prevPage()"
+            [disabled]="currentPage() <= 1"
+            ariaLabel="Page précédente"
+          />
+          <span class="wp-pager__page">{{ currentPage() }} / {{ totalPages() }}</span>
+          <p-button
+            icon="pi pi-angle-right"
+            [text]="true"
+            size="small"
+            (onClick)="nextPage()"
+            [disabled]="currentPage() >= totalPages()"
+            ariaLabel="Page suivante"
+          />
+          <p-button
+            icon="pi pi-angle-double-right"
+            [text]="true"
+            size="small"
+            (onClick)="lastPage()"
+            [disabled]="currentPage() >= totalPages()"
+            ariaLabel="Dernière page"
+          />
+        </div>
+        <label class="wp-pager__size">
+          <span class="gc-label gc-label--invisible">Par page</span>
+          <p-select
+            [options]="pageSizeOptions"
+            [ngModel]="pageSize()"
+            (ngModelChange)="setPageSize(+$event)"
+            size="small"
+            ariaLabel="Waypoints par page"
+          />
+        </label>
+      </nav>
+    </ng-template>
+
     <div class="wp-table-wrap gc-card">
+      <div class="wp-table-toolbar">
+        <div class="wp-table-toolbar__row">
+          <p class="wp-table-meta">
+            @if (hasActiveSearch()) {
+              {{ totalCount() }} résultat(s) sur {{ totalWaypointsCount() }}
+            } @else {
+              {{ totalCount() }} waypoint(s)
+            }
+          </p>
+          <ng-container *ngTemplateOutlet="wpPager" />
+        </div>
+        <label class="wp-search">
+          <span class="gc-label gc-label--invisible">Rechercher</span>
+          <input
+            pInputText
+            fluid
+            pSize="small"
+            type="search"
+            placeholder="Rechercher nom, code, type, coordonnées…"
+            [ngModel]="searchQuery()"
+            (ngModelChange)="onSearchChange($event)"
+          />
+          @if (hasActiveSearch()) {
+            <p-button
+              icon="pi pi-times"
+              size="small"
+              [rounded]="true"
+              [text]="true"
+              (onClick)="clearSearch()"
+              ariaLabel="Effacer la recherche"
+              pTooltip="Effacer"
+              tooltipPosition="top"
+            />
+          }
+        </label>
+      </div>
+      <div class="wp-table-scroll">
       <table class="wp-table">
         <thead>
           <tr>
-            <th>Nom</th>
-            <th>Type</th>
-            <th class="wp-hide-sm">Latitude</th>
-            <th class="wp-hide-sm">Longitude</th>
-            <th class="wp-hide-sm">Alt.</th>
-            <th></th>
+            <th>
+              <button type="button" class="wp-table__sort" (click)="toggleSort('name')" [attr.aria-label]="sortAria('name')">
+                Nom
+                <i [class]="sortIcon('name')" aria-hidden="true"></i>
+              </button>
+            </th>
+            <th>
+              <button type="button" class="wp-table__sort" (click)="toggleSort('type')" [attr.aria-label]="sortAria('type')">
+                Type
+                <i [class]="sortIcon('type')" aria-hidden="true"></i>
+              </button>
+            </th>
+            <th class="wp-hide-sm">
+              <button type="button" class="wp-table__sort" (click)="toggleSort('latitude')" [attr.aria-label]="sortAria('latitude')">
+                Latitude
+                <i [class]="sortIcon('latitude')" aria-hidden="true"></i>
+              </button>
+            </th>
+            <th class="wp-hide-sm">
+              <button type="button" class="wp-table__sort" (click)="toggleSort('longitude')" [attr.aria-label]="sortAria('longitude')">
+                Longitude
+                <i [class]="sortIcon('longitude')" aria-hidden="true"></i>
+              </button>
+            </th>
+            <th class="wp-hide-sm">
+              <button type="button" class="wp-table__sort" (click)="toggleSort('elevation')" [attr.aria-label]="sortAria('elevation')">
+                Alt.
+                <i [class]="sortIcon('elevation')" aria-hidden="true"></i>
+              </button>
+            </th>
+            <th scope="col" class="wp-table__actions-col"><span class="wp-table__actions-label">Actions</span></th>
           </tr>
         </thead>
         <tbody>
-          @for (waypoint of waypoints(); track waypoint.id) {
+          @for (waypoint of paginatedWaypoints(); track waypoint.id) {
             <tr>
               <td>
                 <strong>{{ waypoint.name }}</strong>
+                @if (waypoint.code) {
+                  <span class="wp-code">{{ waypoint.code }}</span>
+                }
                 <span class="wp-coords wp-show-sm">{{ waypoint.latitude.toFixed(4) }}, {{ waypoint.longitude.toFixed(4) }}</span>
               </td>
               <td>
@@ -113,15 +229,47 @@
               </td>
               <td class="wp-hide-sm">{{ waypoint.latitude.toFixed(6) }}</td>
               <td class="wp-hide-sm">{{ waypoint.longitude.toFixed(6) }}</td>
-              <td class="wp-hide-sm">{{ waypoint.elevation || '—' }}</td>
-              <td class="wp-actions">
-                <p-button label="Modifier" size="small" [text]="true" (onClick)="editWaypoint(waypoint)" />
-                <p-button label="Suppr." size="small" severity="danger" [text]="true" (onClick)="deleteWaypoint(waypoint.id)" />
+              <td class="wp-hide-sm">{{ waypoint.elevation ?? '—' }}</td>
+              <td class="wp-table__actions-col">
+                <div class="wp-actions">
+                  <p-button
+                    icon="pi pi-pencil"
+                    size="small"
+                    [rounded]="true"
+                    [text]="true"
+                    (onClick)="editWaypoint(waypoint)"
+                    ariaLabel="Modifier"
+                    pTooltip="Modifier"
+                    tooltipPosition="top"
+                  />
+                  <p-button
+                    icon="pi pi-trash"
+                    size="small"
+                    severity="danger"
+                    [rounded]="true"
+                    [text]="true"
+                    (onClick)="deleteWaypoint(waypoint.id)"
+                    ariaLabel="Supprimer"
+                    pTooltip="Supprimer"
+                    tooltipPosition="top"
+                  />
+                </div>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="6" class="wp-table__empty">
+                @if (hasActiveSearch()) {
+                  Aucun waypoint ne correspond à la recherche.
+                } @else {
+                  Aucun waypoint sur cette page.
+                }
               </td>
             </tr>
           }
         </tbody>
       </table>
+      </div>
     </div>
   } @else {
     <p class="wp-empty gc-card">Aucun waypoint. Chargez une base sur la page Déclaration ou ajoutez-en manuellement.</p>
