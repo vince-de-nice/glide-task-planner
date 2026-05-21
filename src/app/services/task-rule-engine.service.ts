@@ -352,15 +352,17 @@ export class TaskRuleEngineService {
     ];
     if (role === 'departure') {
       if (regulation.constraints.includes('departure_must_be_line')) {
-        return ['start_line', 'sector_to_next', 'custom'];
+        // sector_to_next n'a pas Line=1 → échouerait la contrainte → on le retire
+        return ['start_line', 'custom'];
       }
       if (regulation.constraints.includes('departure_must_be_cylinder')) {
         return ['departure_cylinder', 'start_cylinder_fai', 'custom'];
       }
     }
     if (role === 'arrival' && regulation.constraints.includes('arrival_must_be_line')) {
-      // arrival_ring (Finish Ring >= 3 km) est également valide en FAI (§7.8.2 Annexe A)
-      return ['finish_line', 'arrival_ring', 'arrival_cylinder', 'custom'];
+      // arrival_ring et arrival_cylinder n'ont pas Line=1 → échoueraient la contrainte
+      // arrival_ring est disponible pour les profils FAI qui n'ont PAS arrival_must_be_line
+      return ['finish_line', 'custom'];
     }
     return [...new Set([preset, ...base])];
   }

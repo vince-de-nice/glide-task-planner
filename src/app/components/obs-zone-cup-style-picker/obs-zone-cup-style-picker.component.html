@@ -9,8 +9,10 @@
         class="cup-style-picker__tile"
         role="option"
         [class.cup-style-picker__tile--active]="tile.selected"
+        [class.cup-style-picker__tile--discouraged]="tile.discouraged"
         [attr.aria-selected]="tile.selected"
         [attr.aria-label]="tile.label + ' — ' + tile.referenceText"
+        [title]="tile.discourageHint ?? ''"
         (click)="onPick(tile.value)"
       >
         <span class="cup-style-picker__preview">
@@ -24,6 +26,9 @@
         <span class="cup-style-picker__ref">{{ tile.referenceText }}</span>
         @if (tile.bearingText) {
           <span class="cup-style-picker__bearing">{{ tile.bearingText }}</span>
+        }
+        @if (tile.discouraged) {
+          <span class="cup-style-picker__warn-badge" aria-hidden="true">⚠</span>
         }
       </button>
     }

@@ -1,0 +1,286 @@
+<section class="safety-profile">
+  <header class="safety-profile__header">
+    <div class="safety-profile__title">
+      <h1>{{ 'safetyProfile.title' | translate }}</h1>
+      <p class="safety-profile__subtitle">
+        {{ 'safetyProfile.subtitle' | translate }}
+      </p>
+    </div>
+    <p-button
+      icon="pi pi-arrow-left"
+      [label]="'safetyProfile.backToCircuit' | translate"
+      severity="secondary"
+      [outlined]="true"
+      size="small"
+      (onClick)="goToCircuit()"
+    />
+  </header>
+
+  <section class="safety-profile__params" aria-labelledby="safety-params-heading">
+    <h2 id="safety-params-heading" class="sr-only">
+      {{ 'safetyProfile.paramsTitle' | translate }}
+    </h2>
+    <div class="safety-profile__params-grid">
+      <label class="param">
+        <span class="param__label">{{ 'safetyProfile.params.glideRatio' | translate }}</span>
+        <p-inputnumber
+          [ngModel]="glideRatio()"
+          (ngModelChange)="onGlideRatioChange($event)"
+          [min]="bounds.glideRatio.min"
+          [max]="bounds.glideRatio.max"
+          [step]="1"
+          [showButtons]="true"
+          buttonLayout="horizontal"
+          incrementButtonIcon="pi pi-plus"
+          decrementButtonIcon="pi pi-minus"
+          inputStyleClass="param__input"
+        />
+        <span class="param__hint">{{ 'safetyProfile.params.glideRatioHint' | translate }}</span>
+      </label>
+
+      <label class="param">
+        <span class="param__label">{{ 'safetyProfile.params.arrivalMargin' | translate }}</span>
+        <p-inputnumber
+          [ngModel]="arrivalMarginM()"
+          (ngModelChange)="onArrivalMarginChange($event)"
+          [min]="bounds.arrivalMarginM.min"
+          [max]="bounds.arrivalMarginM.max"
+          [step]="10"
+          [suffix]="' m'"
+          [showButtons]="true"
+          buttonLayout="horizontal"
+          incrementButtonIcon="pi pi-plus"
+          decrementButtonIcon="pi pi-minus"
+          inputStyleClass="param__input"
+        />
+        <span class="param__hint">{{ 'safetyProfile.params.arrivalMarginHint' | translate }}</span>
+      </label>
+
+      <label class="param">
+        <span class="param__label">{{ 'safetyProfile.params.groundMargin' | translate }}</span>
+        <p-inputnumber
+          [ngModel]="groundMarginM()"
+          (ngModelChange)="onGroundMarginChange($event)"
+          [min]="bounds.groundMarginM.min"
+          [max]="bounds.groundMarginM.max"
+          [step]="10"
+          [suffix]="' m'"
+          [showButtons]="true"
+          buttonLayout="horizontal"
+          incrementButtonIcon="pi pi-plus"
+          decrementButtonIcon="pi pi-minus"
+          inputStyleClass="param__input"
+        />
+        <span class="param__hint">{{ 'safetyProfile.params.groundMarginHint' | translate }}</span>
+      </label>
+
+      <div class="param param--reset">
+        <p-button
+          icon="pi pi-refresh"
+          severity="secondary"
+          [outlined]="true"
+          size="small"
+          [label]="'safetyProfile.resetDefaults' | translate"
+          (onClick)="onResetDefaults()"
+        />
+      </div>
+    </div>
+
+    <div class="safety-profile__legend">
+      <span class="legend-item legend-item--terrain">{{ chartLabels().terrain }}</span>
+      <span class="legend-item legend-item--ground">{{ chartLabels().groundClearance }}</span>
+      <span class="legend-item legend-item--landables">{{ chartLabels().landableColors }}</span>
+      <span class="legend-item legend-item--below-min">{{ chartLabels().landableConeBelowMin }}</span>
+      <span class="legend-item legend-item--cone" [class.legend-item--muted]="noLandables()">
+        {{ chartLabels().glideCone }}
+      </span>
+      <span class="legend-item legend-item--safety">{{ chartLabels().safety }}</span>
+    </div>
+  </section>
+
+  @if (!hasTask()) {
+    <div class="safety-profile__empty" role="status">
+      <i class="pi pi-info-circle" aria-hidden="true"></i>
+      <p>{{ 'safetyProfile.empty' | translate }}</p>
+      <p-button
+        [label]="'safetyProfile.goToCircuit' | translate"
+        icon="pi pi-arrow-right"
+        size="small"
+        (onClick)="goToCircuit()"
+      />
+    </div>
+  } @else {
+    @if (noLandables()) {
+      <p class="safety-profile__warning" role="alert">
+        <i class="pi pi-exclamation-triangle" aria-hidden="true"></i>
+        {{ 'safetyProfile.warnings.noLandables' | translate }}
+      </p>
+    }
+
+    <section class="safety-profile__map-wrapper" aria-label="safetyProfile.mapAria">
+      <mgl-map
+        class="safety-profile__map"
+        [mapStyle]="mapStyle"
+        [center]="mapCenter()"
+        [zoom]="mapZoom()"
+        (mapLoad)="onMapLoad($event)"
+      />
+      <p class="safety-profile__map-hint">
+        {{ 'safetyProfile.mapHint' | translate }}
+      </p>
+    </section>
+
+    <section class="safety-profile__legs" aria-label="safetyProfile.legsAria">
+      <div class="safety-profile__legs-toolbar">
+        <button class="legs-toolbar__btn" type="button" (click)="expandAll()">
+          <i class="pi pi-angle-double-down" aria-hidden="true"></i>
+          {{ 'safetyProfile.expandAll' | translate }}
+        </button>
+        <button class="legs-toolbar__btn" type="button" (click)="collapseAll()">
+          <i class="pi pi-angle-double-up" aria-hidden="true"></i>
+          {{ 'safetyProfile.collapseAll' | translate }}
+        </button>
+      </div>
+
+      <div class="safety-profile__legs-scroll">
+        @for (leg of legRenders(); track leg.index) {
+          <article class="leg" [class.leg--collapsed]="isLegCollapsed(leg.index)">
+            <header class="leg__header" (click)="toggleLeg(leg.index)">
+              <button
+                class="leg__toggle"
+                type="button"
+                [attr.aria-expanded]="!isLegCollapsed(leg.index)"
+                [attr.aria-controls]="'leg-body-' + leg.index"
+              >
+                <i
+                  class="pi"
+                  [class.pi-chevron-down]="!isLegCollapsed(leg.index)"
+                  [class.pi-chevron-right]="isLegCollapsed(leg.index)"
+                  aria-hidden="true"
+                ></i>
+              </button>
+              <span class="leg__index">{{ 'safetyProfile.legHeader' | translate: { index: leg.index + 1 } }}</span>
+              <span class="leg__route">
+                <strong>{{ leg.fromWaypoint.name }}</strong>
+                <i class="pi pi-arrow-right" aria-hidden="true"></i>
+                <strong>{{ leg.toWaypoint.name }}</strong>
+              </span>
+              <span class="leg__distance">{{ leg.distanceKm | number: '1.1-1' }} km</span>
+            </header>
+            @if (!isLegCollapsed(leg.index)) {
+              <div class="leg__body" [id]="'leg-body-' + leg.index">
+                @if (leg.envelope.hasTerrainGaps) {
+                  <p class="leg__warning">
+                    <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
+                    {{ 'safetyProfile.warnings.terrainGaps' | translate }}
+                  </p>
+                }
+                @if (leg.landableToggles.length > 0) {
+                  <div class="leg__landables" (click)="$event.stopPropagation()">
+                    <div class="leg__landables-header">
+                      <span class="leg__landables-title">
+                        {{ 'safetyProfile.landablesToggleTitle' | translate }}
+                        ({{ enabledLandableCount(leg) }}/{{ leg.landableToggles.length }})
+                      </span>
+                      <div class="leg__landables-actions">
+                        <button
+                          class="legs-toolbar__btn"
+                          type="button"
+                          (click)="enableAllLandablesOnLeg(leg, $event)"
+                        >
+                          {{ 'safetyProfile.landablesEnableAll' | translate }}
+                        </button>
+                        <button
+                          class="legs-toolbar__btn"
+                          type="button"
+                          (click)="disableAllLandablesOnLeg(leg, $event)"
+                        >
+                          {{ 'safetyProfile.landablesDisableAll' | translate }}
+                        </button>
+                      </div>
+                    </div>
+                    <div
+                      class="leg__landables-chips"
+                      role="group"
+                      [attr.aria-label]="'safetyProfile.landablesToggleTitle' | translate"
+                    >
+                      @for (la of leg.landableToggles; track la.id) {
+                        <button
+                          type="button"
+                          class="leg__landable-chip"
+                          [class.leg__landable-chip--off]="!la.enabled"
+                          [class.leg__landable-chip--airfield]="la.type === 'airfield'"
+                          [style.--chip-color]="la.color"
+                          [attr.aria-pressed]="la.enabled"
+                          [attr.title]="la.name"
+                          (click)="
+                            onLandableToggle(leg.index, la.id, !la.enabled);
+                            $event.stopPropagation()
+                          "
+                        >
+                          <span class="leg__landable-chip-name">{{ la.shortName }}</span>
+                          @if (la.type === 'airfield') {
+                            <span class="leg__landable-chip-badge">
+                              {{ 'safetyProfile.landableTypeAirfield' | translate }}
+                            </span>
+                          }
+                        </button>
+                      }
+                    </div>
+                  </div>
+                }
+                <div class="leg__scale" (click)="$event.stopPropagation()">
+                  <label class="leg__scale-label">
+                    <span>{{ 'safetyProfile.verticalScaleMax' | translate }}</span>
+                    <p-inputnumber
+                      [ngModel]="effectiveYMaxForLeg(leg)"
+                      (ngModelChange)="onLegYMaxChange(leg.index, $event)"
+                      [min]="500"
+                      [max]="15000"
+                      [step]="500"
+                      [suffix]="' m'"
+                      [showButtons]="true"
+                      buttonLayout="horizontal"
+                      incrementButtonIcon="pi pi-plus"
+                      decrementButtonIcon="pi pi-minus"
+                      inputStyleClass="leg__scale-input"
+                    />
+                  </label>
+                  <span class="leg__scale-hint">
+                    {{
+                      'safetyProfile.verticalScaleDefault'
+                        | translate: { value: defaultYMaxForLeg(leg) }
+                    }}
+                  </span>
+                  @if (isYMaxCustom(leg.index)) {
+                    <button
+                      class="leg__scale-reset"
+                      type="button"
+                      (click)="resetLegYMax(leg.index, $event)"
+                    >
+                      <i class="pi pi-refresh" aria-hidden="true"></i>
+                      {{ 'safetyProfile.verticalScaleReset' | translate }}
+                    </button>
+                  }
+                </div>
+                <app-leg-profile-chart
+                  [samples]="leg.envelope.samples"
+                  [landableCones]="leg.envelope.landableCones"
+                  [fromEndpoint]="leg.fromEndpoint"
+                  [toEndpoint]="leg.toEndpoint"
+                  [arrivalMarginM]="arrivalMarginM()"
+                  [labels]="chartLabels()"
+                  [noLandables]="noLandables()"
+                  [conesTruncated]="leg.envelope.landableCones.length >= 64"
+                  [legStartKm]="leg.envelope.legStartKm"
+                  [legEndKm]="leg.envelope.legEndKm"
+                  [yMaxM]="effectiveYMaxForLeg(leg)"
+                />
+              </div>
+            }
+          </article>
+        }
+      </div>
+    </section>
+  }
+</section>

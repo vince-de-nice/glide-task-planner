@@ -25,6 +25,13 @@ export const routes: Routes = [
         m => m.LibraryPageComponent
       )
   },
+  {
+    path: 'safety-profile',
+    loadComponent: () =>
+      import('./components/safety-profile/safety-profile.component').then(
+        m => m.SafetyProfileComponent
+      )
+  },
   { path: 'planner', redirectTo: 'declaration', pathMatch: 'full' },
   { path: 'map', redirectTo: 'declaration', pathMatch: 'full' },
   { path: '**', redirectTo: 'declaration' }

@@ -6,6 +6,7 @@ export const en = {
     tagline: 'Gliding task planning and export',
     nav: {
       circuit: 'Task',
+      safetyProfile: 'Safety profile',
       waypoints: 'Waypoints',
       dataSources: 'Data sources',
       library: 'Library',
@@ -579,6 +580,12 @@ export const en = {
     },
     lineCup: 'Line (CUP Line=1)',
     r1LineHint: 'Half gate width — total line length = {{total}} m.',
+    r2LargerThanR1: 'R2 must be less than R1 (inner radius < outer radius).',
+    a2LargerThanA1: 'A2 must be ≤ A1 (inner sector wider than outer sector).',
+    ringTooSmall: 'Finish ring: radius < {{min}} km (FAI §7.8.2 minimum).',
+    cylinderTooSmall: 'Start cylinder: radius < {{km}} km (FAI §7.4.4 minimum).',
+    lineLockedHint: 'Line required by the active regulation.',
+    styleDiscouraged: 'Unusual style for this point type — check export consistency.',
     a1LineHint: 'Line opening angle (often 180°).',
     a1SectorHint: 'Sector width (°) around the orientation axis.',
     r2Hint: 'Inner radius (hole / FAI keyhole).',
@@ -636,5 +643,64 @@ export const en = {
     removeLast: '« {{name}} » removed from task',
     removeAll: 'All occurrences of « {{name}} » removed',
     waypointDeleted: 'Waypoint « {{name}} » deleted'
+  },
+  safetyProfile: {
+    title: 'Task safety profile',
+    subtitle:
+      'Vertical terrain cross-section for each leg, with glide cone to the nearest safe landable and ground clearance.',
+    paramsTitle: 'Safety parameters',
+    backToCircuit: 'Back to task',
+    goToCircuit: 'Build a task',
+    resetDefaults: 'Reset defaults',
+    empty:
+      'No task is built yet. Add at least a take-off and a landing to display the cross-sections.',
+    mapHint:
+      'The mini-map preloads DEM tiles (Mapterhorn terrain) over the task area. The longer it stays visible, the more accurate the cross-sections.',
+    mapAria: 'Task context map',
+    legsAria: 'Per-leg vertical cross-sections',
+    expandAll: 'Expand all',
+    collapseAll: 'Collapse all',
+    verticalScaleMax: 'Max altitude (scale)',
+    verticalScaleDefault: 'Default: {{value}} m (next 1000 m above max terrain)',
+    verticalScaleReset: 'Reset scale',
+    landablesToggleTitle: 'Landables on this leg',
+    landablesEnableAll: 'Enable all',
+    landablesDisableAll: 'Disable all',
+    landableTypeAirfield: 'AD',
+    legHeader: 'Leg {{index}}',
+    params: {
+      glideRatio: 'Glider glide ratio',
+      glideRatioHint:
+        '1 m of altitude lost = N m of distance. Safety cones use half the glide ratio (N ÷ 2).',
+      arrivalMargin: 'Pattern altitude',
+      arrivalMarginHint: 'Required height above the landable airfield.',
+      groundMargin: 'Ground / ridge margin',
+      groundMarginHint: 'Minimum clearance above terrain (passes, ridges).'
+    },
+    chart: {
+      terrain: 'Terrain (DEM)',
+      groundClearance: 'Terrain + margin',
+      glideCone: 'Half-ratio cone envelope (min)',
+      safety: 'Combined min altitude (red)',
+      landableColors: 'Landable (unique color per field)',
+      landableConeBelowMin: 'Dashed cone below min altitude',
+      distanceAxis: 'Distance (km)',
+      altitudeAxis: 'Altitude (m MSL)',
+      tooltipDistance: 'Distance',
+      tooltipTerrain: 'Terrain',
+      tooltipCone: 'Min cone',
+      tooltipGround: 'Terrain + margin',
+      tooltipSafety: 'Min altitude',
+      tooltipLandablesTitle: 'Reachable fields at this position',
+      tooltipLandableAt: 'min',
+      conesTruncated:
+        'Display limited: only cones intersecting the leg are computed (max 64, sorted by relevance).'
+    },
+    warnings: {
+      noLandables:
+        'No safe landable (airfield / outlanding) in the CUP database: the glide cone is not computed. Load a CUP database to enable this safety helper.',
+      terrainGaps:
+        'Some DEM tiles are not loaded yet: let the map load and revisit this page.'
+    }
   }
 } as unknown as typeof fr;

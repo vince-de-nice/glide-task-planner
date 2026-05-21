@@ -7,6 +7,7 @@ export const fr = {
       waypoints: 'Waypoints',
       dataSources: 'Sources de données',
       library: 'Bibliothèque',
+      safetyProfile: 'Profil sécurité',
       mainAria: 'Navigation principale',
       menuTitle: 'Menu',
       openMenu: 'Ouvrir le menu'
@@ -579,6 +580,12 @@ export const fr = {
     },
     lineCup: 'Ligne (CUP Line=1)',
     r1LineHint: 'Demi-largeur — longueur totale de la ligne = {{total}} m.',
+    r2LargerThanR1: 'R2 doit être inférieur à R1 (rayon intérieur < rayon extérieur).',
+    a2LargerThanA1: 'A2 doit être ≤ A1 (secteur intérieur plus ouvert que le secteur extérieur).',
+    ringTooSmall: 'Anneau arrivée : rayon < {{min}} km (minimum FAI §7.8.2).',
+    cylinderTooSmall: 'Cylindre départ : rayon < {{km}} km (minimum FAI §7.4.4).',
+    lineLockedHint: 'Ligne requise par le règlement actif.',
+    styleDiscouraged: 'Style inhabituel pour ce type de point — vérifiez la cohérence export.',
     a1LineHint: 'Ouverture de la ligne (souvent 180°).',
     a1SectorHint: 'Largeur du secteur (°) autour de l’axe d’orientation.',
     r2Hint: 'Rayon intérieur (trou / keyhole FAI).',
@@ -636,5 +643,64 @@ export const fr = {
     removeLast: '« {{name}} » retiré du circuit',
     removeAll: 'Toutes les occurrences de « {{name}} » retirées',
     waypointDeleted: 'Point « {{name}} » supprimé'
+  },
+  safetyProfile: {
+    title: 'Profil de sécurité du circuit',
+    subtitle:
+      'Coupe verticale du relief pour chaque branche, avec cône vers le terrain posable le plus proche et marge sol.',
+    paramsTitle: 'Paramètres de sécurité',
+    backToCircuit: 'Retour au circuit',
+    goToCircuit: 'Composer un circuit',
+    resetDefaults: 'Valeurs par défaut',
+    empty:
+      'Aucun circuit n’est composé. Ajoutez au moins un décollage et un atterrissage pour voir les coupes.',
+    mapHint:
+      'La mini-carte sert à charger les tuiles DEM (relief Mapterhorn) sur la zone du circuit. Plus elle reste affichée, plus les coupes sont précises.',
+    mapAria: 'Carte de contexte du circuit',
+    legsAria: 'Coupes verticales par branche',
+    expandAll: 'Tout déplier',
+    collapseAll: 'Tout replier',
+    verticalScaleMax: 'Altitude max. (échelle)',
+    verticalScaleDefault: 'Défaut : {{value}} m (millier supérieur au relief max.)',
+    verticalScaleReset: 'Réinitialiser l’échelle',
+    landablesToggleTitle: 'Terrains posables sur cette branche',
+    landablesEnableAll: 'Tout activer',
+    landablesDisableAll: 'Tout désactiver',
+    landableTypeAirfield: 'AD',
+    legHeader: 'Branche {{index}}',
+    params: {
+      glideRatio: 'Finesse planeur',
+      glideRatioHint:
+        '1 m d’altitude perdue = N m parcourus. Les cônes de sécurité utilisent la demi-finesse (N ÷ 2).',
+      arrivalMargin: 'Altitude tour de piste',
+      arrivalMarginHint: 'Hauteur sol requise au-dessus du terrain posable.',
+      groundMargin: 'Marge sol / relief',
+      groundMarginHint: 'Marge minimale au-dessus du relief (cols, crêtes).'
+    },
+    chart: {
+      terrain: 'Relief (DEM)',
+      groundClearance: 'Marge sol',
+      glideCone: 'Enveloppe cônes demi-finesse (min)',
+      safety: 'Altitude min combinée (rouge)',
+      landableColors: 'Terrain posable (couleur unique par point)',
+      landableConeBelowMin: 'Cône en pointillé sous l’altitude min.',
+      distanceAxis: 'Distance (km)',
+      altitudeAxis: 'Altitude (m MSL)',
+      tooltipDistance: 'Distance',
+      tooltipTerrain: 'Terrain',
+      tooltipCone: 'Cône min',
+      tooltipGround: 'Terrain + marge',
+      tooltipSafety: 'Altitude min',
+      tooltipLandablesTitle: 'Terrains atteignables à cette position',
+      tooltipLandableAt: 'min',
+      conesTruncated:
+        'Affichage limité : seuls les cônes qui interceptent la branche sont calculés (max. 64, tri par pertinence).'
+    },
+    warnings: {
+      noLandables:
+        'Aucun terrain posable (aérodrome / vachable) dans la base CUP : le cône de finesse n’est pas calculé. Importez une base CUP pour activer cette aide.',
+      terrainGaps:
+        'Certaines tuiles DEM ne sont pas encore chargées : laissez la carte se charger puis revenez sur cette page.'
+    }
   }
 } as const;

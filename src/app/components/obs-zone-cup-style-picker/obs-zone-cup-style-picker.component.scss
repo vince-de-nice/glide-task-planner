@@ -91,6 +91,30 @@
   color: var(--gc-primary);
 }
 
+.cup-style-picker__tile--discouraged {
+  border-color: var(--gc-warn, #f59e0b);
+  background: color-mix(in srgb, var(--gc-warn, #f59e0b) 6%, #fff);
+  opacity: 0.85;
+
+  &:hover {
+    border-color: var(--gc-warn, #f59e0b);
+    background: color-mix(in srgb, var(--gc-warn, #f59e0b) 12%, #fff);
+    opacity: 1;
+  }
+
+  &.cup-style-picker__tile--active {
+    border-color: var(--gc-warn, #f59e0b);
+    background: color-mix(in srgb, var(--gc-warn, #f59e0b) 15%, #fff);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--gc-warn, #f59e0b) 35%, transparent);
+  }
+}
+
+.cup-style-picker__warn-badge {
+  font-size: 0.6rem;
+  line-height: 1;
+  color: var(--gc-warn, #f59e0b);
+}
+
 @media (max-width: 520px) {
   .cup-style-picker__grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));

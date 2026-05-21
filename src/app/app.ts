@@ -65,6 +65,11 @@ export class App {
         route: '/library',
         label: this.i18n.t('app.nav.library'),
         icon: 'pi pi-bookmark'
+      },
+      {
+        route: '/safety-profile',
+        label: this.i18n.t('app.nav.safetyProfile'),
+        icon: 'pi pi-chart-line'
       }
     ];
   });
@@ -75,6 +80,7 @@ export class App {
     if (path === '/waypoints') return this.i18n.t('app.nav.waypoints');
     if (path === '/data-sources') return this.i18n.t('app.nav.dataSources');
     if (path === '/library') return this.i18n.t('app.nav.library');
+    if (path === '/safety-profile') return this.i18n.t('app.nav.safetyProfile');
     return this.i18n.t('app.nav.circuit');
   });
 
@@ -114,7 +120,8 @@ export class App {
       path === '' ||
       path === '/' ||
       path === '/data-sources' ||
-      path === '/library'
+      path === '/library' ||
+      path === '/safety-profile'
     );
   }
 }

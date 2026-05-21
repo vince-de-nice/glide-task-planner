@@ -44,6 +44,8 @@
                 [baseZone]="baseZone"
                 [selectedStyle]="cupStyle()"
                 [legContext]="obsZoneLegContext()"
+                [legRole]="leg()?.role ?? null"
+                [lineActive]="line()"
                 (stylePick)="onCupStylePick($event)"
               />
             }
@@ -96,7 +98,7 @@
                   (ngModelChange)="onOptionalRadiusChange($event)"
                   [showClear]="true"
                   [min]="0"
-                  [max]="100000"
+                  [max]="r1M() - 1"
                   size="small"
                   fluid
                 />
@@ -114,7 +116,7 @@
                   (ngModelChange)="onA2Change($event)"
                   [showClear]="true"
                   [min]="0"
-                  [max]="360"
+                  [max]="a1Deg() ?? 360"
                   size="small"
                   fluid
                 />
@@ -141,15 +143,22 @@
                 </p>
               </div>
             }
-            @if (paramVisibility().line) {
+            @if (paramVisibility().line && lineLocked() !== false) {
               <div class="leg-zone-dialog__field leg-zone-dialog__field--row">
                 <p-checkbox
                   [ngModel]="line()"
-                  (ngModelChange)="line.set($event); presetId.set('custom')"
+                  (ngModelChange)="onLineChange($event)"
                   [binary]="true"
                   inputId="zone-line"
+                  [disabled]="lineLocked() !== null"
                 />
-                <label for="zone-line">{{ 'zoneCup.lineCup' | translate }}</label>
+                <label for="zone-line">
+                  {{ 'zoneCup.lineCup' | translate }}
+                  @if (lineLocked() === true) {
+                    <i class="pi pi-lock" style="margin-left:.35rem;font-size:.7rem;opacity:.6"
+                       [title]="'zoneCup.lineLockedHint' | translate"></i>
+                  }
+                </label>
               </div>
             }
           </div>
@@ -202,8 +211,21 @@
     }
   </div>
 
+  @if (previewIssue(); as issue) {
+    <p-message
+      class="leg-zone-dialog__issue"
+      [severity]="issue.severity === 'error' ? 'error' : 'warn'"
+    >{{ issue.message }}</p-message>
+  }
+
   <div class="leg-zone-dialog__foot">
     <p-button [label]="'common.cancel' | translate" [outlined]="true" size="small" (onClick)="close()" />
-    <p-button [label]="'dialogs.legZoneSave' | translate" icon="pi pi-check" size="small" (onClick)="onSave()" />
+    <p-button
+      [label]="'dialogs.legZoneSave' | translate"
+      icon="pi pi-check"
+      size="small"
+      [severity]="previewIssue()?.severity === 'error' ? 'danger' : 'primary'"
+      (onClick)="onSave()"
+    />
   </div>
 </p-dialog>

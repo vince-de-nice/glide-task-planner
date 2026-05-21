@@ -5,6 +5,7 @@ import { Dialog } from 'primeng/dialog';
 import { Button } from 'primeng/button';
 import { InputNumber } from 'primeng/inputnumber';
 import { Checkbox } from 'primeng/checkbox';
+import { Message } from 'primeng/message';
 import { ObsZoneCupDiagramComponent } from '../obs-zone-cup-diagram/obs-zone-cup-diagram.component';
 import { ObsZonePresetPickerComponent } from '../obs-zone-preset-picker/obs-zone-preset-picker.component';
 import {
@@ -60,6 +61,7 @@ const CUP_PARAM_I18N_KEYS: Record<CupZoneParamKey, string> = {
     Button,
     InputNumber,
     Checkbox,
+    Message,
     ObsZoneCupDiagramComponent,
     ObsZonePresetPickerComponent,
     ObsZoneCupStylePickerComponent,
@@ -96,6 +98,70 @@ export class CircuitLegZoneDialogComponent {
   elevationM = signal<number | null>(null);
   /** Remonte les champs numériques après chargement (évite p-inputNumber vide). */
   zoneFormMounted = signal(false);
+
+  /**
+   * Verrouillage de Line=1 déduit des préréglages autorisés par le règlement.
+   * - `true`  : Line=1 obligatoire (ex. departure_must_be_line)
+   * - `false` : Line=1 interdit   (ex. departure_must_be_cylinder)
+   * - `null`  : pas de contrainte sur la ligne
+   */
+  readonly lineLocked = computed((): boolean | null => {
+    const allowed = this.allowedPresetIds();
+    if (!allowed || allowed.length === 0) return null;
+    const nonCustom = allowed.filter(id => id !== 'custom');
+    if (nonCustom.length === 0) return null;
+    const lineValues = nonCustom.map(id => Boolean(observationZoneFromPreset(id).line));
+    if (lineValues.every(v => v)) return true;
+    if (lineValues.every(v => !v)) return false;
+    return null;
+  });
+
+  /**
+   * Problème détecté sur la zone en cours d'édition (avant enregistrement).
+   * Permet d'afficher un avertissement ou une erreur inline dans le dialog.
+   */
+  readonly previewIssue = computed((): { severity: 'error' | 'warn'; message: string } | null => {
+    this.i18n.locale();
+    const role = this.leg()?.role;
+    if (!role || !this.zoneFormMounted()) return null;
+
+    const locked = this.lineLocked();
+    const lineOn = this.line();
+    const idx = this.legIndex() + 1;
+
+    // Violation de la contrainte Line
+    if (locked === true && !lineOn) {
+      const key = role === 'departure' ? 'rules.legDepartureLine' : 'rules.legArrivalLine';
+      return { severity: 'error', message: this.i18n.t(key, { index: idx }) };
+    }
+    if (locked === false && lineOn) {
+      return { severity: 'error', message: this.i18n.t('rules.legDepartureCylinder', { index: idx }) };
+    }
+
+    const r1 = this.r1M();
+    const r2 = this.r2M();
+    const a1 = this.a1Deg();
+    const a2 = this.a2Deg();
+
+    // R2 >= R1 : trou plus grand que la zone externe
+    if (r2 != null && r2 > 0 && r2 >= r1) {
+      return { severity: 'warn', message: this.i18n.t('zoneCup.r2LargerThanR1') };
+    }
+    // A2 > A1 : secteur interne plus ouvert que le secteur externe
+    if (a1 != null && a2 != null && a2 > a1) {
+      return { severity: 'warn', message: this.i18n.t('zoneCup.a2LargerThanA1') };
+    }
+    // arrival_ring : rayon minimum 3 km
+    if (this.presetId() === 'arrival_ring' && r1 < 3000) {
+      return { severity: 'warn', message: this.i18n.t('zoneCup.ringTooSmall', { min: 3 }) };
+    }
+    // Cylindre FAI départ : rayon minimum 10 km
+    if (this.presetId() === 'start_cylinder_fai' && r1 < 10_000) {
+      return { severity: 'warn', message: this.i18n.t('zoneCup.cylinderTooSmall', { km: 10 }) };
+    }
+
+    return null;
+  });
 
   readonly presetOptions = computed(() => {
     this.i18n.locale();
@@ -232,7 +298,15 @@ export class CircuitLegZoneDialogComponent {
       this.r2M.set(zone.r2M ?? null);
       this.a2Deg.set(zone.a2Deg ?? null);
       this.a12Deg.set(zone.a12Deg ?? null);
-      this.line.set(Boolean(zone.line));
+      // Respecter le verrouillage de ligne
+      const locked = this.lineLocked();
+      if (locked === true) {
+        this.line.set(true);
+      } else if (locked === false) {
+        this.line.set(false);
+      } else {
+        this.line.set(Boolean(zone.line));
+      }
       const elev = leg.elevationM ?? wp?.elevation;
       this.useCustomElevation.set(leg.elevationM != null);
       this.elevationM.set(elev ?? null);
@@ -297,6 +371,13 @@ export class CircuitLegZoneDialogComponent {
     this.applyPreset(id);
   }
 
+  /** Appelé par le template pour changer Line=1. */
+  onLineChange(v: boolean): void {
+    if (this.lineLocked() !== null) return; // verrouillé par le règlement
+    this.line.set(v);
+    this.presetId.set('custom');
+  }
+
   private applyPreset(id: ObsZonePresetId): void {
     this.presetId.set(id);
     if (id === 'custom') return;
@@ -307,12 +388,25 @@ export class CircuitLegZoneDialogComponent {
     this.r2M.set(z.r2M ?? null);
     this.a2Deg.set(z.a2Deg ?? null);
     this.a12Deg.set(z.a12Deg ?? null);
-    this.line.set(Boolean(z.line));
+    // Respecter le verrouillage de ligne imposé par le règlement
+    const locked = this.lineLocked();
+    if (locked === true) {
+      this.line.set(true);
+    } else if (locked === false) {
+      this.line.set(false);
+    } else {
+      this.line.set(Boolean(z.line));
+    }
   }
 
   onSave(): void {
     const leg = this.leg();
     if (!leg) return;
+    // Appliquer le lock ligne avant de construire la zone
+    const locked = this.lineLocked();
+    if (locked === true) this.line.set(true);
+    if (locked === false) this.line.set(false);
+
     const obsZone = normalizeObservationZone(
       applyCupZoneParamVisibility(this.buildZoneFromForm(), leg.role),
       leg.role,

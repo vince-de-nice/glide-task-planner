@@ -13,6 +13,11 @@ import {
   normalizeObservationZone,
   observationZoneFromPreset
 } from '../models/observation-zone.model';
+import {
+  DEFAULT_SAFETY_PARAMS,
+  SafetyParams,
+  sanitizeSafetyParams
+} from '../models/safety-params.model';
 import { WaypointService } from './waypoint.service';
 import { defaultTaskName } from './flarm-config.service';
 import {
@@ -33,6 +38,7 @@ interface PersistedTaskState {
   selectedWaypointIds?: string[];
   taskName: string;
   regulation?: TaskRegulationState;
+  safetyParams?: SafetyParams;
   /** @deprecated — source CUP gérée par CupDatabaseService */
   activeDatabaseId?: string | null;
 }
@@ -49,6 +55,7 @@ export class TaskStateService {
   selectedWaypointIds = computed(() => this.circuitLegs().map(leg => leg.waypointId));
   taskName = signal<string>(defaultTaskName());
   regulation = signal<TaskRegulationState>({ ...DEFAULT_TASK_REGULATION });
+  safetyParams = signal<SafetyParams>({ ...DEFAULT_SAFETY_PARAMS });
 
   readonly resolvedRegulation = computed(() =>
     this.ruleEngine.resolveRegulation(this.regulation())
@@ -80,6 +87,9 @@ export class TaskStateService {
           overrides: data.regulation.overrides ?? {}
         });
       }
+      if (data.safetyParams) {
+        this.safetyParams.set(sanitizeSafetyParams(data.safetyParams));
+      }
     } catch {
       /* ignore corrupt state */
     }
@@ -89,7 +99,8 @@ export class TaskStateService {
     const data: PersistedTaskState = {
       circuitLegs: this.circuitLegs(),
       taskName: this.taskName(),
-      regulation: this.regulation()
+      regulation: this.regulation(),
+      safetyParams: this.safetyParams()
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   }
@@ -195,6 +206,59 @@ export class TaskStateService {
     this.patchLegZone(index, { elevationM });
   }
 
+  /** Branche `branchIndex` = segment du point `branchIndex` vers `branchIndex + 1`. */
+  isSafetyLandableEnabled(branchIndex: number, landableId: string): boolean {
+    const legs = this.circuitLegs();
+    if (branchIndex < 0 || branchIndex >= legs.length - 1) return true;
+    const disabled = legs[branchIndex].safetyOutgoing?.disabledLandableIds;
+    return !disabled?.includes(landableId);
+  }
+
+  setSafetyLandableEnabled(
+    branchIndex: number,
+    landableId: string,
+    enabled: boolean
+  ): void {
+    const legs = [...this.circuitLegs()];
+    if (branchIndex < 0 || branchIndex >= legs.length - 1) return;
+    const leg = legs[branchIndex];
+    const disabled = new Set(leg.safetyOutgoing?.disabledLandableIds ?? []);
+    if (enabled) {
+      disabled.delete(landableId);
+    } else {
+      disabled.add(landableId);
+    }
+    const disabledLandableIds = [...disabled];
+    legs[branchIndex] = {
+      ...leg,
+      safetyOutgoing:
+        disabledLandableIds.length > 0 ? { disabledLandableIds } : undefined
+    };
+    this.setLegs(legs);
+  }
+
+  setAllSafetyLandablesEnabled(
+    branchIndex: number,
+    landableIds: string[],
+    enabled: boolean
+  ): void {
+    const legs = [...this.circuitLegs()];
+    if (branchIndex < 0 || branchIndex >= legs.length - 1) return;
+    const leg = legs[branchIndex];
+    const disabled = new Set(leg.safetyOutgoing?.disabledLandableIds ?? []);
+    for (const id of landableIds) {
+      if (enabled) disabled.delete(id);
+      else disabled.add(id);
+    }
+    const disabledLandableIds = [...disabled];
+    legs[branchIndex] = {
+      ...leg,
+      safetyOutgoing:
+        disabledLandableIds.length > 0 ? { disabledLandableIds } : undefined
+    };
+    this.setLegs(legs);
+  }
+
   applyDefaultRadiusToAllLegZones(): void {
     this.applyRegulationToAllLegs();
   }
@@ -232,6 +296,17 @@ export class TaskStateService {
 
   setTaskName(name: string): void {
     this.taskName.set(name);
+    this.saveToStorage();
+  }
+
+  setSafetyParams(patch: Partial<SafetyParams>): void {
+    const next = sanitizeSafetyParams(patch, this.safetyParams());
+    this.safetyParams.set(next);
+    this.saveToStorage();
+  }
+
+  resetSafetyParams(): void {
+    this.safetyParams.set({ ...DEFAULT_SAFETY_PARAMS });
     this.saveToStorage();
   }
 
@@ -398,12 +473,20 @@ export class TaskStateService {
     this.saveToStorage();
   }
 
-  loadTask(legs: CircuitLeg[], name: string, regulation?: TaskRegulationState): void {
+  loadTask(
+    legs: CircuitLeg[],
+    name: string,
+    regulation?: TaskRegulationState,
+    safetyParams?: SafetyParams
+  ): void {
     this.circuitLegs.set(this.sanitizeLegs([...legs]));
     this.taskName.set(name);
     if (regulation) {
       this.regulation.set(regulation);
     }
+    this.safetyParams.set(
+      safetyParams ? sanitizeSafetyParams(safetyParams) : { ...DEFAULT_SAFETY_PARAMS }
+    );
     this.saveToStorage();
   }
 
