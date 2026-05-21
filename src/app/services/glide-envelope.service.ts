@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import type { SafetyParams } from '../models/safety-params.model';
 import type { Waypoint } from '../models/waypoint.model';
+import { assignMapDisplayRadii } from '../utils/landable-cone-intersection.util';
 import type { TerrainSample } from './terrain-profile.service';
 
 /** Point d'une courbe de cône (altitude requise à une distance le long de la branche). */
@@ -27,6 +28,12 @@ export interface LandableConeVisual {
   curve: LandableConeSample[];
   /** Ce terrain impose l'enveloppe à au moins un point (cône le plus contraignant). */
   isBinding: boolean;
+  /**
+   * Rayon horizontal du cône 3D (km) : plus grande intersection avec un autre cône sur la coupe + 2,5 km.
+   */
+  mapDisplayRadiusKm: number;
+  /** Bord supérieur du cône 3D (m MSL), dérivé de `mapDisplayRadiusKm` et demi-finesse. */
+  mapTopAltitudeM: number;
 }
 
 /** Échantillon enrichi avec les altitudes de sécurité calculées. */
@@ -276,6 +283,8 @@ export class GlideEnvelopeService {
       };
     });
 
+    assignMapDisplayRadii(landableCones, halfRatio);
+
     return {
       samples: result,
       landableCones,
@@ -367,7 +376,9 @@ export class GlideEnvelopeService {
         elevationM: elev,
         baseAltitudeM,
         curve,
-        isBinding: bindingIds.has(la.id)
+        isBinding: bindingIds.has(la.id),
+        mapDisplayRadiusKm: 0,
+        mapTopAltitudeM: baseAltitudeM
       });
     }
 
