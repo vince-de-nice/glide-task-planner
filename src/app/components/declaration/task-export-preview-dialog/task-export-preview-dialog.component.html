@@ -14,6 +14,9 @@
   @if (ruleValidation().errors.length > 0) {
     <p-message severity="error">{{ ruleValidation().errors.join(' · ') }}</p-message>
   }
+  @if (ruleValidation().warnings.length > 0) {
+    <p-message severity="warn">{{ ruleValidation().warnings.join(' · ') }}</p-message>
+  }
   <p-select
     [options]="previewFormatOptions()"
     optionLabel="label"

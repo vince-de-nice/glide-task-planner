@@ -212,6 +212,39 @@
   max-width: min(12rem, calc(100% - 5rem));
 }
 
+.map-overlay--terrain-elev {
+  left: 50%;
+  top: 0.5rem;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--gc-border) 70%, transparent);
+  border-radius: var(--gc-radius-sm);
+  background: color-mix(in srgb, var(--gc-surface) 90%, transparent);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 10px rgb(15 23 42 / 0.2);
+  pointer-events: none;
+}
+
+.map-terrain-elev__value {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--gc-text);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.map-terrain-elev__src {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--gc-text-muted);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 .map-overlay--legend {
   left: 0.5rem;
   bottom: 0.5rem;

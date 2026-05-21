@@ -6,7 +6,11 @@ export function observationZoneShortLabelI18n(
   i18n: TranslateService
 ): string {
   if (zone.line) {
-    return i18n.t('zone.line', { meters: zone.r1M });
+    // R1 = demi-largeur dans la spec CUP → longueur totale de la ligne = 2 × R1
+    const totalM = zone.r1M * 2;
+    return totalM >= 1000
+      ? i18n.t('zone.lineKm', { km: (totalM / 1000).toFixed(1).replace(/\.0$/, '') })
+      : i18n.t('zone.line', { meters: totalM });
   }
   if (zone.r2M && zone.r2M > 1000) {
     return i18n.t('zone.sectorKm', { km: (zone.r1M / 1000).toFixed(0) });

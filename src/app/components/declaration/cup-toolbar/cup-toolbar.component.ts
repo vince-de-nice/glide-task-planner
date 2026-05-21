@@ -25,7 +25,6 @@ import {
 import { CupLoaderService } from '../../../services/cup-loader.service';
 import { CupDatabaseService } from '../../../services/cup-database.service';
 import { CupSourcesConfigService } from '../../../services/cup-sources-config.service';
-import { TaskStateService } from '../../../services/task-state.service';
 import { WaypointService } from '../../../services/waypoint.service';
 import { UiFeedbackService } from '../../../services/ui-feedback.service';
 import { TranslateService } from '../../../i18n/translate.service';

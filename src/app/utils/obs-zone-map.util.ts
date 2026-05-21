@@ -306,14 +306,15 @@ export function buildObsZoneMapShapes(ctx: ObsZoneLegContext): ObsZoneMapShape[]
     legIndex: ctx.legIndex,
     role: ctx.leg.role,
     center,
-    label: zone.line ? `Ligne ${zone.r1M} m` : `R${zone.r1M} m`
+    // R1 = demi-largeur pour les lignes → on pré-calcule la largeur totale
+    label: zone.line ? `Ligne ${zone.r1M * 2} m` : `R${zone.r1M} m`
   };
 
   if (zone.line) {
     const brg = cupZoneReferenceBearingDeg(zone, ctx);
     const perp = (brg + 90) % 360;
-    const half =
-      zone.a1Deg != null && zone.a1Deg >= 170 ? zone.r1M : Math.max(zone.r1M / 2, 50);
+    // R1 est toujours la demi-largeur (CUP spec v1.2, XCSoar #2029)
+    const half = zone.r1M;
     return [
       {
         ...base,

@@ -32,7 +32,6 @@ export interface CupStyleOrientationPreview {
 
 const CX = 50;
 const CY = 50;
-const REF_RADIUS = 32;
 const AXIS_LEN = 36;
 
 /** Point SVG depuis un cap (° vrai, horaire depuis le nord). */

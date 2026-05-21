@@ -287,7 +287,13 @@ export const fr = {
     filtersAria: 'Afficher sur la carte',
     helpTitle: 'Aide carte',
     helpTooltip:
-      'Zones tâche : cylindres/secteurs/lignes en mètres réels · espaces aériens POAFF/OpenAIP · tâche toujours visible (numéros de leg) · catalogue : grappes sous zoom 10 · noms dès qu’un point n’est plus grappé · double-clic : point · clic : menu',
+      'Zones tâche : cylindres/secteurs/lignes en mètres réels · espaces aériens POAFF/OpenAIP · altitude terrain au survol (DEM Mapterhorn) · relief ombré (bouton barres) · tâche toujours visible (numéros de leg) · catalogue : grappes sous zoom 10 · double-clic : point · clic : menu',
+    terrain: {
+      hillshade: 'Relief terrain',
+      hillshadeTooltip: 'Ombrage du relief (DEM Mapterhorn)',
+      cursorElevation: 'Terrain : {{value}}',
+      attributionShort: 'DEM © Mapterhorn'
+    },
     legendAria: 'Légende carte',
     legendTask: 'Tâche',
     legendCatalog: 'Catalogue',
@@ -479,6 +485,7 @@ export const fr = {
   },
   zone: {
     line: 'Ligne {{meters}} m',
+    lineKm: 'Ligne {{km}} km',
     sectorKm: 'Secteur {{km}} km',
     sectorDeg: 'Secteur {{deg}}° · {{meters}} m',
     cylSym: 'Cyl. sym. {{meters}} m',
@@ -571,6 +578,7 @@ export const fr = {
       ref4missing: 'Départ manquant sur le circuit'
     },
     lineCup: 'Ligne (CUP Line=1)',
+    r1LineHint: 'Demi-largeur — longueur totale de la ligne = {{total}} m.',
     a1LineHint: 'Ouverture de la ligne (souvent 180°).',
     a1SectorHint: 'Largeur du secteur (°) autour de l’axe d’orientation.',
     r2Hint: 'Rayon intérieur (trou / keyhole FAI).',

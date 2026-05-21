@@ -67,7 +67,7 @@ export class LibraryPageComponent {
     }
   }
 
-  onCircuitLoaded(circuitId: string): void {
+  onCircuitLoaded(_circuitId: string): void {
     sessionStorage.setItem(WORKSPACE_TAB_KEY, 'circuit');
     void this.router.navigate(['/declaration']);
     this.uiFeedback.info(this.i18n.t('circuit.circuitLoaded'));

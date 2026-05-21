@@ -288,7 +288,13 @@ export const en = {
     filtersAria: 'Map layers',
     helpTitle: 'Map help',
     helpTooltip:
-      'Task zones: cylinders/sectors/lines in real meters · POAFF/OpenAIP airspace · task always visible (leg numbers) · catalog: clusters below zoom 10 · names when a point is no longer clustered · double-click: waypoint · click: menu',
+      'Task zones: cylinders/sectors/lines in real meters · POAFF/OpenAIP airspace · terrain elevation on hover (Mapterhorn DEM) · hillshade relief (bar button) · task always visible (leg numbers) · catalog: clusters below zoom 10 · double-click: waypoint · click: menu',
+    terrain: {
+      hillshade: 'Terrain relief',
+      hillshadeTooltip: 'Hillshade relief (Mapterhorn DEM)',
+      cursorElevation: 'Terrain: {{value}}',
+      attributionShort: 'DEM © Mapterhorn'
+    },
     legendAria: 'Map legend',
     legendTask: 'Task',
     legendCatalog: 'Catalog',
@@ -479,6 +485,7 @@ export const en = {
   },
   zone: {
     line: 'Line {{meters}} m',
+    lineKm: 'Line {{km}} km',
     sectorKm: 'Sector {{km}} km',
     sectorDeg: 'Sector {{deg}}° · {{meters}} m',
     cylSym: 'Cyl. sym. {{meters}} m',
@@ -571,6 +578,7 @@ export const en = {
       ref4missing: 'Start missing on task'
     },
     lineCup: 'Line (CUP Line=1)',
+    r1LineHint: 'Half gate width — total line length = {{total}} m.',
     a1LineHint: 'Line opening angle (often 180°).',
     a1SectorHint: 'Sector width (°) around the orientation axis.',
     r2Hint: 'Inner radius (hole / FAI keyhole).',

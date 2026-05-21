@@ -59,6 +59,11 @@
                 size="small"
                 fluid
               />
+              @if (line()) {
+                <p class="leg-zone-dialog__hint leg-zone-dialog__field-hint">
+                  {{ 'zoneCup.r1LineHint' | translate: { total: r1M() * 2 } }}
+                </p>
+              }
             </div>
             @if (paramVisibility().a1) {
               <div class="leg-zone-dialog__field">

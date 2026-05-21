@@ -61,6 +61,7 @@ import { MapFocusService } from '../../services/map-focus.service';
 const SHOW_FULL_CATALOG_KEY = 'gc-map-show-full-catalog';
 const MAP_BASEMAP_KEY = 'gc-map-basemap';
 import type { StyleSpecification } from 'maplibre-gl';
+import { formatElevationDisplay } from '../../utils/elevation.util';
 import {
   applyBasemapToMap,
   BASEMAP_PRESETS,
@@ -71,7 +72,9 @@ import {
   isBasemapId,
   MAP_LAYER,
   MAP_SOURCE,
+  MAP_TERRAIN_HILLSHADE_KEY,
   reorderMapOverlayLayers,
+  setTerrainHillshadeVisible,
   southWestNorthEastToLngLatBounds,
   type BasemapId
 } from './map-style.constants';
@@ -164,6 +167,9 @@ export class MapViewComponent implements OnInit {
   /** B.1 : masquer le catalogue par défaut. */
   showFullCatalog = signal(false);
   basemapPanelExpanded = signal(false);
+  /** Ombrage relief Mapterhorn (DEM reste actif pour l’altitude au curseur). */
+  terrainHillshadeVisible = signal(false);
+  cursorTerrainElevM = signal<number | null>(null);
 
   readonly mapLegendItems = computed(() => {
     this.i18n.locale();
@@ -210,7 +216,19 @@ export class MapViewComponent implements OnInit {
     }));
   });
 
+  readonly cursorElevationLine = computed(() => {
+    this.i18n.locale();
+    const m = this.cursorTerrainElevM();
+    if (m == null || !Number.isFinite(m)) {
+      return null;
+    }
+    return this.i18n.t('map.terrain.cursorElevation', {
+      value: formatElevationDisplay(m)
+    });
+  });
+
   private map: MaplibreMap | null = null;
+  private terrainElevationRaf = 0;
   /** Première couche métier (ancrage pour changement de fond). */
   private dataLayerAnchorId: string | null = null;
   private airspacePopup: Popup | null = null;
@@ -273,6 +291,16 @@ export class MapViewComponent implements OnInit {
     this.basemapPanelExpanded.update(v => !v);
     if (this.basemapPanelExpanded()) {
       this.filtersExpanded.set(false);
+    }
+  }
+
+  toggleTerrainHillshade(): void {
+    const next = !this.terrainHillshadeVisible();
+    this.terrainHillshadeVisible.set(next);
+    localStorage.setItem(MAP_TERRAIN_HILLSHADE_KEY, next ? '1' : '0');
+    const map = this.map;
+    if (map) {
+      setTerrainHillshadeVisible(map, next);
     }
   }
 
@@ -406,7 +434,11 @@ export class MapViewComponent implements OnInit {
     if (storedBasemap && isBasemapId(storedBasemap)) {
       this.basemapId.set(storedBasemap);
     }
-    this.mapStyle = buildBaseMapStyle(this.basemapId());
+
+    const storedHillshade = localStorage.getItem(MAP_TERRAIN_HILLSHADE_KEY);
+    const hillshadeOn = storedHillshade === '1';
+    this.terrainHillshadeVisible.set(hillshadeOn);
+    this.mapStyle = buildBaseMapStyle(this.basemapId(), hillshadeOn);
 
     const storedCatalog = localStorage.getItem(SHOW_FULL_CATALOG_KEY);
     if (storedCatalog === '1') {
@@ -460,11 +492,31 @@ export class MapViewComponent implements OnInit {
       }
     });
     map.on('move', () => this.repositionContextMenu());
+    map.on('mousemove', e => this.onMapMouseMove(e));
+    map.on('mouseout', () => this.cursorTerrainElevM.set(null));
+    setTerrainHillshadeVisible(map, this.terrainHillshadeVisible());
 
     requestAnimationFrame(() => {
       map.resize();
       this.updateWaypointsSource();
       this.updateObsZones();
+    });
+  }
+
+  private onMapMouseMove(event: MapMouseEvent): void {
+    const map = this.map;
+    if (!map) {
+      return;
+    }
+    cancelAnimationFrame(this.terrainElevationRaf);
+    const { lng, lat } = event.lngLat;
+    this.terrainElevationRaf = requestAnimationFrame(() => {
+      const raw = map.queryTerrainElevation([lng, lat]);
+      if (raw == null || !Number.isFinite(raw)) {
+        this.cursorTerrainElevM.set(null);
+        return;
+      }
+      this.cursorTerrainElevM.set(Math.round(raw));
     });
   }
 
@@ -848,7 +900,7 @@ export class MapViewComponent implements OnInit {
         defaultTaskBadge(wp, this.taskState.getCircuitIndices(wp.id)),
       isInCircuit: wp => this.taskState.getCircuitIndices(wp.id).length > 0,
       isInTask: wp => taskIds.has(wp.id),
-      isCatalogOnly: wp => opts.catalogOnly,
+      isCatalogOnly: () => opts.catalogOnly,
       isFocused: wp => focusedId === wp.id
     };
   }

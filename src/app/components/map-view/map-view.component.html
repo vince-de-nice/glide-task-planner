@@ -76,6 +76,19 @@
       <button
         type="button"
         class="map-fab"
+        [class.map-fab--on]="terrainHillshadeVisible()"
+        (click)="toggleTerrainHillshade()"
+        [pTooltip]="'map.terrain.hillshadeTooltip' | translate"
+        tooltipPosition="left"
+        [attr.aria-label]="'map.terrain.hillshade' | translate"
+        [attr.aria-pressed]="terrainHillshadeVisible()"
+      >
+        <i class="pi pi-chart-bar" aria-hidden="true"></i>
+      </button>
+
+      <button
+        type="button"
+        class="map-fab"
         [class.map-fab--on]="airspaceVisible()"
         [class.map-fab--loading]="airspaceLoading()"
         [disabled]="airspaceLoading()"
@@ -89,6 +102,17 @@
       </button>
 
     </div>
+
+    @if (cursorElevationLine(); as elevLine) {
+      <div
+        class="map-overlay map-overlay--terrain-elev"
+        role="status"
+        [attr.aria-label]="elevLine"
+      >
+        <span class="map-terrain-elev__value">{{ elevLine }}</span>
+        <span class="map-terrain-elev__src">{{ 'map.terrain.attributionShort' | translate }}</span>
+      </div>
+    }
 
     @if (basemapPanelExpanded()) {
       <div
