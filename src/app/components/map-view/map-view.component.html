@@ -1,107 +1,4 @@
 <div class="map-panel" [class.compact]="compact()">
-  <div class="map-toolbar-wrap">
-    <p-toolbar styleClass="map-toolbar">
-      <ng-template #start>
-        <div class="map-toolbar__group">
-          <p-button
-            [label]="'map.centerTask' | translate"
-            icon="pi pi-crosshairs"
-            size="small"
-            severity="secondary"
-            (onClick)="centerOnTask()"
-          />
-          <p-button
-            icon="pi pi-ellipsis-v"
-            size="small"
-            severity="secondary"
-            [text]="true"
-            (onClick)="toolbarMenu.toggle($event)"
-            [attr.aria-label]="'map.moreActions' | translate"
-          />
-          <p-menu #toolbarMenu [popup]="true" [model]="toolbarMenuItems()" />
-        </div>
-      </ng-template>
-      <ng-template #end>
-        <div class="map-toolbar__controls">
-          <p-button
-            [label]="(filtersExpanded() ? 'map.filtersExpanded' : 'map.filtersCollapsed') | translate"
-            icon="pi pi-filter"
-            size="small"
-            [outlined]="!filtersExpanded()"
-            severity="secondary"
-            (onClick)="toggleFilters()"
-            [attr.aria-label]="'map.filtersTypesAria' | translate"
-          />
-          <label class="map-airspace-switch" for="map-obs-zones-toggle">
-            <span class="map-airspace-switch__label">{{ 'map.taskZones' | translate }}</span>
-            <p-toggleswitch
-              inputId="map-obs-zones-toggle"
-              [ngModel]="obsZonesVisible()"
-              (ngModelChange)="onObsZonesToggle($event)"
-              size="small"
-              [disabled]="!mapReady() || circuitLegs().length === 0"
-              [pTooltip]="circuitLegs().length === 0 ? ('map.taskZonesTooltipEmpty' | translate) : ('map.taskZonesTooltip' | translate)"
-              tooltipPosition="bottom"
-              [attr.aria-label]="'map.taskZonesAria' | translate"
-            />
-          </label>
-          <label class="map-airspace-switch" for="map-airspace-toggle">
-            <span class="map-airspace-switch__label">{{ 'map.airspace' | translate }}</span>
-            <p-toggleswitch
-              inputId="map-airspace-toggle"
-              [ngModel]="airspaceVisible()"
-              (ngModelChange)="onAirspaceToggle($event)"
-              size="small"
-              [disabled]="airspaceLoading() || !mapReady()"
-              [pTooltip]="airspaceLoading() ? ('common.loading' | translate) : ''"
-              tooltipPosition="bottom"
-              [attr.aria-label]="'map.airspaceAria' | translate"
-            />
-          </label>
-          @if (airspaceConfigReady() && !airspaceLayerService.hasOpenAipKey()) {
-            <p-select
-              [options]="poaffRegions"
-              optionLabel="label"
-              optionValue="id"
-              [ngModel]="airspaceRegionId()"
-              (ngModelChange)="onAirspaceRegionChange($event)"
-              [disabled]="airspaceLoading()"
-              size="small"
-              [placeholder]="'map.region' | translate"
-              styleClass="map-region-select"
-            />
-          }
-        </div>
-      </ng-template>
-    </p-toolbar>
-    @if (airspaceStatus(); as status) {
-      <p class="map-airspace-status">{{ status }}</p>
-    }
-  </div>
-
-  @if (filtersExpanded()) {
-    <div class="map-filters" role="group" [attr.aria-label]="'map.filtersAria' | translate">
-      @for (filter of typeFilterOptions(); track filter.type) {
-        <label
-          class="map-filter-switch"
-          [class.map-filter-switch--off]="!isCatalogTypeVisible(filter.type)"
-          [for]="'map-filter-' + filter.type"
-          [style.--filter-color]="filter.color"
-        >
-          <i [class]="filter.icon" aria-hidden="true"></i>
-          <span class="map-filter-switch__label">{{ filter.label }}</span>
-          <p-toggleswitch
-            [inputId]="'map-filter-' + filter.type"
-            [ngModel]="isCatalogTypeVisible(filter.type)"
-            (ngModelChange)="onCatalogTypeToggle(filter.type, $event)"
-            size="small"
-            [attr.aria-label]="'map.showType' | translate: { label: filter.label }"
-          />
-        </label>
-      }
-    </div>
-  }
-
   <div class="map-container">
     <mgl-map
       [mapStyle]="mapStyle"
@@ -111,6 +8,147 @@
       (mapLoad)="onMapLoad($event)"
       (mapDblClick)="onMapDblClick($event)"
     />
+
+    <div
+      class="map-overlay map-overlay--fabs"
+      role="toolbar"
+      [attr.aria-label]="mapFabToolbarAria()"
+    >
+      <button
+        type="button"
+        class="map-fab"
+        [disabled]="!hasTask()"
+        (click)="centerOnTask()"
+        [pTooltip]="'map.centerTask' | translate"
+        tooltipPosition="left"
+        [attr.aria-label]="'map.centerTask' | translate"
+      >
+        <i class="pi pi-crosshairs" aria-hidden="true"></i>
+      </button>
+
+      <button
+        type="button"
+        class="map-fab"
+        [class.map-fab--on]="showFullCatalog()"
+        (click)="toggleFullCatalog()"
+        [pTooltip]="catalogToggleLabel()"
+        tooltipPosition="left"
+        [attr.aria-label]="catalogToggleLabel()"
+        [attr.aria-pressed]="showFullCatalog()"
+      >
+        <i
+          class="pi"
+          [class.pi-eye-slash]="showFullCatalog()"
+          [class.pi-eye]="!showFullCatalog()"
+          aria-hidden="true"
+        ></i>
+      </button>
+
+      <button
+        type="button"
+        class="map-fab"
+        [class.map-fab--on]="filtersExpanded()"
+        [disabled]="filtersFabDisabled()"
+        (click)="toggleFilters()"
+        [pTooltip]="(filtersExpanded() ? 'map.filtersExpanded' : 'map.filtersCollapsed') | translate"
+        tooltipPosition="left"
+        [attr.aria-label]="'map.filtersTypesAria' | translate"
+        [attr.aria-expanded]="filtersExpanded()"
+      >
+        <i class="pi pi-filter" aria-hidden="true"></i>
+      </button>
+
+      <div class="map-fab-divider" aria-hidden="true"></div>
+
+      <button
+        type="button"
+        class="map-fab"
+        [class.map-fab--on]="airspaceVisible()"
+        [class.map-fab--loading]="airspaceLoading()"
+        [disabled]="airspaceLoading()"
+        (click)="onAirspaceToggle(!airspaceVisible())"
+        [pTooltip]="'map.airspace' | translate"
+        tooltipPosition="left"
+        [attr.aria-label]="'map.airspace' | translate"
+        [attr.aria-pressed]="airspaceVisible()"
+      >
+        <i class="pi pi-cloud" aria-hidden="true"></i>
+      </button>
+
+    </div>
+
+    @if (filtersExpanded() && shouldShowCatalog()) {
+      <div
+        class="map-overlay map-overlay--filters"
+        role="group"
+        [attr.aria-label]="'map.filtersAria' | translate"
+      >
+        @for (filter of typeFilterOptions(); track filter.type) {
+          <label
+            class="map-filter-switch"
+            [class.map-filter-switch--off]="!isCatalogTypeVisible(filter.type)"
+            [for]="'map-filter-' + filter.type"
+            [style.--filter-color]="filter.color"
+          >
+            <i [class]="filter.icon" aria-hidden="true"></i>
+            <span class="map-filter-switch__label">{{ filter.label }}</span>
+            <p-toggleswitch
+              [inputId]="'map-filter-' + filter.type"
+              [ngModel]="isCatalogTypeVisible(filter.type)"
+              (ngModelChange)="onCatalogTypeToggle(filter.type, $event)"
+              size="small"
+              [attr.aria-label]="'map.showType' | translate: { label: filter.label }"
+            />
+          </label>
+        }
+      </div>
+    }
+
+    @if (
+      airspaceConfigReady() &&
+      !airspaceLayerService.hasOpenAipKey() &&
+      airspaceVisible()
+    ) {
+      <div class="map-overlay map-overlay--region">
+        <p-select
+          [options]="poaffRegions"
+          optionLabel="label"
+          optionValue="id"
+          [ngModel]="airspaceRegionId()"
+          (ngModelChange)="onAirspaceRegionChange($event)"
+          [disabled]="airspaceLoading()"
+          size="small"
+          [placeholder]="'map.region' | translate"
+          styleClass="map-region-select"
+          [attr.aria-label]="'map.region' | translate"
+        />
+      </div>
+    }
+
+    <div class="map-overlay map-overlay--legend" role="group" [attr.aria-label]="'map.legendAria' | translate">
+      @let legend = mapLegendItems();
+      <span class="map-legend__item map-legend__item--task" [pTooltip]="legend.task" tooltipPosition="top">
+        <span class="map-legend__swatch map-legend__swatch--task" aria-hidden="true"></span>
+        <span class="map-legend__text">{{ legend.task }}</span>
+      </span>
+      @if (shouldShowCatalog()) {
+        <span class="map-legend__item" [pTooltip]="legend.cluster" tooltipPosition="top">
+          <span class="map-legend__swatch map-legend__swatch--cluster" aria-hidden="true"></span>
+          <span class="map-legend__text">{{ legend.catalog }}</span>
+        </span>
+      }
+      @for (t of legend.types; track t.label) {
+        <span class="map-legend__item map-legend__item--type" [pTooltip]="t.label" tooltipPosition="top">
+          <span class="map-legend__swatch" [style.background]="t.color" aria-hidden="true"></span>
+          <span class="map-legend__text">{{ t.label }}</span>
+        </span>
+      }
+    </div>
+
+    @if (airspaceStatus(); as status) {
+      <p class="map-overlay map-overlay--status">{{ status }}</p>
+    }
+
     @if (contextMenu(); as ctx) {
       <div
         class="gc-map-ctx-anchor"

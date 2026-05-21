@@ -11,13 +11,17 @@ export const SATELLITE_LABELS = {
   maxZoom: 19
 };
 
-/** Libellés waypoint visibles à partir de ce zoom (MapLibre minzoom sur la couche texte). */
-export const MIN_ZOOM_FOR_LABELS = 11;
+/** Option E — LOD catalogue : cluster sous ce zoom, points individuels au-delà. */
+export const CATALOG_CLUSTER_MAX_ZOOM = 10;
+
+/** Pastilles catalogue visibles à partir de ce zoom (sous le seuil cluster). */
+export const CATALOG_DOT_MIN_ZOOM = 8;
 
 export const MAP_SOURCE = {
   ESRI_IMAGERY: 'esri-imagery',
   ESRI_LABELS: 'esri-labels',
-  WAYPOINTS: 'waypoints',
+  WAYPOINTS_TASK: 'waypoints-task',
+  WAYPOINTS_CATALOG: 'waypoints-catalog',
   TASK_LINES: 'task-lines',
   TASK_LABELS: 'task-labels',
   OBS_ZONES: 'obs-zones',
@@ -35,8 +39,13 @@ export const MAP_LAYER = {
   OBS_LINE: 'obs-zones-line',
   TASK_LINES: 'task-lines',
   TASK_LABELS: 'task-labels',
-  WAYPOINTS_DOT: 'waypoints-dot',
-  WAYPOINTS_LABEL: 'waypoints-label'
+  CATALOG_CLUSTER: 'catalog-cluster',
+  CATALOG_CLUSTER_COUNT: 'catalog-cluster-count',
+  CATALOG_DOT: 'catalog-dot',
+  CATALOG_LABEL: 'catalog-label',
+  TASK_DOT: 'task-dot',
+  TASK_BADGE: 'task-badge',
+  TASK_LABEL: 'task-label'
 } as const;
 
 export function buildBaseMapStyle(): StyleSpecification {

@@ -42,6 +42,7 @@ import { AirspaceLayerService, AirspaceLoadResult } from '../../services/airspac
 import { DEFAULT_POAFF_REGION_ID } from '../../config/map-airspace.config';
 import { Waypoint, WaypointType } from '../../models/waypoint.model';
 import {
+  defaultTaskBadge,
   formatMapRoleSuffix,
   patchWaypointsGeoJson,
   type WaypointMapFeatureProps
@@ -51,16 +52,17 @@ import {
   WaypointEditDialogComponent,
   WaypointEditPayload
 } from '../waypoint-edit-dialog/waypoint-edit-dialog.component';
-import { Button } from 'primeng/button';
 import { Select } from 'primeng/select';
-import { Menu } from 'primeng/menu';
-import { MenuItem } from 'primeng/api';
-import { Toolbar } from 'primeng/toolbar';
 import { ToggleSwitch } from 'primeng/toggleswitch';
 import { Tooltip } from 'primeng/tooltip';
 import { UiFeedbackService } from '../../services/ui-feedback.service';
+import { MapFocusService } from '../../services/map-focus.service';
+
+const SHOW_FULL_CATALOG_KEY = 'gc-map-show-full-catalog';
 import {
   buildBaseMapStyle,
+  CATALOG_CLUSTER_MAX_ZOOM,
+  CATALOG_DOT_MIN_ZOOM,
   MAP_LAYER,
   MAP_SOURCE,
   southWestNorthEastToLngLatBounds
@@ -68,6 +70,14 @@ import {
 import { buildTaskLinesGeoJson } from './map-task-lines-geojson.util';
 import { WaypointContextMenuComponent } from './waypoint-context-menu.component';
 const EMPTY_FC: FeatureCollection = { type: 'FeatureCollection', features: [] };
+
+/** Couches ouvrant le menu contextuel waypoint (pastilles, badges et libellés). */
+const WAYPOINT_MENU_LAYERS: string[] = [
+  MAP_LAYER.TASK_DOT,
+  MAP_LAYER.TASK_LABEL,
+  MAP_LAYER.CATALOG_DOT,
+  MAP_LAYER.CATALOG_LABEL
+];
 
 function setGeoJsonData(map: MaplibreMap, sourceId: string, data: FeatureCollection): void {
   const source = map.getSource(sourceId);
@@ -91,10 +101,7 @@ export interface MapContextMenuState {
     MapComponent,
     WaypointEditDialogComponent,
     WaypointContextMenuComponent,
-    Button,
     Select,
-    Menu,
-    Toolbar,
     ToggleSwitch,
     Tooltip,
     TranslatePipe
@@ -109,6 +116,7 @@ export class MapViewComponent implements OnInit {
   private uiFeedback = inject(UiFeedbackService);
   private i18n = inject(TranslateService);
   private distanceService = inject(DistanceService);
+  private mapFocus = inject(MapFocusService);
   readonly airspaceLayerService = inject(AirspaceLayerService);
 
   compact = input(false);
@@ -143,32 +151,51 @@ export class MapViewComponent implements OnInit {
 
   catalogTypeFilter = signal<WaypointType[]>(['turnpoint', 'airfield', 'landable', 'custom']);
   filtersExpanded = signal(false);
+  /** B.1 : masquer le catalogue par défaut. */
+  showFullCatalog = signal(false);
 
-  readonly toolbarMenuItems = computed<MenuItem[]>(() => {
+  readonly mapLegendItems = computed(() => {
     this.i18n.locale();
-    return [
-      {
-        label: this.i18n.t('map.centerAll'),
-        icon: 'pi pi-globe',
-        command: () => this.centerOnAll()
-      },
-      {
-        label: this.i18n.t('map.clearSelection'),
-        icon: 'pi pi-trash',
-        command: () => void this.clearSelection()
-      },
-      {
-        label: this.i18n.t('map.helpTitle'),
-        icon: 'pi pi-info-circle',
-        command: () =>
-          this.uiFeedback.info(this.i18n.t('map.helpTitle'), this.i18n.t('map.helpTooltip'))
-      }
-    ];
+    const types = this.typeFilterOptions().map(f => ({
+      color: f.color,
+      label: f.shortLabel
+    }));
+    return {
+      task: this.i18n.t('map.legendTask'),
+      catalog: this.i18n.t('map.legendCatalog'),
+      cluster: this.i18n.t('map.legendCluster'),
+      labels: this.i18n.t('map.legendLabelsUnclustered'),
+      types
+    };
   });
+
+  readonly catalogToggleLabel = computed(() => {
+    this.i18n.locale();
+    const n = this.waypoints().length;
+    if (this.showFullCatalog()) {
+      return this.i18n.t('map.hideFullCatalog');
+    }
+    return n > 0
+      ? this.i18n.t('map.showFullCatalogCount', { count: n })
+      : this.i18n.t('map.showFullCatalog');
+  });
+
+  readonly mapFabToolbarAria = computed(() => {
+    this.i18n.locale();
+    return this.i18n.t('map.fabToolbarAria');
+  });
+
+  readonly hasTask = computed(() => this.selectedWaypointIds().length > 0);
+
+  readonly filtersFabDisabled = computed(
+    () => !this.shouldShowCatalog() && !this.showFullCatalog()
+  );
 
   private map: MaplibreMap | null = null;
   private airspacePopup: Popup | null = null;
-  private readonly waypointFeatureCache = new Map<string, Feature<Point, WaypointMapFeatureProps>>();
+  private readonly taskFeatureCache = new Map<string, Feature<Point, WaypointMapFeatureProps>>();
+  private readonly catalogFeatureCache = new Map<string, Feature<Point, WaypointMapFeatureProps>>();
+  private focusPulseTimer: ReturnType<typeof setTimeout> | null = null;
   mapReady = signal(false);
 
   contextMenu = signal<MapContextMenuState | null>(null);
@@ -186,6 +213,9 @@ export class MapViewComponent implements OnInit {
       this.catalogTypeFilter();
       this.selectedWaypointIds();
       this.circuitLegs();
+      this.showFullCatalog();
+      this.mapFocus.focusedWaypointId();
+      this.mapFocus.focusedLegIndex();
       if (this.mapReady()) {
         this.updateWaypointsSource();
       }
@@ -213,6 +243,20 @@ export class MapViewComponent implements OnInit {
 
   toggleFilters(): void {
     this.filtersExpanded.update(v => !v);
+  }
+
+
+  toggleFullCatalog(): void {
+    this.showFullCatalog.update(v => {
+      const next = !v;
+      localStorage.setItem(SHOW_FULL_CATALOG_KEY, next ? '1' : '0');
+      return next;
+    });
+  }
+
+  enableCatalogForPicker(): void {
+    this.showFullCatalog.set(true);
+    localStorage.setItem(SHOW_FULL_CATALOG_KEY, '1');
   }
 
   private updateTaskDistanceLabel(): void {
@@ -313,6 +357,11 @@ export class MapViewComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    const storedCatalog = localStorage.getItem(SHOW_FULL_CATALOG_KEY);
+    if (storedCatalog === '1') {
+      this.showFullCatalog.set(true);
+    }
+
     void this.airspaceLayerService.ensureConfigLoaded().then(() => {
       this.airspaceConfigReady.set(true);
     });
@@ -334,18 +383,26 @@ export class MapViewComponent implements OnInit {
     this.updateObsZones();
     this.updateTaskDistanceLabel();
 
-    map.on('click', MAP_LAYER.WAYPOINTS_DOT, e => this.onWaypointLayerClick(e));
-    map.on('mouseenter', MAP_LAYER.WAYPOINTS_DOT, () => {
+    for (const layerId of WAYPOINT_MENU_LAYERS) {
+      map.on('click', layerId, e => this.onWaypointLayerClick(e));
+      map.on('mouseenter', layerId, () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+      map.on('mouseleave', layerId, () => {
+        map.getCanvas().style.cursor = '';
+      });
+    }
+    map.on('click', MAP_LAYER.CATALOG_CLUSTER, e => this.onCatalogClusterClick(e));
+    map.on('mouseenter', MAP_LAYER.CATALOG_CLUSTER, () => {
       map.getCanvas().style.cursor = 'pointer';
     });
-    map.on('mouseleave', MAP_LAYER.WAYPOINTS_DOT, () => {
+    map.on('mouseleave', MAP_LAYER.CATALOG_CLUSTER, () => {
       map.getCanvas().style.cursor = '';
     });
     map.on('click', MAP_LAYER.AIRSPACE_FILL, e => this.showAirspacePopup(e));
     map.on('click', e => {
-      const onWaypoint = map.queryRenderedFeatures(e.point, {
-        layers: [MAP_LAYER.WAYPOINTS_DOT]
-      }).length;
+      const hitLayers = [...WAYPOINT_MENU_LAYERS, MAP_LAYER.CATALOG_CLUSTER];
+      const onWaypoint = map.queryRenderedFeatures(e.point, { layers: hitLayers }).length;
       if (!onWaypoint) {
         this.closeContextMenu();
       }
@@ -378,7 +435,14 @@ export class MapViewComponent implements OnInit {
   private initDataLayers(map: MaplibreMap): void {
     const beforeObs = MAP_LAYER.ESRI_LABELS;
 
-    map.addSource(MAP_SOURCE.WAYPOINTS, { type: 'geojson', data: EMPTY_FC });
+    map.addSource(MAP_SOURCE.WAYPOINTS_TASK, { type: 'geojson', data: EMPTY_FC });
+    map.addSource(MAP_SOURCE.WAYPOINTS_CATALOG, {
+      type: 'geojson',
+      data: EMPTY_FC,
+      cluster: true,
+      clusterMaxZoom: CATALOG_CLUSTER_MAX_ZOOM,
+      clusterRadius: 50
+    });
     map.addSource(MAP_SOURCE.TASK_LINES, { type: 'geojson', data: EMPTY_FC });
     map.addSource(MAP_SOURCE.TASK_LABELS, { type: 'geojson', data: EMPTY_FC });
     map.addSource(MAP_SOURCE.OBS_ZONES, { type: 'geojson', data: EMPTY_FC });
@@ -416,7 +480,7 @@ export class MapViewComponent implements OnInit {
           '#fbbf24',
           '#94a3b8'
         ],
-        'line-width': ['case', ['==', ['get', 'counted'], true], 4, 3],
+        'line-width': ['case', ['==', ['get', 'counted'], true], 5, 3],
         'line-opacity': ['case', ['==', ['get', 'counted'], true], 0.95, 0.7],
         'line-dasharray': [
           'case',
@@ -445,33 +509,134 @@ export class MapViewComponent implements OnInit {
     });
 
     map.addLayer({
-      id: MAP_LAYER.WAYPOINTS_DOT,
+      id: MAP_LAYER.CATALOG_CLUSTER,
       type: 'circle',
-      source: MAP_SOURCE.WAYPOINTS,
+      source: MAP_SOURCE.WAYPOINTS_CATALOG,
+      filter: ['has', 'point_count'],
       paint: {
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 3, 12, 5],
-        'circle-color': ['get', 'color'],
-        'circle-stroke-width': ['case', ['get', 'inCircuit'], 2, 0],
-        'circle-stroke-color': '#fbbf24'
+        'circle-color': '#475569',
+        'circle-opacity': 0.6,
+        'circle-radius': [
+          'step',
+          ['get', 'point_count'],
+          14,
+          25,
+          18,
+          100,
+          22,
+          500,
+          28
+        ],
+        'circle-stroke-width': 1,
+        'circle-stroke-color': '#94a3b8'
       }
     });
 
     map.addLayer({
-      id: MAP_LAYER.WAYPOINTS_LABEL,
+      id: MAP_LAYER.CATALOG_CLUSTER_COUNT,
       type: 'symbol',
-      source: MAP_SOURCE.WAYPOINTS,
-      minzoom: 11,
+      source: MAP_SOURCE.WAYPOINTS_CATALOG,
+      filter: ['has', 'point_count'],
+      layout: {
+        'text-field': ['get', 'point_count_abbreviated'],
+        'text-size': 11,
+        'text-font': ['Open Sans Bold']
+      },
+      paint: {
+        'text-color': '#f8fafc'
+      }
+    });
+
+    map.addLayer({
+      id: MAP_LAYER.CATALOG_DOT,
+      type: 'circle',
+      source: MAP_SOURCE.WAYPOINTS_CATALOG,
+      minzoom: CATALOG_DOT_MIN_ZOOM,
+      filter: ['!', ['has', 'point_count']],
+      paint: {
+        'circle-radius': [
+          'interpolate',
+          ['linear'],
+          ['zoom'],
+          CATALOG_DOT_MIN_ZOOM,
+          2,
+          CATALOG_CLUSTER_MAX_ZOOM + 1,
+          3,
+          14,
+          5
+        ],
+        'circle-color': ['get', 'color'],
+        'circle-opacity': 1,
+        'circle-stroke-width': 0
+      }
+    });
+
+    map.addLayer({
+      id: MAP_LAYER.CATALOG_LABEL,
+      type: 'symbol',
+      source: MAP_SOURCE.WAYPOINTS_CATALOG,
+      filter: ['!', ['has', 'point_count']],
+      layout: {
+        'text-field': ['get', 'label'],
+        'text-size': 10,
+        'text-offset': [0.5, 0],
+        'text-anchor': 'left',
+        'text-font': ['Open Sans Regular'],
+        'text-allow-overlap': false
+      },
+      paint: {
+        'text-color': '#cbd5e1',
+        'text-halo-color': '#0f172a',
+        'text-halo-width': 1.2
+      }
+    });
+
+    map.addLayer({
+      id: MAP_LAYER.TASK_DOT,
+      type: 'circle',
+      source: MAP_SOURCE.WAYPOINTS_TASK,
+      paint: {
+        'circle-radius': [
+          'interpolate',
+          ['linear'],
+          ['zoom'],
+          6,
+          ['case', ['==', ['get', 'focused'], 1], 9, 6],
+          12,
+          ['case', ['==', ['get', 'focused'], 1], 12, 9]
+        ],
+        'circle-color': ['get', 'color'],
+        'circle-opacity': 1,
+        'circle-stroke-width': [
+          'case',
+          ['==', ['get', 'focused'], 1],
+          3,
+          2
+        ],
+        'circle-stroke-color': [
+          'case',
+          ['==', ['get', 'focused'], 1],
+          '#ffffff',
+          '#fbbf24'
+        ]
+      }
+    });
+
+    map.addLayer({
+      id: MAP_LAYER.TASK_LABEL,
+      type: 'symbol',
+      source: MAP_SOURCE.WAYPOINTS_TASK,
       layout: {
         'text-field': ['get', 'label'],
         'text-size': 11,
-        'text-offset': [0.6, 0],
+        'text-offset': [0.7, 0],
         'text-anchor': 'left',
         'text-font': ['Open Sans Regular'],
         'text-allow-overlap': false
       },
       paint: {
         'text-color': '#ffffff',
-        'text-halo-color': '#000000',
+        'text-halo-color': '#0f172a',
         'text-halo-width': 1.5
       }
     });
@@ -480,8 +645,36 @@ export class MapViewComponent implements OnInit {
     map.moveLayer(MAP_LAYER.OBS_LINE, beforeObs);
     map.moveLayer(MAP_LAYER.TASK_LINES, beforeObs);
     map.moveLayer(MAP_LAYER.TASK_LABELS, beforeObs);
-    map.moveLayer(MAP_LAYER.WAYPOINTS_DOT, beforeObs);
-    map.moveLayer(MAP_LAYER.WAYPOINTS_LABEL, beforeObs);
+    for (const layerId of [
+      MAP_LAYER.CATALOG_CLUSTER,
+      MAP_LAYER.CATALOG_CLUSTER_COUNT,
+      MAP_LAYER.CATALOG_DOT,
+      MAP_LAYER.CATALOG_LABEL,
+      MAP_LAYER.TASK_DOT,
+      MAP_LAYER.TASK_LABEL
+    ]) {
+      map.moveLayer(layerId);
+    }
+  }
+
+  /** Catalogue visible si toggle actif ou si la tâche est vide (évite une carte vide au démarrage). */
+  shouldShowCatalog(): boolean {
+    return this.showFullCatalog() || this.selectedWaypointIds().length === 0;
+  }
+
+  private onCatalogClusterClick(event: MapLayerMouseEvent): void {
+    event.originalEvent.stopPropagation();
+    this.closeContextMenu();
+    const map = this.map;
+    const feature = event.features?.[0];
+    if (!map || !feature) return;
+    const clusterId = feature.properties?.['cluster_id'] as number | undefined;
+    if (clusterId === undefined) return;
+    const source = map.getSource(MAP_SOURCE.WAYPOINTS_CATALOG) as GeoJSONSource;
+    const coords = (feature.geometry as Point).coordinates as [number, number];
+    void source.getClusterExpansionZoom(clusterId).then(zoom => {
+      map.easeTo({ center: coords, zoom });
+    });
   }
 
   private onWaypointLayerClick(event: MapLayerMouseEvent): void {
@@ -491,8 +684,19 @@ export class MapViewComponent implements OnInit {
     if (!id) return;
     const wp = this.waypointService.getWaypoint(id);
     if (!wp || !this.map) return;
+    this.mapFocus.setFocus(wp.id);
+    this.triggerFocusPulse();
     const point = this.map.project([wp.longitude, wp.latitude]);
     this.contextMenu.set({ waypoint: wp, x: point.x, y: point.y });
+  }
+
+  private triggerFocusPulse(): void {
+    if (this.focusPulseTimer) {
+      clearTimeout(this.focusPulseTimer);
+    }
+    this.focusPulseTimer = setTimeout(() => {
+      this.focusPulseTimer = null;
+    }, 2000);
   }
 
   private repositionContextMenu(): void {
@@ -558,10 +762,13 @@ export class MapViewComponent implements OnInit {
     this.editDialogOpen.set(true);
   }
 
-  private waypointsToRender(): Waypoint[] {
+  private taskWaypointIds(): Set<string> {
+    return new Set(this.selectedWaypointIds());
+  }
+
+  private taskWaypointsToRender(): Waypoint[] {
     const seen = new Set<string>();
     const result: Waypoint[] = [];
-
     for (const id of this.selectedWaypointIds()) {
       const wp = this.waypointService.getWaypoint(id);
       if (wp && !seen.has(wp.id)) {
@@ -569,26 +776,74 @@ export class MapViewComponent implements OnInit {
         result.push(wp);
       }
     }
+    return result;
+  }
 
+  private catalogWaypointsToRender(): Waypoint[] {
+    if (!this.shouldShowCatalog()) {
+      return [];
+    }
+    const taskIds = this.taskWaypointIds();
+    const seen = new Set<string>();
+    const result: Waypoint[] = [];
     for (const wp of this.waypoints()) {
-      if (seen.has(wp.id)) continue;
+      if (taskIds.has(wp.id)) continue;
       if (!this.isCatalogTypeVisible(wp.type)) continue;
+      if (seen.has(wp.id)) continue;
       seen.add(wp.id);
       result.push(wp);
     }
-
     return result;
+  }
+
+  private waypointGeoJsonInput(
+    waypoints: Waypoint[],
+    opts: { catalogOnly: boolean }
+  ): Parameters<typeof patchWaypointsGeoJson>[1] {
+    const taskIds = this.taskWaypointIds();
+    const focusedId = this.mapFocus.focusedWaypointId();
+    return {
+      waypoints,
+      getSuffix: wp => this.waypointSuffix(wp),
+      getBadge: wp =>
+        defaultTaskBadge(wp, this.taskState.getCircuitIndices(wp.id)),
+      isInCircuit: wp => this.taskState.getCircuitIndices(wp.id).length > 0,
+      isInTask: wp => taskIds.has(wp.id),
+      isCatalogOnly: wp => opts.catalogOnly,
+      isFocused: wp => focusedId === wp.id
+    };
   }
 
   private updateWaypointsSource(): void {
     const map = this.map;
     if (!map) return;
-    const data = patchWaypointsGeoJson(this.waypointFeatureCache, {
-      waypoints: this.waypointsToRender(),
-      getSuffix: wp => this.waypointSuffix(wp),
-      isInCircuit: wp => this.taskState.getCircuitIndices(wp.id).length > 0
-    });
-    setGeoJsonData(map, MAP_SOURCE.WAYPOINTS, data);
+    const taskData = patchWaypointsGeoJson(
+      this.taskFeatureCache,
+      this.waypointGeoJsonInput(this.taskWaypointsToRender(), { catalogOnly: false })
+    );
+    setGeoJsonData(map, MAP_SOURCE.WAYPOINTS_TASK, taskData);
+
+    const showCatalog = this.shouldShowCatalog();
+    this.setCatalogLayersVisible(map, showCatalog);
+    const catalogData = patchWaypointsGeoJson(
+      this.catalogFeatureCache,
+      this.waypointGeoJsonInput(this.catalogWaypointsToRender(), { catalogOnly: true })
+    );
+    setGeoJsonData(map, MAP_SOURCE.WAYPOINTS_CATALOG, catalogData);
+  }
+
+  private setCatalogLayersVisible(map: MaplibreMap, visible: boolean): void {
+    const vis = visible ? 'visible' : 'none';
+    for (const layerId of [
+      MAP_LAYER.CATALOG_CLUSTER,
+      MAP_LAYER.CATALOG_CLUSTER_COUNT,
+      MAP_LAYER.CATALOG_DOT,
+      MAP_LAYER.CATALOG_LABEL
+    ]) {
+      if (map.getLayer(layerId)) {
+        map.setLayoutProperty(layerId, 'visibility', vis);
+      }
+    }
   }
 
   private waypointSuffix(wp: Waypoint): string | null {
@@ -797,6 +1052,8 @@ export class MapViewComponent implements OnInit {
     const map = this.map;
     const wp = this.waypointService.getWaypoint(waypointId);
     if (!map || !wp) return;
+    this.mapFocus.setFocus(waypointId);
+    this.triggerFocusPulse();
     map.flyTo({
       center: [wp.longitude, wp.latitude],
       zoom: Math.max(map.getZoom(), 12),
@@ -835,16 +1092,6 @@ export class MapViewComponent implements OnInit {
     );
   }
 
-  async clearSelection(): Promise<void> {
-    if (this.selectedWaypointIds().length === 0) return;
-    const ok = await this.uiFeedback.confirm({
-      header: this.i18n.t('map.clearTaskHeader'),
-      message: this.i18n.t('map.clearTaskMessage')
-    });
-    if (ok) {
-      this.taskState.clearSelection();
-    }
-  }
 
   private async handleWaypointAction(action: WaypointMapAction, wp: Waypoint): Promise<void> {
     if (action === 'delete-waypoint') {
@@ -891,11 +1138,7 @@ export class MapViewComponent implements OnInit {
         this.taskState.removeAllOccurrences(wp.id);
         return this.i18n.t('mapActions.removeAll', { name: wp.name });
       case 'center': {
-        const map = this.map;
-        map?.flyTo({
-          center: [wp.longitude, wp.latitude],
-          zoom: Math.max(map.getZoom(), 11)
-        });
+        this.centerOnWaypoint(wp.id);
         return null;
       }
       case 'delete-waypoint':

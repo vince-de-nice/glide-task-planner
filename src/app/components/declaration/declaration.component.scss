@@ -278,7 +278,26 @@
   flex-wrap: wrap;
 }
 
-/* Option A : carte 58 % | circuit 42 % */
+.decl-workspace-tabs {
+  flex-shrink: 0;
+  margin-bottom: 0.35rem;
+
+  &__select {
+    width: 100%;
+  }
+}
+
+:host ::ng-deep .decl-workspace-tabs__select .p-selectbutton {
+  display: flex;
+  width: 100%;
+
+  .p-togglebutton {
+    flex: 1 1 0;
+    justify-content: center;
+  }
+}
+
+/* Desktop club : carte ~62 % | panneau ~38 % */
 .decl-workspace {
   flex: 1 1 auto;
   min-height: 0;
@@ -291,6 +310,23 @@
   overflow: hidden;
 }
 
+@media (min-width: 768px) {
+  .decl-workspace .decl-panel--map,
+  .decl-workspace .decl-panel--side {
+    display: flex !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .decl-workspace {
+    grid-template-columns: minmax(0, 1.62fr) minmax(320px, 1fr);
+  }
+
+  .decl-workspace--tab-map {
+    grid-template-columns: minmax(0, 1.75fr) minmax(280px, 1fr);
+  }
+}
+
 .decl-panel {
   display: flex;
   flex-direction: column;
@@ -299,11 +335,7 @@
   overflow: hidden;
 }
 
-.decl-panel--map {
-  grid-column: 1;
-}
-
-.decl-panel--circuit {
+.decl-panel--side {
   grid-column: 2;
   display: flex;
   flex-direction: column;
@@ -312,7 +344,7 @@
 
 .decl-map-wrap {
   flex: 1 1 auto;
-  min-height: 0;
+  min-height: 400px;
   padding: 0.4rem;
   display: flex;
   flex-direction: column;
@@ -1130,10 +1162,6 @@
 }
 
 @media (max-width: 767px) {
-  .decl-tabs {
-    display: flex;
-  }
-
   .decl-workspace {
     display: block;
     max-height: none;
@@ -1145,9 +1173,22 @@
     min-height: 280px;
   }
 
-  .decl-workspace--map .decl-panel--map,
-  .decl-workspace--task .decl-panel--circuit {
+  .decl-workspace--tab-map .decl-panel--map {
     display: flex;
+  }
+
+  .decl-workspace--tab-circuit .decl-panel--side.decl-panel--circuit {
+    display: flex;
+  }
+
+  .decl-workspace--tab-export .decl-panel--side.decl-panel--export {
+    display: flex;
+  }
+
+  .decl-workspace--tab-map .decl-panel--side,
+  .decl-workspace--tab-circuit .decl-panel--map,
+  .decl-workspace--tab-export .decl-panel--map {
+    display: none;
   }
 
   .decl-circuit__export-options {

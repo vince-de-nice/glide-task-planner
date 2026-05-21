@@ -42,6 +42,11 @@
     background: #f8fafc;
   }
 
+  &.cl-row--focused {
+    background: var(--gc-primary-soft);
+    box-shadow: inset 3px 0 0 var(--gc-map-task, #fbbf24);
+  }
+
   &.cdk-drag-preview {
     box-shadow: var(--gc-shadow-lg);
     border-radius: var(--gc-radius-sm);
@@ -216,7 +221,7 @@
   min-width: 0;
   padding-top: 0.15rem;
   border-top: 1px solid #f1f5f9;
-  font-size: 0.6875rem;
+  font-size: 0.8125rem;
   color: var(--gc-text-muted);
   line-height: 1.3;
 }
@@ -262,12 +267,12 @@
   margin-left: 0.2rem;
   padding: 0.06rem 0.35rem;
   font-size: 0.575rem;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: lowercase;
   border-radius: 3px;
-  background: #fef3c7;
-  color: #92400e;
-  border: 1px solid #fcd34d;
+  background: transparent;
+  color: var(--gc-text-muted);
+  border: 1px solid var(--gc-border);
 }
 
 /* ─── Actions ─── */

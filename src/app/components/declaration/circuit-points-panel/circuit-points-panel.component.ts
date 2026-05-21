@@ -2,9 +2,12 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
+  ElementRef,
   inject,
   input,
-  output
+  output,
+  viewChild
 } from '@angular/core';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { CommonModule } from '@angular/common';
@@ -42,8 +45,37 @@ export class CircuitPointsPanelComponent {
   private ruleEngine = inject(TaskRuleEngineService);
   private i18n = inject(TranslateService);
   distanceResult = input<DistanceResult | null>(null);
+  focusedWaypointId = input<string | null>(null);
+  focusedLegIndex = input<number | null>(null);
+
+  private listEl = viewChild<ElementRef<HTMLElement>>('circuitList');
 
   waypoints = this.waypointService.waypoints;
+
+  constructor() {
+    effect(() => {
+      const wpId = this.focusedWaypointId();
+      const legIndex = this.focusedLegIndex();
+      if (!wpId) return;
+      queueMicrotask(() => {
+        const root = this.listEl()?.nativeElement;
+        if (!root) return;
+        const selector =
+          legIndex != null
+            ? `[data-leg-index="${legIndex}"]`
+            : `[data-waypoint-id="${wpId}"]`;
+        const row = root.querySelector<HTMLElement>(selector);
+        row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
+    });
+  }
+
+  isRowFocused(item: CircuitListItem): boolean {
+    const wpId = this.focusedWaypointId();
+    if (!wpId || item.waypoint.id !== wpId) return false;
+    const legIndex = this.focusedLegIndex();
+    return legIndex == null || legIndex === item.legIndex;
+  }
 
   circuitDrop = output<CircuitLeg[]>();
   circuitItemClick = output<CircuitListItem>();

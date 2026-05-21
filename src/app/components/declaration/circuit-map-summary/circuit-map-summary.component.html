@@ -1,0 +1,53 @@
+<div class="decl-map-summary" role="region" [attr.aria-label]="'circuit.mapSummary.title' | translate">
+  @if (distanceResult(); as d) {
+    <div class="decl-circuit__metrics">
+      <div class="decl-circuit__metric decl-circuit__metric--primary">
+        <span class="decl-circuit__metric-label">{{ 'circuit.taskDistance' | translate }}</span>
+        <span class="decl-circuit__metric-value">{{ d.taskDistance.toFixed(1) }} km</span>
+      </div>
+      @if (d.totalDistance > d.taskDistance + 0.05) {
+        <div class="decl-circuit__metric">
+          <span class="decl-circuit__metric-label">{{ 'circuit.total' | translate }}</span>
+          <span class="decl-circuit__metric-value">{{ d.totalDistance.toFixed(1) }} km</span>
+        </div>
+      }
+      <div class="decl-circuit__metric">
+        <span class="decl-circuit__metric-label">{{ 'circuit.pointsMetric' | translate }}</span>
+        <span class="decl-circuit__metric-value">{{ pointCount() }}</span>
+      </div>
+    </div>
+  } @else if (pointCount() > 0) {
+    <p class="decl-map-summary__stats">
+      {{ 'circuit.pointsCount' | translate: { count: pointCount() } }}
+    </p>
+  } @else {
+    <p class="decl-map-summary__empty">{{ 'circuit.mapSummary.empty' | translate }}</p>
+  }
+
+  @if (items().length > 0) {
+    <ol class="decl-map-summary__list">
+      @for (item of items().slice(0, 8); track item.key) {
+        <li>
+          <button type="button" class="decl-map-summary__item" (click)="itemClick.emit(item)">
+            <span class="decl-map-summary__num">{{ item.legIndex + 1 }}</span>
+            <span class="decl-map-summary__name">{{ item.waypoint.name }}</span>
+          </button>
+        </li>
+      }
+    </ol>
+    @if (items().length > 8) {
+      <p class="decl-map-summary__more">
+        {{ 'circuit.mapSummary.more' | translate: { count: items().length - 8 } }}
+      </p>
+    }
+  }
+
+  <p-button
+    [label]="'circuit.mapSummary.editCircuit' | translate"
+    icon="pi pi-list"
+    size="small"
+    severity="secondary"
+    styleClass="decl-map-summary__cta"
+    (onClick)="editCircuit.emit()"
+  />
+</div>

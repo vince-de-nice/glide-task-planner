@@ -16,63 +16,206 @@
   height: 100%;
 }
 
-.map-toolbar-wrap {
+.map-overlay {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+
+  > * {
+    pointer-events: auto;
+  }
+}
+
+.map-overlay--fabs {
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.map-fab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  margin: 0;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--gc-border) 80%, #fff);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--gc-surface) 92%, transparent);
+  backdrop-filter: blur(6px);
+  color: var(--gc-text);
+  box-shadow: 0 2px 10px rgb(15 23 42 / 0.22);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s,
+    transform 0.1s;
+
+  .pi {
+    font-size: 1rem;
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--gc-surface);
+    transform: scale(1.04);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  &--on {
+    background: var(--gc-primary);
+    border-color: var(--gc-primary);
+    color: #fff;
+
+    &:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--gc-primary) 85%, #000);
+    }
+  }
+
+  &--danger:not(:disabled) {
+    color: #dc2626;
+  }
+
+  &--danger:hover:not(:disabled) {
+    background: #fef2f2;
+    border-color: #fecaca;
+  }
+
+  &--ghost {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+    color: var(--gc-text-muted);
+  }
+
+  &--ghost:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--gc-surface) 80%, transparent);
+    border-color: var(--gc-border);
+  }
+
+  &--loading {
+    animation: fab-pulse 1.2s ease-in-out infinite;
+  }
+}
+
+.map-fab-divider {
+  width: 1.25rem;
+  height: 1px;
+  background: color-mix(in srgb, var(--gc-border) 60%, transparent);
   flex-shrink: 0;
-  margin-bottom: 0.35rem;
+}
+
+@keyframes fab-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.map-overlay--filters {
+  top: 0.5rem;
+  right: 3.25rem;
+  max-width: min(20rem, calc(100% - 4rem));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.5rem;
   border: 1px solid var(--gc-border);
   border-radius: var(--gc-radius-sm);
-  background: var(--gc-surface);
+  background: color-mix(in srgb, var(--gc-surface) 94%, transparent);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 12px rgb(15 23 42 / 0.18);
+}
+
+.map-overlay--region {
+  top: 0.5rem;
+  left: 0.5rem;
+  max-width: min(12rem, calc(100% - 5rem));
+}
+
+.map-overlay--legend {
+  left: 0.5rem;
+  bottom: 0.5rem;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  max-width: calc(100% - 4rem);
+  padding: 0.35rem 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--gc-border) 70%, transparent);
+  border-radius: var(--gc-radius-sm);
+  background: color-mix(in srgb, var(--gc-surface) 88%, transparent);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 10px rgb(15 23 42 / 0.15);
+}
+
+.map-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  color: var(--gc-text-muted);
+  line-height: 1.2;
+}
+
+.map-legend__item--task .map-legend__text,
+.map-legend__item--labels .map-legend__text {
+  max-width: 5.5rem;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-:host ::ng-deep .map-toolbar.p-toolbar {
-  margin: 0;
-  padding: 0.4rem 0.5rem;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  align-items: center;
-
-  .p-toolbar-start,
-  .p-toolbar-end {
-    margin: 0;
-    align-items: center;
-    gap: 0.5rem;
+@media (max-width: 900px) {
+  .map-legend__text {
+    display: none;
   }
 
-  .p-toolbar-start {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-
-  .p-toolbar-end {
-    flex: 0 1 auto;
+  .map-overlay--filters {
+    right: 0.5rem;
+    top: auto;
+    bottom: 3.5rem;
+    max-width: calc(100% - 1rem);
   }
 }
 
-.map-toolbar__group {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
+.map-legend__swatch {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.35);
 }
 
-.map-toolbar__controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
+.map-legend__swatch--task {
+  background: var(--gc-map-task, #fbbf24);
+  box-shadow: 0 0 0 2px var(--gc-map-task, #fbbf24);
+}
+
+.map-legend__swatch--cluster {
+  background: #475569;
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.map-legend__icon {
+  font-size: 0.75rem;
+  opacity: 0.85;
 }
 
 :host ::ng-deep .map-region-select {
   min-width: 9rem;
   max-width: 12rem;
-}
-
-:host ::ng-deep .map-toolbar__controls .p-select .p-select-label {
-  line-height: 1.25;
+  background: color-mix(in srgb, var(--gc-surface) 94%, transparent);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 10px rgb(15 23 42 / 0.18);
 }
 
 .map-airspace-switch {
@@ -93,14 +236,22 @@
   line-height: 1;
 }
 
-.map-airspace-status {
+.map-overlay--status {
+  left: 50%;
+  bottom: 0.5rem;
+  transform: translateX(-50%);
   margin: 0;
-  padding: 0.35rem 0.5rem 0.4rem;
+  max-width: min(28rem, calc(100% - 2rem));
+  padding: 0.35rem 0.65rem;
   font-size: 0.68rem;
   line-height: 1.35;
   color: var(--gc-text-muted);
-  border-top: 1px solid var(--gc-border);
-  background: #f8fafc;
+  text-align: center;
+  border: 1px solid var(--gc-border);
+  border-radius: var(--gc-radius-sm);
+  background: color-mix(in srgb, var(--gc-surface) 92%, transparent);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 10px rgb(15 23 42 / 0.12);
 }
 
 .map-task-distance {
@@ -161,19 +312,6 @@
     color: var(--gc-text-muted);
     font-size: 0.75rem;
   }
-}
-
-.map-filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem;
-  margin-bottom: 0.35rem;
-  padding: 0.35rem 0.45rem;
-  flex-shrink: 0;
-  border: 1px solid var(--gc-border);
-  border-radius: var(--gc-radius-sm);
-  background: var(--gc-surface);
 }
 
 .map-filter-switch {

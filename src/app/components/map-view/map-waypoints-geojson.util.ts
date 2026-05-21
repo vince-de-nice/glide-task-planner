@@ -1,6 +1,9 @@
 import type { Feature, FeatureCollection, Point } from 'geojson';
 import { Waypoint, WaypointType } from '../../models/waypoint.model';
-import { waypointTypeColor } from '../../utils/waypoint-type-display.util';
+import {
+  waypointTypeColor,
+  waypointTypeShortLabel
+} from '../../utils/waypoint-type-display.util';
 
 export interface WaypointMapFeatureProps {
   id: string;
@@ -9,13 +12,22 @@ export interface WaypointMapFeatureProps {
   color: string;
   suffix: string;
   label: string;
+  /** Abréviation type (TP, AD…) ou numéro de leg pour badge tâche */
+  badge: string;
   inCircuit: boolean;
+  inTask: number;
+  inCatalogOnly: number;
+  focused: number;
 }
 
 export interface BuildWaypointsGeoJsonInput {
   waypoints: Waypoint[];
   getSuffix: (wp: Waypoint) => string | null;
+  getBadge: (wp: Waypoint) => string;
   isInCircuit: (wp: Waypoint) => boolean;
+  isInTask: (wp: Waypoint) => boolean;
+  isCatalogOnly: (wp: Waypoint) => boolean;
+  isFocused: (wp: Waypoint) => boolean;
 }
 
 /** Rôles aérodrome affichés sur la carte : decollage, atterrissage */
@@ -32,9 +44,9 @@ function buildLabel(name: string, suffix: string | null): string {
 
 export function buildWaypointFeature(
   wp: Waypoint,
-  suffix: string | null,
-  inCircuit: boolean
+  input: BuildWaypointsGeoJsonInput
 ): Feature<Point, WaypointMapFeatureProps> {
+  const suffix = input.getSuffix(wp);
   const suffixStr = suffix ?? '';
   return {
     type: 'Feature',
@@ -50,16 +62,20 @@ export function buildWaypointFeature(
       color: waypointTypeColor(wp.type),
       suffix: suffixStr,
       label: buildLabel(wp.name, suffix),
-      inCircuit
+      badge: input.getBadge(wp),
+      inCircuit: input.isInCircuit(wp),
+      inTask: input.isInTask(wp) ? 1 : 0,
+      inCatalogOnly: input.isCatalogOnly(wp) ? 1 : 0,
+      focused: input.isFocused(wp) ? 1 : 0
     }
   };
 }
 
 export function buildWaypointsGeoJson(input: BuildWaypointsGeoJsonInput): FeatureCollection<Point> {
-  const features = input.waypoints.map(wp =>
-    buildWaypointFeature(wp, input.getSuffix(wp), input.isInCircuit(wp))
-  );
-  return { type: 'FeatureCollection', features };
+  return {
+    type: 'FeatureCollection',
+    features: input.waypoints.map(wp => buildWaypointFeature(wp, input))
+  };
 }
 
 /** Met à jour une collection existante en ne recréant que les features modifiées. */
@@ -71,8 +87,7 @@ export function patchWaypointsGeoJson(
 
   for (const wp of input.waypoints) {
     nextIds.add(wp.id);
-    const suffix = input.getSuffix(wp);
-    const next = buildWaypointFeature(wp, suffix, input.isInCircuit(wp));
+    const next = buildWaypointFeature(wp, input);
     const prev = cache.get(wp.id);
     if (!prev || waypointFeatureChanged(prev, next)) {
       cache.set(wp.id, next);
@@ -101,7 +116,25 @@ function waypointFeatureChanged(
     pa.type !== pb.type ||
     pa.suffix !== pb.suffix ||
     pa.label !== pb.label ||
+    pa.badge !== pb.badge ||
     pa.inCircuit !== pb.inCircuit ||
+    pa.inTask !== pb.inTask ||
+    pa.inCatalogOnly !== pb.inCatalogOnly ||
+    pa.focused !== pb.focused ||
     pa.color !== pb.color
   );
+}
+
+/** Badge tâche : numéro de leg ou abréviation type. */
+export function defaultTaskBadge(
+  wp: Waypoint,
+  legIndices: number[]
+): string {
+  if (legIndices.length === 1) {
+    return String(legIndices[0] + 1);
+  }
+  if (legIndices.length > 1) {
+    return `${legIndices[0] + 1}+`;
+  }
+  return waypointTypeShortLabel(wp.type);
 }

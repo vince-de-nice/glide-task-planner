@@ -67,7 +67,14 @@ export const fr = {
     tabs: {
       map: 'Carte',
       circuit: 'Circuit',
-      circuitWithCount: 'Circuit ({{count}})'
+      circuitWithCount: 'Circuit ({{count}})',
+      export: 'Export'
+    },
+    mapSummary: {
+      title: 'Résumé de la tâche',
+      editCircuit: 'Éditer le circuit',
+      empty: 'Aucun point dans la tâche — passez à l’onglet Circuit ou double-cliquez sur la carte.',
+      more: '+ {{count}} autre(s) point(s)'
     },
     sections: {
       points: 'Points',
@@ -239,12 +246,22 @@ export const fr = {
     filtersAria: 'Afficher sur la carte',
     helpTitle: 'Aide carte',
     helpTooltip:
-      'Zones tâche : cylindres/secteurs/lignes en mètres réels · espaces aériens POAFF/OpenAIP · noms au zoom ≥ 11 · double-clic : point · clic : menu',
+      'Zones tâche : cylindres/secteurs/lignes en mètres réels · espaces aériens POAFF/OpenAIP · tâche toujours visible (numéros de leg) · catalogue : grappes sous zoom 10 · noms dès qu’un point n’est plus grappé · double-clic : point · clic : menu',
+    legendLabelsUnclustered: 'Noms (hors grappe)',
+    legendAria: 'Légende carte',
+    legendTask: 'Tâche (numéro de leg)',
+    legendCatalog: 'Catalogue CUP',
+    legendCluster: 'Grappes catalogue (zoom < 10)',
     clearTaskHeader: 'Effacer la tâche',
     clearTaskMessage: 'Retirer tous les points du circuit affiché sur la carte ?',
     deleteFromDbHeader: 'Supprimer le point',
     deleteFromDbMessage: 'Supprimer « {{name}} » de la base ?',
     moreActions: 'Plus d’actions carte',
+    fabToolbarAria: 'Actions carte',
+    mapLayersMenu: 'Calques carte',
+    showFullCatalog: 'Afficher tout le CUP',
+    hideFullCatalog: 'Tâche seulement',
+    showFullCatalogCount: 'Afficher tout le CUP ({{count}} pts)',
     filtersToggle: 'Filtres',
     filtersExpanded: 'Filtres ▴',
     filtersCollapsed: 'Filtres ▾',

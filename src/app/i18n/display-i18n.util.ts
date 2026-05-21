@@ -43,6 +43,7 @@ export function obsZonePresetDescriptionI18n(id: ObsZonePresetId, i18n: Translat
 }
 
 export interface MapPopupLabels {
+  altitude: string;
   circuitPrefix: string;
   setDeparture: string;
   setArrival: string;
@@ -58,6 +59,7 @@ export interface MapPopupLabels {
 
 export function mapPopupLabels(i18n: TranslateService): MapPopupLabels {
   return {
+    altitude: i18n.t('common.altShort'),
     circuitPrefix: i18n.t('mapPopup.circuitPrefix'),
     setDeparture: i18n.t('mapActions.setDeparture'),
     setArrival: i18n.t('mapActions.setArrival'),

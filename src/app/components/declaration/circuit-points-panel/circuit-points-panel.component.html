@@ -5,12 +5,20 @@
   <div class="decl-circuit__list-wrap">
     @if (circuitListItems().length > 0) {
       <ol
+        #circuitList
         class="decl-circuit-list"
         cdkDropList
         (cdkDropListDropped)="onCircuitDrop($event)"
       >
         @for (item of circuitListItems(); track item.key) {
-          <li class="cl-row" cdkDrag>
+          <li
+            class="cl-row"
+            [class.cl-row--focused]="isRowFocused(item)"
+            [attr.data-waypoint-id]="item.waypoint.id"
+            [attr.data-leg-index]="item.legIndex"
+            [attr.aria-current]="isRowFocused(item) ? 'true' : null"
+            cdkDrag
+          >
             <span class="cl-row__handle" cdkDragHandle [attr.aria-label]="'common.reorder' | translate">
               <i class="pi pi-bars" aria-hidden="true"></i>
             </span>

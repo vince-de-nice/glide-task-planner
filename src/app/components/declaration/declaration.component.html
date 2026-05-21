@@ -1,18 +1,14 @@
 <div class="declaration">
   <app-cup-toolbar (databaseLoaded)="onCupDatabaseLoaded()" />
 
-  @if (circuitMessage()) {
-    <p-message severity="success" [text]="circuitMessage()!" styleClass="decl-flash-msg" />
-  }
-
-  <nav class="decl-tabs" [attr.aria-label]="'circuit.panelsAria' | translate">
+  <nav class="decl-workspace-tabs" [attr.aria-label]="'circuit.panelsAria' | translate">
     <p-selectButton
-      class="decl-tabs__select"
-      [options]="mobileTabOptionsUi()"
+      class="decl-workspace-tabs__select"
+      [options]="workspaceTabOptionsUi()"
       optionLabel="label"
       optionValue="value"
-      [ngModel]="mobileTab()"
-      (ngModelChange)="setMobileTab($event)"
+      [ngModel]="workspaceTab()"
+      (ngModelChange)="setWorkspaceTab($event)"
       [allowEmpty]="false"
       size="small"
     />
@@ -20,138 +16,160 @@
 
   <div
     class="decl-workspace"
-    [class.decl-workspace--map]="mobileTab() === 'map'"
-    [class.decl-workspace--task]="mobileTab() === 'task'"
+    [class.decl-workspace--tab-map]="workspaceTab() === 'map'"
+    [class.decl-workspace--tab-circuit]="workspaceTab() === 'circuit'"
+    [class.decl-workspace--tab-export]="workspaceTab() === 'export'"
   >
     <app-circuit-map-shell (actionMessage)="showAddToast($event)" />
 
-    <section class="decl-panel decl-panel--circuit gc-card" [attr.aria-label]="'circuit.circuitPanelAria' | translate">
-      <header class="decl-circuit__head">
-        <div class="decl-circuit__title-row">
-          <h2 class="decl-section-title">{{ 'circuit.title' | translate }}</h2>
-        </div>
-        @if (distanceResult(); as d) {
-          <div class="decl-circuit__metrics">
-            <div class="decl-circuit__metric decl-circuit__metric--primary">
-              <span class="decl-circuit__metric-label">{{ 'circuit.taskDistance' | translate }}</span>
-              <span class="decl-circuit__metric-value">{{ d.taskDistance.toFixed(1) }} km</span>
-            </div>
-            @if (d.totalDistance > d.taskDistance + 0.05) {
-              <div class="decl-circuit__metric">
-                <span class="decl-circuit__metric-label">{{ 'circuit.total' | translate }}</span>
-                <span class="decl-circuit__metric-value">{{ d.totalDistance.toFixed(1) }} km</span>
-              </div>
-            }
-            <div class="decl-circuit__metric">
-              <span class="decl-circuit__metric-label">{{ 'circuit.pointsMetric' | translate }}</span>
-              <span class="decl-circuit__metric-value">{{ selectedWaypointIds().length }}</span>
-            </div>
-          </div>
-        } @else if (selectedWaypointIds().length > 0) {
-          <p class="decl-circuit__stats">{{ 'circuit.pointsCount' | translate: { count: selectedWaypointIds().length } }}</p>
-        }
-      </header>
-
-      <nav class="decl-circuit__tabs" [attr.aria-label]="'circuit.title' | translate">
-        <p-selectButton
-          class="decl-circuit__tabs-select"
-          [options]="circuitTabOptionsUi()"
-          optionLabel="label"
-          optionValue="value"
-          [ngModel]="circuitTab()"
-          (ngModelChange)="setCircuitTab($event)"
-          [allowEmpty]="false"
-          size="small"
+    <section
+      class="decl-panel decl-panel--side gc-card"
+      [class.decl-panel--summary]="workspaceTab() === 'map'"
+      [class.decl-panel--circuit]="workspaceTab() === 'circuit'"
+      [class.decl-panel--export]="workspaceTab() === 'export'"
+      [attr.aria-label]="sidePanelAria()"
+    >
+      @if (workspaceTab() === 'map') {
+        <app-circuit-map-summary
+          [distanceResult]="distanceResult()"
+          [pointCount]="selectedWaypointIds().length"
+          [items]="circuitListItems()"
+          (itemClick)="onCircuitItemClick($event)"
+          (editCircuit)="setWorkspaceTab('circuit')"
         />
-      </nav>
+      }
 
-      <div class="decl-circuit__tabs-body">
-        @if (circuitTab() === 'points') {
-          <app-circuit-points-panel
-            [distanceResult]="distanceResult()"
-            (circuitDrop)="onCircuitLegsReordered($event)"
-            (circuitItemClick)="onCircuitItemClick($event)"
-            (openLegZone)="openLegZoneDialog($event.legIndex, $event.event)"
-            (removeItem)="removeCircuitItem($event)"
-            (addPoints)="openWaypointDialog()"
-          />
-        }
-
-
-        @if (circuitTab() === 'regulation') {
-          <div
-            class="decl-circuit__tab-panel decl-circuit__tab-panel--regulation"
-            role="tabpanel"
-            [attr.aria-label]="'circuit.regulation.panelAria' | translate"
-          >
-            <div
-              class="decl-circuit__status-card"
-              [class.decl-circuit__status-card--ok]="regulationStatus().kind === 'ok'"
-              [class.decl-circuit__status-card--warn]="regulationStatus().kind === 'warn'"
-              [class.decl-circuit__status-card--error]="regulationStatus().kind === 'error'"
-            >
-              <i
-                class="decl-circuit__status-icon pi"
-                [class.pi-check-circle]="regulationStatus().kind === 'ok'"
-                [class.pi-exclamation-triangle]="regulationStatus().kind === 'warn'"
-                [class.pi-times-circle]="regulationStatus().kind === 'error'"
-                aria-hidden="true"
-              ></i>
-              <span>{{ regulationStatus().label }}</span>
-            </div>
-
-            @if (ruleValidation().errors.length > 0) {
-              <section class="decl-circuit__issue-block decl-circuit__issue-block--error" [attr.aria-label]="'circuit.regulation.errors' | translate">
-                <h3 class="decl-circuit__issue-title">{{ 'circuit.regulation.errors' | translate }}</h3>
-                <ul class="decl-circuit__issue-list">
-                  @for (err of ruleValidation().errors; track err) {
-                    <li>{{ err }}</li>
-                  }
-                </ul>
-              </section>
-            }
-
-            @if (ruleValidation().warnings.length > 0) {
-              <section class="decl-circuit__issue-block decl-circuit__issue-block--warn" [attr.aria-label]="'circuit.regulation.warnings' | translate">
-                <h3 class="decl-circuit__issue-title">{{ 'circuit.regulation.warnings' | translate }}</h3>
-                <ul class="decl-circuit__issue-list">
-                  @for (warn of ruleValidation().warnings; track warn) {
-                    <li>{{ warn }}</li>
-                  }
-                </ul>
-              </section>
-            }
-
-            @if (legComplianceRows().length > 0) {
-              <section class="decl-circuit__leg-check" [attr.aria-label]="'circuit.regulation.legCheck' | translate">
-                <h3 class="decl-circuit__issue-title">{{ 'circuit.regulation.legCheck' | translate }}</h3>
-                <ul class="decl-circuit__leg-check-list">
-                  @for (row of legComplianceRows(); track row.index) {
-                    <li
-                      class="decl-circuit__leg-check-item"
-                      [class.decl-circuit__leg-check-item--error]="row.severity === 'error'"
-                      [class.decl-circuit__leg-check-item--warn]="row.severity === 'warning'"
-                    >
-                      <span class="decl-circuit__leg-check-num">{{ row.index + 1 }}</span>
-                      <span class="decl-circuit__leg-check-name">{{ row.name }}</span>
-                      <span class="decl-circuit__leg-check-msg">{{ row.message }}</span>
-                    </li>
-                  }
-                </ul>
-              </section>
-            }
-
-            <app-task-regulation-panel
-              [embeddedInTab]="true"
-              [disabled]="circuitLegs().length === 0"
-            />
+      @if (workspaceTab() === 'circuit') {
+        <header class="decl-circuit__head">
+          <div class="decl-circuit__title-row">
+            <h2 class="decl-section-title">{{ 'circuit.title' | translate }}</h2>
           </div>
-        }
+          @if (distanceResult(); as d) {
+            <div class="decl-circuit__metrics">
+              <div class="decl-circuit__metric decl-circuit__metric--primary">
+                <span class="decl-circuit__metric-label">{{ 'circuit.taskDistance' | translate }}</span>
+                <span class="decl-circuit__metric-value">{{ d.taskDistance.toFixed(1) }} km</span>
+              </div>
+              @if (d.totalDistance > d.taskDistance + 0.05) {
+                <div class="decl-circuit__metric">
+                  <span class="decl-circuit__metric-label">{{ 'circuit.total' | translate }}</span>
+                  <span class="decl-circuit__metric-value">{{ d.totalDistance.toFixed(1) }} km</span>
+                </div>
+              }
+              <div class="decl-circuit__metric">
+                <span class="decl-circuit__metric-label">{{ 'circuit.pointsMetric' | translate }}</span>
+                <span class="decl-circuit__metric-value">{{ selectedWaypointIds().length }}</span>
+              </div>
+            </div>
+          } @else if (selectedWaypointIds().length > 0) {
+            <p class="decl-circuit__stats">{{ 'circuit.pointsCount' | translate: { count: selectedWaypointIds().length } }}</p>
+          }
+        </header>
 
-        @if (circuitTab() === 'export') {
+        <nav class="decl-circuit__tabs" [attr.aria-label]="'circuit.title' | translate">
+          <p-selectButton
+            class="decl-circuit__tabs-select"
+            [options]="circuitSectionOptionsUi()"
+            optionLabel="label"
+            optionValue="value"
+            [ngModel]="circuitSection()"
+            (ngModelChange)="setCircuitSection($event)"
+            [allowEmpty]="false"
+            size="small"
+          />
+        </nav>
+
+        <div class="decl-circuit__tabs-body">
+          @if (circuitSection() === 'points') {
+            <app-circuit-points-panel
+              [distanceResult]="distanceResult()"
+              [focusedWaypointId]="mapFocus.focusedWaypointId()"
+              [focusedLegIndex]="mapFocus.focusedLegIndex()"
+              (circuitDrop)="onCircuitLegsReordered($event)"
+              (circuitItemClick)="onCircuitItemClick($event)"
+              (openLegZone)="openLegZoneDialog($event.legIndex, $event.event)"
+              (removeItem)="removeCircuitItem($event)"
+              (addPoints)="openWaypointDialog()"
+            />
+          }
+
+          @if (circuitSection() === 'regulation') {
+            <div
+              class="decl-circuit__tab-panel decl-circuit__tab-panel--regulation"
+              role="tabpanel"
+              [attr.aria-label]="'circuit.regulation.panelAria' | translate"
+            >
+              <div
+                class="decl-circuit__status-card"
+                [class.decl-circuit__status-card--ok]="regulationStatus().kind === 'ok'"
+                [class.decl-circuit__status-card--warn]="regulationStatus().kind === 'warn'"
+                [class.decl-circuit__status-card--error]="regulationStatus().kind === 'error'"
+              >
+                <i
+                  class="decl-circuit__status-icon pi"
+                  [class.pi-check-circle]="regulationStatus().kind === 'ok'"
+                  [class.pi-exclamation-triangle]="regulationStatus().kind === 'warn'"
+                  [class.pi-times-circle]="regulationStatus().kind === 'error'"
+                  aria-hidden="true"
+                ></i>
+                <span>{{ regulationStatus().label }}</span>
+              </div>
+
+              @if (ruleValidation().errors.length > 0) {
+                <section class="decl-circuit__issue-block decl-circuit__issue-block--error" [attr.aria-label]="'circuit.regulation.errors' | translate">
+                  <h3 class="decl-circuit__issue-title">{{ 'circuit.regulation.errors' | translate }}</h3>
+                  <ul class="decl-circuit__issue-list">
+                    @for (err of ruleValidation().errors; track err) {
+                      <li>{{ err }}</li>
+                    }
+                  </ul>
+                </section>
+              }
+
+              @if (ruleValidation().warnings.length > 0) {
+                <section class="decl-circuit__issue-block decl-circuit__issue-block--warn" [attr.aria-label]="'circuit.regulation.warnings' | translate">
+                  <h3 class="decl-circuit__issue-title">{{ 'circuit.regulation.warnings' | translate }}</h3>
+                  <ul class="decl-circuit__issue-list">
+                    @for (warn of ruleValidation().warnings; track warn) {
+                      <li>{{ warn }}</li>
+                    }
+                  </ul>
+                </section>
+              }
+
+              @if (legComplianceRows().length > 0) {
+                <section class="decl-circuit__leg-check" [attr.aria-label]="'circuit.regulation.legCheck' | translate">
+                  <h3 class="decl-circuit__issue-title">{{ 'circuit.regulation.legCheck' | translate }}</h3>
+                  <ul class="decl-circuit__leg-check-list">
+                    @for (row of legComplianceRows(); track row.index) {
+                      <li
+                        class="decl-circuit__leg-check-item"
+                        [class.decl-circuit__leg-check-item--error]="row.severity === 'error'"
+                        [class.decl-circuit__leg-check-item--warn]="row.severity === 'warning'"
+                      >
+                        <span class="decl-circuit__leg-check-num">{{ row.index + 1 }}</span>
+                        <span class="decl-circuit__leg-check-name">{{ row.name }}</span>
+                        <span class="decl-circuit__leg-check-msg">{{ row.message }}</span>
+                      </li>
+                    }
+                  </ul>
+                </section>
+              }
+
+              <app-task-regulation-panel
+                [embeddedInTab]="true"
+                [disabled]="circuitLegs().length === 0"
+              />
+            </div>
+          }
+        </div>
+      }
+
+      @if (workspaceTab() === 'export') {
+        <div class="decl-circuit__tabs-body decl-circuit__tabs-body--export">
           <app-circuit-export-panel
             [distanceResult]="distanceResult()"
-            (goToRegulation)="goToRegulationTab()"
+            (goToRegulation)="goToRegulationSection()"
             (openPilot)="openPilotDialog()"
             (openCircuits)="openCircuitsDialog()"
             (openPreview)="openPreviewDialog()"
@@ -159,9 +177,8 @@
             (downloadFlarm)="downloadFlarm()"
             (exportFormat)="exportTask($event)"
           />
-        }
-
-      </div>
+        </div>
+      }
     </section>
   </div>
 </div>

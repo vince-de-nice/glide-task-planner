@@ -9,6 +9,7 @@ import { CommonModule } from '@angular/common';
 import { CircuitLeg, CircuitLegRole } from '../../models/circuit.model';
 import { Waypoint } from '../../models/waypoint.model';
 import { MapPopupLabels } from '../../i18n/display-i18n.util';
+import { formatElevationDisplay, resolveLegElevationM } from '../../utils/elevation.util';
 import { WaypointMapAction } from './map-waypoint-popup.util';
 
 @Component({
@@ -30,6 +31,7 @@ import { WaypointMapAction } from './map-waypoint-popup.util';
         </p>
       }
       <p class="gc-wp-ctx__meta">{{ coords() }}</p>
+      <p class="gc-wp-ctx__meta">{{ elevationLine() }}</p>
       @if (circuitLine(); as line) {
         <p class="gc-wp-ctx__circuit">{{ line }}</p>
       }
@@ -99,6 +101,30 @@ export class WaypointContextMenuComponent {
   readonly coords = computed(() => {
     const wp = this.waypoint();
     return `${wp.latitude.toFixed(5)}°, ${wp.longitude.toFixed(5)}°`;
+  });
+
+  /** Altitude MSL (leg personnalisée > CUP), alignée sur le panneau circuit. */
+  readonly elevationLine = computed(() => {
+    const wp = this.waypoint();
+    const prefix = this.labels().altitude;
+    const legs = this.circuitLegs().filter(leg => leg.waypointId === wp.id);
+    if (legs.length > 0) {
+      const uniqueM = [
+        ...new Set(
+          legs
+            .map(leg => resolveLegElevationM(wp, leg))
+            .filter((m): m is number => m != null && Number.isFinite(m))
+        )
+      ];
+      const value =
+        uniqueM.length === 0
+          ? formatElevationDisplay(undefined)
+          : uniqueM.length === 1
+            ? formatElevationDisplay(uniqueM[0])
+            : uniqueM.map(m => formatElevationDisplay(m)).join(' · ');
+      return `${prefix} ${value}`;
+    }
+    return `${prefix} ${formatElevationDisplay(wp.elevation)}`;
   });
 
   readonly circuitIndices = computed(() =>

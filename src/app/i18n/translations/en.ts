@@ -69,7 +69,14 @@ export const en = {
     tabs: {
       map: 'Map',
       circuit: 'Task',
-      circuitWithCount: 'Task ({{count}})'
+      circuitWithCount: 'Task ({{count}})',
+      export: 'Export'
+    },
+    mapSummary: {
+      title: 'Task summary',
+      editCircuit: 'Edit task',
+      empty: 'No points in the task — switch to the Task tab or double-click the map.',
+      more: '+ {{count}} more point(s)'
     },
     sections: {
       points: 'Points',
@@ -241,12 +248,22 @@ export const en = {
     filtersAria: 'Map layers',
     helpTitle: 'Map help',
     helpTooltip:
-      'Task zones: cylinders/sectors/lines in real meters · POAFF/OpenAIP airspace · names at zoom ≥ 11 · double-click: waypoint · click: menu',
+      'Task zones: cylinders/sectors/lines in real meters · POAFF/OpenAIP airspace · task always visible (leg numbers) · catalog: clusters below zoom 10 · names when a point is no longer clustered · double-click: waypoint · click: menu',
+    legendLabelsUnclustered: 'Names (unclustered)',
+    legendAria: 'Map legend',
+    legendTask: 'Task (leg number)',
+    legendCatalog: 'CUP catalog',
+    legendCluster: 'Catalog clusters (zoom < 10)',
     clearTaskHeader: 'Clear task',
     clearTaskMessage: 'Remove all waypoints from the task shown on the map?',
     deleteFromDbHeader: 'Delete waypoint',
     deleteFromDbMessage: 'Delete « {{name}} » from the database?',
     moreActions: 'More map actions',
+    fabToolbarAria: 'Map actions',
+    mapLayersMenu: 'Map layers',
+    showFullCatalog: 'Show full CUP',
+    hideFullCatalog: 'Task only',
+    showFullCatalogCount: 'Show full CUP ({{count}} pts)',
     filtersToggle: 'Filters',
     filtersExpanded: 'Filters ▴',
     filtersCollapsed: 'Filters ▾',

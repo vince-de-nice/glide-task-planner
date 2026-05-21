@@ -12,7 +12,6 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SelectButton } from 'primeng/selectbutton';
-import { Message } from 'primeng/message';
 import { WaypointService } from '../../services/waypoint.service';
 import { TaskStateService } from '../../services/task-state.service';
 import { CupDatabaseService } from '../../services/cup-database.service';
@@ -26,6 +25,8 @@ import { TaskRuleEngineService } from '../../services/task-rule-engine.service';
 import { CircuitPointsPanelComponent } from './circuit-points-panel/circuit-points-panel.component';
 import { CircuitExportPanelComponent } from './circuit-export-panel/circuit-export-panel.component';
 import { CircuitMapShellComponent } from './circuit-map-shell/circuit-map-shell.component';
+import { CircuitMapSummaryComponent } from './circuit-map-summary/circuit-map-summary.component';
+import { MapFocusService } from '../../services/map-focus.service';
 import { CupToolbarComponent } from './cup-toolbar/cup-toolbar.component';
 import { WaypointPickerDrawerComponent } from './waypoint-picker-drawer/waypoint-picker-drawer.component';
 import { PilotProfileDialogComponent } from './pilot-profile-dialog/pilot-profile-dialog.component';
@@ -46,10 +47,12 @@ import { CircuitLeg } from '../../models/circuit.model';
 import { TranslateService } from '../../i18n/translate.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 
-type MobileTab = 'map' | 'task';
-type CircuitTab = 'points' | 'regulation' | 'export';
+type WorkspaceTab = 'map' | 'circuit' | 'export';
+type CircuitSection = 'points' | 'regulation';
 
-const CIRCUIT_TAB_STORAGE_KEY = 'gc_circuit_tab';
+const WORKSPACE_TAB_STORAGE_KEY = 'gc_workspace_tab';
+const CIRCUIT_SECTION_STORAGE_KEY = 'gc_circuit_section';
+const LEGACY_CIRCUIT_TAB_KEY = 'gc_circuit_tab';
 
 @Component({
   selector: 'app-declaration',
@@ -59,6 +62,7 @@ const CIRCUIT_TAB_STORAGE_KEY = 'gc_circuit_tab';
     FormsModule,
     CupToolbarComponent,
     CircuitMapShellComponent,
+    CircuitMapSummaryComponent,
     CircuitPointsPanelComponent,
     CircuitExportPanelComponent,
     WaypointPickerDrawerComponent,
@@ -66,7 +70,6 @@ const CIRCUIT_TAB_STORAGE_KEY = 'gc_circuit_tab';
     TaskExportPreviewDialogComponent,
     CircuitsLibraryDialogComponent,
     SelectButton,
-    Message,
     CircuitLegZoneDialogComponent,
     TaskRegulationPanelComponent,
     TranslatePipe
@@ -88,6 +91,7 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   private uiFeedback = inject(UiFeedbackService);
   private ruleEngine = inject(TaskRuleEngineService);
   private i18n = inject(TranslateService);
+  readonly mapFocus = inject(MapFocusService);
 
   waypoints = this.waypointService.waypoints;
   activeCircuitId = this.savedCircuitService.activeCircuitId;
@@ -97,8 +101,8 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   flarmProfile = this.flarmProfileService.profile;
   resolvedRegulation = this.taskState.resolvedRegulation;
 
-  mobileTab = signal<MobileTab>('map');
-  circuitTab = signal<CircuitTab>('points');
+  workspaceTab = signal<WorkspaceTab>('circuit');
+  circuitSection = signal<CircuitSection>('points');
   waypointDialogOpen = signal(false);
   pilotDialogOpen = signal(false);
   previewDialogOpen = signal(false);
@@ -181,41 +185,49 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
       .filter((wp): wp is Waypoint => wp !== undefined)
   );
 
-  mobileTabOptionsUi = computed(() => {
+  workspaceTabOptionsUi = computed(() => {
     this.i18n.locale();
     const n = this.selectedWaypointIds().length;
+    const blocked = this.exportBlocked();
     return [
-      { label: this.i18n.t('circuit.tabs.map'), value: 'map' as MobileTab },
+      { label: this.i18n.t('circuit.tabs.map'), value: 'map' as WorkspaceTab },
       {
         label:
           n > 0
             ? this.i18n.t('circuit.tabs.circuitWithCount', { count: n })
             : this.i18n.t('circuit.tabs.circuit'),
-        value: 'task' as MobileTab
+        value: 'circuit' as WorkspaceTab
+      },
+      {
+        label: blocked
+          ? this.i18n.t('circuit.sections.exportBlocked')
+          : this.i18n.t('circuit.tabs.export'),
+        value: 'export' as WorkspaceTab
       }
     ];
   });
 
-  circuitTabOptionsUi = computed(() => {
+  circuitSectionOptionsUi = computed(() => {
     this.i18n.locale();
     const errCount = this.ruleValidation().errors.length;
-    const blocked = this.exportBlocked();
     return [
-      { label: this.i18n.t('circuit.sections.points'), value: 'points' as CircuitTab },
+      { label: this.i18n.t('circuit.sections.points'), value: 'points' as CircuitSection },
       {
         label:
           errCount > 0
             ? this.i18n.t('circuit.sections.regulationWithErrors', { count: errCount })
             : this.i18n.t('circuit.sections.regulation'),
-        value: 'regulation' as CircuitTab
-      },
-      {
-        label: blocked
-          ? this.i18n.t('circuit.sections.exportBlocked')
-          : this.i18n.t('circuit.sections.export'),
-        value: 'export' as CircuitTab
+        value: 'regulation' as CircuitSection
       }
     ];
+  });
+
+  sidePanelAria = computed(() => {
+    this.i18n.locale();
+    const tab = this.workspaceTab();
+    if (tab === 'map') return this.i18n.t('circuit.mapSummary.title');
+    if (tab === 'export') return this.i18n.t('circuit.sections.export');
+    return this.i18n.t('circuit.circuitPanelAria');
   });
 
   canSaveCircuit = computed(() => this.circuitLegs().length >= 2);
@@ -229,9 +241,26 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   }
 
   ngOnInit(): void {
-    const storedTab = sessionStorage.getItem(CIRCUIT_TAB_STORAGE_KEY);
-    if (storedTab === 'points' || storedTab === 'regulation' || storedTab === 'export') {
-      this.circuitTab.set(storedTab);
+    const legacy = sessionStorage.getItem(LEGACY_CIRCUIT_TAB_KEY);
+    if (legacy === 'export') {
+      this.workspaceTab.set('export');
+      sessionStorage.removeItem(LEGACY_CIRCUIT_TAB_KEY);
+    } else if (legacy === 'points' || legacy === 'regulation') {
+      this.workspaceTab.set('circuit');
+      this.circuitSection.set(legacy);
+      sessionStorage.removeItem(LEGACY_CIRCUIT_TAB_KEY);
+    }
+
+    const storedWorkspace = sessionStorage.getItem(WORKSPACE_TAB_STORAGE_KEY);
+    if (storedWorkspace === 'map' || storedWorkspace === 'circuit' || storedWorkspace === 'export') {
+      this.workspaceTab.set(storedWorkspace);
+    } else if (this.selectedWaypointIds().length === 0) {
+      this.workspaceTab.set('map');
+    }
+
+    const storedSection = sessionStorage.getItem(CIRCUIT_SECTION_STORAGE_KEY);
+    if (storedSection === 'points' || storedSection === 'regulation') {
+      this.circuitSection.set(storedSection);
     }
   }
 
@@ -264,6 +293,7 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
 
   openWaypointDialog(): void {
     if (this.waypoints().length === 0) return;
+    this.mapShell?.mapView?.enableCatalogForPicker();
     this.waypointDialogOpen.set(true);
   }
 
@@ -317,7 +347,11 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   }
 
   onCircuitItemClick(item: CircuitListItem): void {
+    this.mapFocus.setFocus(item.waypoint.id, item.legIndex);
     this.mapShell?.mapView?.centerOnWaypoint(item.waypoint.id);
+    if (this.workspaceTab() !== 'circuit') {
+      this.setWorkspaceTab('circuit');
+    }
   }
 
   openLegZoneDialog(index: number, event?: Event): void {
@@ -434,28 +468,28 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     );
     this.calculateDistance();
     this.circuitsDialogOpen.set(false);
-    this.setMobileTab('task');
+    this.setWorkspaceTab('circuit');
     const msg = this.i18n.t('circuit.circuitLoaded');
     this.circuitMessage.set(msg);
     this.uiFeedback.info(msg);
     setTimeout(() => this.circuitMessage.set(null), 5000);
   }
 
-  setMobileTab(tab: MobileTab): void {
-    this.mobileTab.set(tab);
-    if (tab === 'map') {
-      setTimeout(() => this.mapShell?.mapView?.invalidateSize(), 50);
-      setTimeout(() => this.mapShell?.mapView?.invalidateSize(), 300);
-    }
+  setWorkspaceTab(tab: WorkspaceTab): void {
+    this.workspaceTab.set(tab);
+    sessionStorage.setItem(WORKSPACE_TAB_STORAGE_KEY, tab);
+    setTimeout(() => this.mapShell?.mapView?.invalidateSize(), 50);
+    setTimeout(() => this.mapShell?.mapView?.invalidateSize(), 300);
   }
 
-  setCircuitTab(tab: CircuitTab): void {
-    this.circuitTab.set(tab);
-    sessionStorage.setItem(CIRCUIT_TAB_STORAGE_KEY, tab);
+  setCircuitSection(section: CircuitSection): void {
+    this.circuitSection.set(section);
+    sessionStorage.setItem(CIRCUIT_SECTION_STORAGE_KEY, section);
   }
 
-  goToRegulationTab(): void {
-    this.setCircuitTab('regulation');
+  goToRegulationSection(): void {
+    this.setWorkspaceTab('circuit');
+    this.setCircuitSection('regulation');
   }
 
   allowedPresetsForLeg(index: number) {
