@@ -41,3 +41,22 @@ export interface SavedCircuitExport {
   exportedAt: string;
   circuits: SavedCircuit[];
 }
+
+export type WaypointMatchKind = 'sourceId' | 'coords' | 'code' | 'name';
+
+export interface CircuitLoadLegPreview {
+  snap: WaypointSnapshot;
+  status: 'matched' | 'missing';
+  matchKind?: WaypointMatchKind;
+  waypointName?: string;
+}
+
+export interface CircuitLoadPreview {
+  circuitId: string;
+  label: string;
+  taskName: string;
+  sourceUrl: string | null;
+  legs: CircuitLoadLegPreview[];
+}
+
+export type CircuitUnresolvedPolicy = 'create' | 'fail';

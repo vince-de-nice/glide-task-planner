@@ -1,0 +1,49 @@
+<div class="library-page">
+  <header class="lib-page-head">
+    <div class="lib-page-head__text">
+      <h1 class="lib-page-head__title">{{ 'library.pageTitle' | translate }}</h1>
+      <p class="lib-page-head__intro">{{ 'library.pageIntro' | translate }}</p>
+    </div>
+    <div class="lib-page-head__shortcuts">
+      <p-button
+        [label]="'library.goCircuit' | translate"
+        icon="pi pi-map"
+        size="small"
+        routerLink="/declaration"
+      />
+      <p-button
+        [label]="'app.nav.dataSources' | translate"
+        icon="pi pi-database"
+        size="small"
+        [outlined]="true"
+        severity="secondary"
+        routerLink="/data-sources"
+      />
+    </div>
+  </header>
+
+  @if (circuitMessage()) {
+    <p class="gc-alert gc-alert--success lib-page-msg">{{ circuitMessage() }}</p>
+  }
+
+  <section class="lib-page-status gc-card" [attr.aria-label]="'library.statusAria' | translate">
+    <div class="lib-page-status__tags">
+      <p-tag [value]="'library.savedCount' | translate: { count: circuitCount() }" severity="info" />
+      @if (canSave()) {
+        <p-tag
+          [value]="'library.currentTaskReady' | translate: { count: circuitLegs().length }"
+          severity="success"
+        />
+      } @else {
+        <p-tag [value]="'library.currentTaskEmpty' | translate" />
+      }
+    </div>
+  </section>
+
+  <app-circuit-library
+    [canSave]="canSave()"
+    [embeddedPage]="true"
+    (saveRequested)="onSaveRequested($event)"
+    (circuitLoaded)="onCircuitLoaded($event)"
+  />
+</div>

@@ -59,13 +59,21 @@ import { UiFeedbackService } from '../../services/ui-feedback.service';
 import { MapFocusService } from '../../services/map-focus.service';
 
 const SHOW_FULL_CATALOG_KEY = 'gc-map-show-full-catalog';
+const MAP_BASEMAP_KEY = 'gc-map-basemap';
+import type { StyleSpecification } from 'maplibre-gl';
 import {
+  applyBasemapToMap,
+  BASEMAP_PRESETS,
   buildBaseMapStyle,
   CATALOG_CLUSTER_MAX_ZOOM,
   CATALOG_DOT_MIN_ZOOM,
+  DEFAULT_BASEMAP_ID,
+  isBasemapId,
   MAP_LAYER,
   MAP_SOURCE,
-  southWestNorthEastToLngLatBounds
+  reorderMapOverlayLayers,
+  southWestNorthEastToLngLatBounds,
+  type BasemapId
 } from './map-style.constants';
 import { buildTaskLinesGeoJson } from './map-task-lines-geojson.util';
 import { WaypointContextMenuComponent } from './waypoint-context-menu.component';
@@ -128,7 +136,9 @@ export class MapViewComponent implements OnInit {
   circuitLegs = this.taskState.circuitLegs;
   defaultZoneRadiusM = this.taskState.defaultZoneRadiusM;
 
-  readonly mapStyle = buildBaseMapStyle();
+  readonly basemapId = signal<BasemapId>(DEFAULT_BASEMAP_ID);
+  /** Style initial uniquement — les changements de fond passent par applyBasemapToMap. */
+  mapStyle: StyleSpecification = buildBaseMapStyle(DEFAULT_BASEMAP_ID);
   readonly mapCenter = signal<[number, number]>([6.5, 46.5]);
   readonly mapZoom = signal<[number]>([6]);
 
@@ -153,6 +163,7 @@ export class MapViewComponent implements OnInit {
   filtersExpanded = signal(false);
   /** B.1 : masquer le catalogue par défaut. */
   showFullCatalog = signal(false);
+  basemapPanelExpanded = signal(false);
 
   readonly mapLegendItems = computed(() => {
     this.i18n.locale();
@@ -190,7 +201,18 @@ export class MapViewComponent implements OnInit {
     () => !this.shouldShowCatalog() && !this.showFullCatalog()
   );
 
+  readonly basemapOptions = computed(() => {
+    this.i18n.locale();
+    return BASEMAP_PRESETS.map(p => ({
+      id: p.id,
+      icon: p.icon,
+      label: this.i18n.t(p.labelKey)
+    }));
+  });
+
   private map: MaplibreMap | null = null;
+  /** Première couche métier (ancrage pour changement de fond). */
+  private dataLayerAnchorId: string | null = null;
   private airspacePopup: Popup | null = null;
   private readonly taskFeatureCache = new Map<string, Feature<Point, WaypointMapFeatureProps>>();
   private readonly catalogFeatureCache = new Map<string, Feature<Point, WaypointMapFeatureProps>>();
@@ -242,6 +264,30 @@ export class MapViewComponent implements OnInit {
 
   toggleFilters(): void {
     this.filtersExpanded.update(v => !v);
+    if (this.filtersExpanded()) {
+      this.basemapPanelExpanded.set(false);
+    }
+  }
+
+  toggleBasemapPanel(): void {
+    this.basemapPanelExpanded.update(v => !v);
+    if (this.basemapPanelExpanded()) {
+      this.filtersExpanded.set(false);
+    }
+  }
+
+  selectBasemap(id: BasemapId): void {
+    if (id === this.basemapId()) {
+      this.basemapPanelExpanded.set(false);
+      return;
+    }
+    this.basemapId.set(id);
+    localStorage.setItem(MAP_BASEMAP_KEY, id);
+    const map = this.map;
+    if (map && this.dataLayerAnchorId) {
+      applyBasemapToMap(map, id, this.dataLayerAnchorId);
+    }
+    this.basemapPanelExpanded.set(false);
   }
 
 
@@ -356,6 +402,12 @@ export class MapViewComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    const storedBasemap = localStorage.getItem(MAP_BASEMAP_KEY);
+    if (storedBasemap && isBasemapId(storedBasemap)) {
+      this.basemapId.set(storedBasemap);
+    }
+    this.mapStyle = buildBaseMapStyle(this.basemapId());
+
     const storedCatalog = localStorage.getItem(SHOW_FULL_CATALOG_KEY);
     if (storedCatalog === '1') {
       this.showFullCatalog.set(true);
@@ -404,6 +456,7 @@ export class MapViewComponent implements OnInit {
       const onWaypoint = map.queryRenderedFeatures(e.point, { layers: hitLayers }).length;
       if (!onWaypoint) {
         this.closeContextMenu();
+        this.basemapPanelExpanded.set(false);
       }
     });
     map.on('move', () => this.repositionContextMenu());
@@ -432,7 +485,7 @@ export class MapViewComponent implements OnInit {
   }
 
   private initDataLayers(map: MaplibreMap): void {
-    const beforeObs = MAP_LAYER.ESRI_LABELS;
+    this.dataLayerAnchorId = MAP_LAYER.OBS_FILL;
 
     map.addSource(MAP_SOURCE.WAYPOINTS_TASK, { type: 'geojson', data: EMPTY_FC });
     map.addSource(MAP_SOURCE.WAYPOINTS_CATALOG, {
@@ -640,20 +693,7 @@ export class MapViewComponent implements OnInit {
       }
     });
 
-    map.moveLayer(MAP_LAYER.OBS_FILL, beforeObs);
-    map.moveLayer(MAP_LAYER.OBS_LINE, beforeObs);
-    map.moveLayer(MAP_LAYER.TASK_LINES, beforeObs);
-    map.moveLayer(MAP_LAYER.TASK_LABELS, beforeObs);
-    for (const layerId of [
-      MAP_LAYER.CATALOG_CLUSTER,
-      MAP_LAYER.CATALOG_CLUSTER_COUNT,
-      MAP_LAYER.CATALOG_DOT,
-      MAP_LAYER.CATALOG_LABEL,
-      MAP_LAYER.TASK_DOT,
-      MAP_LAYER.TASK_LABEL
-    ]) {
-      map.moveLayer(layerId);
-    }
+    reorderMapOverlayLayers(map);
   }
 
   /** Catalogue visible si toggle actif ou si la tâche est vide (évite une carte vide au démarrage). */
@@ -974,6 +1014,8 @@ export class MapViewComponent implements OnInit {
         MAP_LAYER.OBS_FILL
       );
     }
+
+    reorderMapOverlayLayers(map);
   }
 
   private removeAirspaceFromMap(): void {

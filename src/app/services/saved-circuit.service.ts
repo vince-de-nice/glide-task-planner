@@ -1,7 +1,15 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { DEFAULT_FLARM_PROFILE, FlarmProfile } from '../models/flarm-profile.model';
 import { CircuitLeg } from '../models/circuit.model';
-import { SavedCircuit, SavedCircuitExport, WaypointSnapshot } from '../models/saved-circuit.model';
+import {
+  CircuitLoadLegPreview,
+  CircuitLoadPreview,
+  CircuitUnresolvedPolicy,
+  SavedCircuit,
+  SavedCircuitExport,
+  WaypointMatchKind,
+  WaypointSnapshot
+} from '../models/saved-circuit.model';
 import { TaskRegulationState } from '../models/task-rule-profile.model';
 import { Waypoint } from '../models/waypoint.model';
 import { TaskStateService } from './task-state.service';
@@ -165,11 +173,45 @@ export class SavedCircuitService {
     return circuit;
   }
 
+  /** Analyse le circuit avant chargement (points absents de la base locale). */
+  previewCircuitLoad(circuitId: string): CircuitLoadPreview | null {
+    const circuit = this.circuits().find(c => c.id === circuitId);
+    if (!circuit) return null;
+
+    const legs: CircuitLoadLegPreview[] = circuit.waypoints.map(snap => {
+      const match = this.matchSnapshot(snap);
+      if (match) {
+        return {
+          snap,
+          status: 'matched' as const,
+          matchKind: match.kind,
+          waypointName: match.waypoint.name
+        };
+      }
+      return { snap, status: 'missing' as const };
+    });
+
+    return {
+      circuitId: circuit.id,
+      label: circuit.label,
+      taskName: circuit.taskName,
+      sourceUrl: circuit.sourceUrl ?? null,
+      legs
+    };
+  }
+
+  hasUnresolvedLegs(preview: CircuitLoadPreview): boolean {
+    return preview.legs.some(l => l.status === 'missing');
+  }
+
   /**
-   * Charge un circuit : restaure profil FLARM et reconstruit la tâche
-   * (crée les waypoints manquants dans la base locale).
+   * Charge un circuit : reconstruit les legs à partir des snapshots.
+   * @param unresolvedPolicy `create` ajoute les points manquants ; `fail` annule si un point manque.
    */
-  applyCircuit(circuitId: string): {
+  applyCircuit(
+    circuitId: string,
+    unresolvedPolicy: CircuitUnresolvedPolicy = 'create'
+  ): {
     circuitLegs: CircuitLeg[];
     taskName: string;
     profile: FlarmProfile;
@@ -178,10 +220,18 @@ export class SavedCircuitService {
     const circuit = this.circuits().find(c => c.id === circuitId);
     if (!circuit) return null;
 
-    const resolved = circuit.waypoints.map(snap => ({
-      snap,
-      waypointId: this.resolveSnapshot(snap).id
-    }));
+    const resolved: { snap: WaypointSnapshot; waypointId: string }[] = [];
+    for (const snap of circuit.waypoints) {
+      const match = this.matchSnapshot(snap);
+      if (match) {
+        resolved.push({ snap, waypointId: match.waypoint.id });
+        continue;
+      }
+      if (unresolvedPolicy === 'fail') {
+        return null;
+      }
+      resolved.push({ snap, waypointId: this.createWaypointFromSnapshot(snap).id });
+    }
     const inferred = this.taskState.inferLegsFromWaypointIds(
       resolved.map(r => r.waypointId)
     );
@@ -283,22 +333,41 @@ export class SavedCircuitService {
     URL.revokeObjectURL(url);
   }
 
-  private resolveSnapshot(snap: WaypointSnapshot): Waypoint {
+  private matchSnapshot(
+    snap: WaypointSnapshot
+  ): { waypoint: Waypoint; kind: WaypointMatchKind } | null {
     if (snap.sourceId) {
       const byId = this.waypointService.getWaypoint(snap.sourceId);
       if (byId && this.coordsMatch(byId, snap)) {
-        return byId;
+        return { waypoint: byId, kind: 'sourceId' };
       }
     }
 
-    const existing = this.waypointService.waypoints().find(
-      wp =>
-        this.coordsMatch(wp, snap) ||
-        (snap.code && wp.code === snap.code) ||
-        wp.name.toLowerCase() === snap.name.toLowerCase()
-    );
-    if (existing) return existing;
+    const byCoords = this.waypointService.waypoints().find(wp => this.coordsMatch(wp, snap));
+    if (byCoords) {
+      return { waypoint: byCoords, kind: 'coords' };
+    }
 
+    if (snap.code) {
+      const byCode = this.waypointService
+        .waypoints()
+        .find(wp => wp.code === snap.code);
+      if (byCode) {
+        return { waypoint: byCode, kind: 'code' };
+      }
+    }
+
+    const byName = this.waypointService
+      .waypoints()
+      .find(wp => wp.name.toLowerCase() === snap.name.toLowerCase());
+    if (byName) {
+      return { waypoint: byName, kind: 'name' };
+    }
+
+    return null;
+  }
+
+  private createWaypointFromSnapshot(snap: WaypointSnapshot): Waypoint {
     return this.waypointService.addWaypoint({
       name: snap.name,
       code: snap.code,

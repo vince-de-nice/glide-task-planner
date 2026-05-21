@@ -59,6 +59,11 @@ export class App {
         route: '/data-sources',
         label: this.i18n.t('app.nav.dataSources'),
         icon: 'pi pi-database'
+      },
+      {
+        route: '/library',
+        label: this.i18n.t('app.nav.library'),
+        icon: 'pi pi-bookmark'
       }
     ];
   });
@@ -68,6 +73,7 @@ export class App {
     const path = this.currentPath();
     if (path === '/waypoints') return this.i18n.t('app.nav.waypoints');
     if (path === '/data-sources') return this.i18n.t('app.nav.dataSources');
+    if (path === '/library') return this.i18n.t('app.nav.library');
     return this.i18n.t('app.nav.circuit');
   });
 
@@ -102,6 +108,12 @@ export class App {
   }
 
   private isWorkspaceRoute(path: string): boolean {
-    return path === '/declaration' || path === '' || path === '/' || path === '/data-sources';
+    return (
+      path === '/declaration' ||
+      path === '' ||
+      path === '/' ||
+      path === '/data-sources' ||
+      path === '/library'
+    );
   }
 }

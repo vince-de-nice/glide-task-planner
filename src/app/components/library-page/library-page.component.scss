@@ -1,0 +1,54 @@
+:host {
+  display: block;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.library-page {
+  max-width: var(--gc-container);
+  margin: 0 auto;
+  padding: clamp(0.75rem, 2vw, 1.25rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.lib-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.lib-page-head__title {
+  margin: 0 0 0.25rem;
+  font-size: clamp(1.25rem, 2.5vw, 1.5rem);
+  font-weight: 800;
+  color: var(--gc-primary);
+}
+
+.lib-page-head__intro {
+  margin: 0;
+  max-width: 42rem;
+  font-size: 0.875rem;
+  color: var(--gc-text-muted);
+  line-height: 1.45;
+}
+
+.lib-page-head__shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.lib-page-msg {
+  margin: 0;
+}
+
+.lib-page-status__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}

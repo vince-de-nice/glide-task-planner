@@ -1,8 +1,10 @@
-<section class="circuit-library">
-  <header class="lib-header">
-    <h3>{{ 'library.title' | translate }}</h3>
-    <p class="lib-desc">{{ 'library.desc' | translate }}</p>
-  </header>
+<section class="circuit-library" [class.circuit-library--page]="embeddedPage()">
+  @if (!embeddedPage()) {
+    <header class="lib-header">
+      <h3>{{ 'library.title' | translate }}</h3>
+      <p class="lib-desc">{{ 'library.desc' | translate }}</p>
+    </header>
+  }
 
   @if (importMessage()) {
     <p class="gc-alert gc-alert--success import-msg">{{ importMessage() }}</p>
@@ -106,3 +108,88 @@
     }
   </ul>
 </section>
+
+<p-dialog
+  [visible]="resolveVisible()"
+  (visibleChange)="onResolveVisibleChange($event)"
+  [header]="'library.resolveTitle' | translate"
+  [modal]="true"
+  [closable]="true"
+  [dismissableMask]="false"
+  [draggable]="false"
+  [style]="{ width: 'min(100vw - 1rem, 520px)' }"
+  (onHide)="cancelResolve()"
+>
+  @if (loadPreview(); as preview) {
+    <p class="resolve-intro">
+      {{ 'library.resolveIntro' | translate: { name: preview.label } }}
+    </p>
+    <ul class="resolve-missing-list">
+      @for (leg of missingLegs(); track leg.snap.name + leg.snap.latitude) {
+        <li>
+          <span class="resolve-missing__name">{{ leg.snap.name }}</span>
+          @if (leg.snap.code) {
+            <span class="resolve-missing__code">{{ leg.snap.code }}</span>
+          }
+          @if (legRoleLabel(leg.snap)) {
+            <span class="resolve-missing__role">{{ legRoleLabel(leg.snap) }}</span>
+          }
+          <span class="resolve-missing__coords">{{ formatSnapCoords(leg.snap) }}</span>
+        </li>
+      }
+    </ul>
+    @if (canLoadCup()) {
+      <p class="resolve-cup-hint">{{ 'library.resolveCupHint' | translate }}</p>
+    } @else {
+      <p class="resolve-cup-hint resolve-cup-hint--muted">
+        {{ 'library.resolveNoCupUrl' | translate }}
+      </p>
+    }
+  }
+  <div class="resolve-actions">
+    <p-button
+      [label]="'library.resolveCreate' | translate"
+      icon="pi pi-plus"
+      severity="success"
+      (onClick)="confirmCreateMissing()"
+      [disabled]="cupLoading()"
+    />
+    @if (canLoadCup()) {
+      <p-button
+        [label]="'library.resolveLoadCup' | translate"
+        icon="pi pi-database"
+        severity="secondary"
+        [loading]="cupLoading()"
+        (onClick)="loadCupForMissing()"
+      />
+    }
+    <input
+      #resolveCupFile
+      type="file"
+      accept=".cup,.txt,text/plain"
+      hidden
+      (change)="onResolveCupFile($event)"
+    />
+    <p-button
+      [label]="'library.resolveCupFile' | translate"
+      icon="pi pi-upload"
+      severity="secondary"
+      [outlined]="true"
+      [loading]="cupLoading()"
+      (onClick)="resolveCupFile.click()"
+    />
+    <p-button
+      [label]="'library.resolveGoSources' | translate"
+      icon="pi pi-external-link"
+      [text]="true"
+      (onClick)="goToDataSources()"
+    />
+    <p-button
+      [label]="'library.resolveCancel' | translate"
+      icon="pi pi-times"
+      severity="secondary"
+      [text]="true"
+      (onClick)="cancelResolve()"
+    />
+  </div>
+</p-dialog>

@@ -18,6 +18,13 @@ export const routes: Routes = [
         m => m.DataSourcesComponent
       )
   },
+  {
+    path: 'library',
+    loadComponent: () =>
+      import('./components/library-page/library-page.component').then(
+        m => m.LibraryPageComponent
+      )
+  },
   { path: 'planner', redirectTo: 'declaration', pathMatch: 'full' },
   { path: 'map', redirectTo: 'declaration', pathMatch: 'full' },
   { path: '**', redirectTo: 'declaration' }

@@ -8,6 +8,7 @@ export const en = {
       circuit: 'Task',
       waypoints: 'Waypoints',
       dataSources: 'Data sources',
+      library: 'Library',
       mainAria: 'Main navigation',
       menuTitle: 'Menu',
       openMenu: 'Open menu'
@@ -292,6 +293,15 @@ export const en = {
     deleteFromDbMessage: 'Delete « {{name}} » from the database?',
     moreActions: 'More map actions',
     fabToolbarAria: 'Map actions',
+    basemap: {
+      title: 'Basemap',
+      esriSatellite: 'Esri satellite',
+      esriTopo: 'Esri topo',
+      osm: 'OpenStreetMap',
+      cartoVoyager: 'Carto Voyager',
+      cartoLight: 'Carto Light',
+      opentopo: 'OpenTopoMap (terrain)'
+    },
     mapLayersMenu: 'Map layers',
     showFullCatalog: 'Show full CUP',
     hideFullCatalog: 'Task only',
@@ -348,6 +358,27 @@ export const en = {
     waypointEditSave: 'Save'
   },
   library: {
+    pageTitle: 'Circuit library',
+    pageIntro:
+      'Save circuits locally, export as JSON, and reload them on this device. If waypoints are missing from your database, create them or load the matching CUP file.',
+    goCircuit: 'Open task',
+    statusAria: 'Library status',
+    savedCount: '{{count}} saved circuit(s)',
+    currentTaskReady: 'Current task: {{count}} waypoint(s)',
+    currentTaskEmpty: 'No current task (at least 2 waypoints to save)',
+    saveFailed: 'Could not save',
+    resolveTitle: 'Missing waypoints',
+    resolveIntro:
+      'Circuit « {{name}} » includes waypoints not in your local database:',
+    resolveCreate: 'Create missing waypoints',
+    resolveLoadCup: 'Load saved CUP',
+    resolveCupFile: 'Load a .cup file',
+    resolveCupHint: 'A CUP file saved with this circuit may provide the missing waypoints.',
+    resolveNoCupUrl: 'No CUP URL stored for this circuit — load a file or open data sources.',
+    resolveGoSources: 'Data sources',
+    resolveCancel: 'Cancel load',
+    resolveAllMatched: 'All waypoints are now in the database.',
+    resolveStillMissing: 'Some waypoints are still missing. Create them, load a CUP, or cancel.',
     namePlaceholder: 'Task name (e.g. 500 km Vinon)',
     notesPlaceholder: 'Notes (pilot, glider…)',
     deleteConfirm: 'Delete this saved task?',

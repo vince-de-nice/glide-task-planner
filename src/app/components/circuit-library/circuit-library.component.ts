@@ -1,29 +1,42 @@
 import { Component, inject, input, output, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { SavedCircuitService } from '../../services/saved-circuit.service';
-import { SavedCircuit } from '../../models/saved-circuit.model';
+import { SavedCircuit, CircuitLoadPreview } from '../../models/saved-circuit.model';
+import { CircuitLoadService } from '../../services/circuit-load.service';
+import { CupLoaderService } from '../../services/cup-loader.service';
 import { Button } from 'primeng/button';
 import { InputText } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
+import { Dialog } from 'primeng/dialog';
 import { UiFeedbackService } from '../../services/ui-feedback.service';
 import { TranslateService } from '../../i18n/translate.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
+import {
+  formatSeeYouLatitude,
+  formatSeeYouLongitude
+} from '../../utils/geo-format.util';
 
 @Component({
   selector: 'app-circuit-library',
   standalone: true,
-  imports: [CommonModule, FormsModule, Button, InputText, Select, TranslatePipe],
+  imports: [CommonModule, FormsModule, Button, InputText, Select, Dialog, TranslatePipe],
   templateUrl: './circuit-library.component.html',
   styleUrls: ['./circuit-library.component.scss']
 })
 export class CircuitLibraryComponent {
   private savedCircuitService = inject(SavedCircuitService);
+  private circuitLoadService = inject(CircuitLoadService);
+  private cupLoader = inject(CupLoaderService);
   private uiFeedback = inject(UiFeedbackService);
   private i18n = inject(TranslateService);
+  private router = inject(Router);
 
   canSave = input(false);
   selectedCircuitId = input<string | null>(null);
+  /** Masque le titre interne sur la page dédiée /library. */
+  embeddedPage = input(false);
 
   circuitLoaded = output<string>();
   saveRequested = output<{ label: string; notes: string; updateId: string | null }>();
@@ -38,6 +51,22 @@ export class CircuitLibraryComponent {
   editLabel = signal('');
   importMessage = signal<string | null>(null);
   quickPickId = signal<string | null>(null);
+
+  resolveVisible = signal(false);
+  loadPreview = signal<CircuitLoadPreview | null>(null);
+  pendingCircuitId = signal<string | null>(null);
+  cupLoading = signal(false);
+
+  readonly missingLegs = computed(() => {
+    const preview = this.loadPreview();
+    if (!preview) return [];
+    return preview.legs.filter(l => l.status === 'missing');
+  });
+
+  readonly canLoadCup = computed(() => {
+    const url = this.loadPreview()?.sourceUrl;
+    return typeof url === 'string' && url.trim().length > 0;
+  });
 
   circuitQuickOptions = computed(() => {
     this.i18n.locale();
@@ -82,10 +111,134 @@ export class CircuitLibraryComponent {
   }
 
   loadCircuit(id: string): void {
-    if (this.savedCircuitService.getCircuit(id)) {
-      this.circuitLoaded.emit(id);
-      this.importMessage.set(this.i18n.t('library.loaded'));
+    const preview = this.savedCircuitService.previewCircuitLoad(id);
+    if (!preview) return;
+
+    if (!this.savedCircuitService.hasUnresolvedLegs(preview)) {
+      this.finishLoad(id);
+      return;
     }
+
+    this.pendingCircuitId.set(id);
+    this.loadPreview.set(preview);
+    this.resolveVisible.set(true);
+  }
+
+  formatSnapCoords(snap: CircuitLoadPreview['legs'][0]['snap']): string {
+    return `${formatSeeYouLatitude(snap.latitude)} ${formatSeeYouLongitude(snap.longitude)}`;
+  }
+
+  legRoleLabel(snap: CircuitLoadPreview['legs'][0]['snap']): string {
+    if (!snap.role) return '';
+    return this.i18n.t(`circuit.role.${snap.role}`);
+  }
+
+  async confirmCreateMissing(): Promise<void> {
+    const id = this.pendingCircuitId();
+    if (!id) return;
+    this.finishLoad(id, 'create');
+  }
+
+  onResolveVisibleChange(visible: boolean): void {
+    this.resolveVisible.set(visible);
+    if (!visible) {
+      this.pendingCircuitId.set(null);
+      this.loadPreview.set(null);
+    }
+  }
+
+  cancelResolve(): void {
+    this.resolveVisible.set(false);
+    this.pendingCircuitId.set(null);
+    this.loadPreview.set(null);
+  }
+
+  async loadCupForMissing(): Promise<void> {
+    const preview = this.loadPreview();
+    const url = preview?.sourceUrl?.trim();
+    if (!preview || !url) {
+      this.uiFeedback.warn(this.i18n.t('library.resolveNoCupUrl'));
+      return;
+    }
+
+    this.cupLoading.set(true);
+    try {
+      const count = await this.cupLoader.loadFromUrl(url, preview.label, false);
+      if (count === 0) {
+        this.uiFeedback.warn(this.i18n.t('cup.noWaypoints'));
+      } else {
+        this.uiFeedback.success(
+          this.i18n.t('cup.loaded'),
+          this.i18n.t('cup.loadedDetail', { count })
+        );
+      }
+      this.refreshPreviewAfterCup();
+    } catch (e) {
+      this.uiFeedback.error(
+        e instanceof Error ? e.message : this.i18n.t('cup.loadFailed')
+      );
+    } finally {
+      this.cupLoading.set(false);
+    }
+  }
+
+  onResolveCupFile(event: Event): void {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    this.cupLoading.set(true);
+    void this.cupLoader
+      .loadFromFile(file, false)
+      .then(count => {
+        if (count === 0) {
+          this.uiFeedback.warn(this.i18n.t('cup.noWaypoints'));
+        } else {
+          this.uiFeedback.success(
+            this.i18n.t('cup.loaded'),
+            this.i18n.t('cup.loadedDetail', { count })
+          );
+        }
+        this.refreshPreviewAfterCup();
+      })
+      .catch(e => {
+        this.uiFeedback.error(
+          e instanceof Error ? e.message : this.i18n.t('cup.loadFailed')
+        );
+      })
+      .finally(() => {
+        this.cupLoading.set(false);
+        (event.target as HTMLInputElement).value = '';
+      });
+  }
+
+  goToDataSources(): void {
+    this.cancelResolve();
+    void this.router.navigate(['/data-sources']);
+  }
+
+  private refreshPreviewAfterCup(): void {
+    const id = this.pendingCircuitId();
+    if (!id) return;
+    const preview = this.savedCircuitService.previewCircuitLoad(id);
+    if (!preview) {
+      this.cancelResolve();
+      return;
+    }
+    this.loadPreview.set(preview);
+    if (!this.savedCircuitService.hasUnresolvedLegs(preview)) {
+      this.uiFeedback.info(this.i18n.t('library.resolveAllMatched'));
+      this.finishLoad(id, 'create');
+    }
+  }
+
+  private finishLoad(circuitId: string, policy: 'create' | 'fail' = 'create'): void {
+    const ok = this.circuitLoadService.applyToCurrentTask(circuitId, policy);
+    if (!ok) {
+      this.uiFeedback.error(this.i18n.t('library.resolveStillMissing'));
+      return;
+    }
+    this.cancelResolve();
+    this.circuitLoaded.emit(circuitId);
+    this.importMessage.set(this.i18n.t('library.loaded'));
   }
 
   requestSave(): void {

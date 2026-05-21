@@ -6,6 +6,7 @@ export const fr = {
       circuit: 'Circuit',
       waypoints: 'Waypoints',
       dataSources: 'Sources de données',
+      library: 'Bibliothèque',
       mainAria: 'Navigation principale',
       menuTitle: 'Menu',
       openMenu: 'Ouvrir le menu'
@@ -291,6 +292,15 @@ export const fr = {
     deleteFromDbMessage: 'Supprimer « {{name}} » de la base ?',
     moreActions: 'Plus d’actions carte',
     fabToolbarAria: 'Actions carte',
+    basemap: {
+      title: 'Fond de carte',
+      esriSatellite: 'Satellite Esri',
+      esriTopo: 'Topo Esri',
+      osm: 'OpenStreetMap',
+      cartoVoyager: 'Carto Voyager',
+      cartoLight: 'Carto Clair',
+      opentopo: 'OpenTopoMap (relief)'
+    },
     mapLayersMenu: 'Calques carte',
     showFullCatalog: 'Afficher tout le CUP',
     hideFullCatalog: 'Tâche seulement',
@@ -347,6 +357,27 @@ export const fr = {
     waypointEditSave: 'Enregistrer'
   },
   library: {
+    pageTitle: 'Bibliothèque de circuits',
+    pageIntro:
+      'Enregistrez vos circuits localement, exportez-les en JSON et rechargez-les sur cet appareil. Si des points manquent dans la base, choisissez de les créer ou de charger le fichier CUP.',
+    goCircuit: 'Ouvrir le circuit',
+    statusAria: 'État de la bibliothèque',
+    savedCount: '{{count}} circuit(s) enregistré(s)',
+    currentTaskReady: 'Tâche courante : {{count}} point(s)',
+    currentTaskEmpty: 'Aucune tâche en cours (min. 2 points pour enregistrer)',
+    saveFailed: 'Enregistrement impossible',
+    resolveTitle: 'Points manquants',
+    resolveIntro:
+      'Le circuit « {{name}} » contient des points absents de votre base locale :',
+    resolveCreate: 'Créer les points manquants',
+    resolveLoadCup: 'Charger le CUP enregistré',
+    resolveCupFile: 'Charger un fichier .cup',
+    resolveCupHint: 'Un fichier CUP enregistré avec ce circuit peut fournir les points manquants.',
+    resolveNoCupUrl: 'Aucune URL CUP enregistrée pour ce circuit — chargez un fichier ou ouvrez les sources de données.',
+    resolveGoSources: 'Sources de données',
+    resolveCancel: 'Annuler le chargement',
+    resolveAllMatched: 'Tous les points sont maintenant dans la base.',
+    resolveStillMissing: 'Des points sont encore manquants. Créez-les, chargez un CUP ou annulez.',
     namePlaceholder: 'Nom du circuit (ex. 500 km Vinon)',
     notesPlaceholder: 'Note (pilote, machine…)',
     deleteConfirm: 'Supprimer ce circuit ?',

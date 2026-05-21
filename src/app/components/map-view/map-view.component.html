@@ -47,6 +47,19 @@
       <button
         type="button"
         class="map-fab"
+        [class.map-fab--on]="basemapPanelExpanded()"
+        (click)="toggleBasemapPanel()"
+        [pTooltip]="'map.basemap.title' | translate"
+        tooltipPosition="left"
+        [attr.aria-label]="'map.basemap.title' | translate"
+        [attr.aria-expanded]="basemapPanelExpanded()"
+      >
+        <i class="pi pi-th-large" aria-hidden="true"></i>
+      </button>
+
+      <button
+        type="button"
+        class="map-fab"
         [class.map-fab--on]="filtersExpanded()"
         [disabled]="filtersFabDisabled()"
         (click)="toggleFilters()"
@@ -76,6 +89,32 @@
       </button>
 
     </div>
+
+    @if (basemapPanelExpanded()) {
+      <div
+        class="map-overlay map-overlay--basemap"
+        role="listbox"
+        [attr.aria-label]="'map.basemap.title' | translate"
+      >
+        <p class="map-basemap-panel__title">{{ 'map.basemap.title' | translate }}</p>
+        @for (opt of basemapOptions(); track opt.id) {
+          <button
+            type="button"
+            class="map-basemap-option"
+            role="option"
+            [class.map-basemap-option--active]="basemapId() === opt.id"
+            [attr.aria-selected]="basemapId() === opt.id"
+            (click)="selectBasemap(opt.id)"
+          >
+            <i [class]="opt.icon" aria-hidden="true"></i>
+            <span>{{ opt.label }}</span>
+            @if (basemapId() === opt.id) {
+              <i class="pi pi-check map-basemap-option__check" aria-hidden="true"></i>
+            }
+          </button>
+        }
+      </div>
+    }
 
     @if (filtersExpanded() && shouldShowCatalog()) {
       <div

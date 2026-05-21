@@ -451,15 +451,7 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     }
   }
 
-  onCircuitLoaded(circuitId: string): void {
-    const applied = this.savedCircuitService.applyCircuit(circuitId);
-    if (!applied) return;
-    this.flarmProfileService.updateProfile(applied.profile);
-    this.taskState.loadTask(
-      applied.circuitLegs,
-      applied.taskName,
-      applied.regulation
-    );
+  onCircuitLoaded(_circuitId: string): void {
     this.calculateDistance();
     this.circuitsDialogOpen.set(false);
     this.setWorkspaceTab('circuit');
