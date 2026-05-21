@@ -6,8 +6,7 @@ import {
   signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterLink } from '@angular/router';
-import { Button } from 'primeng/button';
+import { Router } from '@angular/router';
 import { Tag } from 'primeng/tag';
 import { CircuitLibraryComponent } from '../circuit-library/circuit-library.component';
 import { CupDatabaseService } from '../../services/cup-database.service';
@@ -23,7 +22,7 @@ const WORKSPACE_TAB_KEY = 'gc_workspace_tab';
 @Component({
   selector: 'app-library-page',
   standalone: true,
-  imports: [CommonModule, RouterLink, Button, Tag, CircuitLibraryComponent, TranslatePipe],
+  imports: [CommonModule, Tag, CircuitLibraryComponent, TranslatePipe],
   templateUrl: './library-page.component.html',
   styleUrl: './library-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush

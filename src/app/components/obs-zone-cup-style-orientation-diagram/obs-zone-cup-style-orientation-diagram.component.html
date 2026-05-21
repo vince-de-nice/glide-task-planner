@@ -1,0 +1,89 @@
+@let p = preview();
+@let axis = axisLine();
+<svg
+  class="cup-style-orient"
+  [attr.viewBox]="viewBox"
+  aria-hidden="true"
+>
+  <defs>
+    <marker
+      [attr.id]="arrowMarkerId"
+      markerWidth="7"
+      markerHeight="7"
+      refX="5.5"
+      refY="3.5"
+      orient="auto"
+    >
+      <path d="M0,0 L7,3.5 L0,7 Z" fill="#2563eb" />
+    </marker>
+  </defs>
+
+  <circle
+    class="cup-style-orient__ring"
+    [attr.cx]="center.cx"
+    [attr.cy]="center.cy"
+    r="38"
+  />
+
+  <text class="cup-style-orient__north" [attr.x]="center.cx" y="11" text-anchor="middle">N</text>
+
+  @for (ref of refMarkers(); track ref.kind) {
+    @if (refPosition(ref.kind); as pos) {
+      <line
+        class="cup-style-orient__tie"
+        [class.cup-style-orient__tie--missing]="!ref.available"
+        [attr.x1]="center.cx"
+        [attr.y1]="center.cy"
+        [attr.x2]="pos.x"
+        [attr.y2]="pos.y"
+      />
+      <circle
+        class="cup-style-orient__ref"
+        [class.cup-style-orient__ref--missing]="!ref.available"
+        [class.cup-style-orient__ref--prev]="ref.kind === 'prev'"
+        [class.cup-style-orient__ref--next]="ref.kind === 'next'"
+        [class.cup-style-orient__ref--dep]="ref.kind === 'departure'"
+        [attr.cx]="pos.x"
+        [attr.cy]="pos.y"
+        r="4.5"
+      />
+      @if (refLabelOffset(ref.kind); as lb) {
+        @if (ref.name) {
+          <text
+            class="cup-style-orient__ref-label"
+            [class.cup-style-orient__ref-label--missing]="!ref.available"
+            [attr.x]="lb.x"
+            [attr.y]="lb.y"
+            [attr.text-anchor]="lb.anchor"
+          >{{ ref.name }}</text>
+        }
+      }
+    }
+  }
+
+  @if (p.style === 1 && p.axisAvailable) {
+    @if (refPosition('prev'); as pPos) {
+      @if (refPosition('next'); as nPos) {
+        <line
+          class="cup-style-orient__bisect-hint"
+          [attr.x1]="pPos.x"
+          [attr.y1]="pPos.y"
+          [attr.x2]="nPos.x"
+          [attr.y2]="nPos.y"
+        />
+      }
+    }
+  }
+
+  <line
+    class="cup-style-orient__axis"
+    [class.cup-style-orient__axis--muted]="!p.axisAvailable"
+    [attr.x1]="axis.x1"
+    [attr.y1]="axis.y1"
+    [attr.x2]="axis.x2"
+    [attr.y2]="axis.y2"
+    [attr.marker-end]="p.axisAvailable ? 'url(#' + arrowMarkerId + ')' : null"
+  />
+
+  <circle class="cup-style-orient__current" [attr.cx]="center.cx" [attr.cy]="center.cy" r="5" />
+</svg>

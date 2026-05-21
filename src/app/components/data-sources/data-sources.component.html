@@ -1,59 +1,36 @@
-<div class="data-sources-page">
-  <header class="ds-page-head">
-    <div class="ds-page-head__text">
-      <h1 class="ds-page-head__title">{{ 'dataSources.title' | translate }}</h1>
-      <p class="ds-page-head__intro">{{ 'dataSources.intro' | translate }}</p>
-    </div>
-    <div class="ds-page-head__shortcuts">
-      <p-button
-        [label]="'dataSources.goCircuit' | translate"
-        icon="pi pi-map"
-        size="small"
-        routerLink="/declaration"
-      />
-      <p-button
-        [label]="'dataSources.goWaypoints' | translate"
-        icon="pi pi-list"
-        size="small"
-        [outlined]="true"
-        severity="secondary"
-        routerLink="/waypoints"
-      />
-      <p-button
-        [label]="'app.nav.library' | translate"
-        icon="pi pi-bookmark"
-        size="small"
-        [outlined]="true"
-        severity="secondary"
-        routerLink="/library"
-      />
-    </div>
-  </header>
+<div class="data-sources-page gc-page">
+  <p class="gc-page-intro">{{ 'dataSources.intro' | translate }}</p>
 
-  <section class="ds-status gc-card" [attr.aria-label]="'dataSources.statusAria' | translate">
-    <h2 class="ds-section-title">{{ 'dataSources.statusTitle' | translate }}</h2>
-    <div class="ds-status__tags">
-      <p-tag
-        [value]="cupMeta().sourceLabel || ('common.noBase' | translate)"
-        severity="info"
-      />
+  <section class="ds-hero gc-card" [attr.aria-label]="'dataSources.statusAria' | translate">
+    <div class="ds-hero__icon" aria-hidden="true">
+      <i class="pi pi-database"></i>
+    </div>
+    <div class="ds-hero__main">
       @if (waypoints().length > 0) {
-        <p-tag [value]="'common.pts' | translate: { count: waypoints().length }" />
-      }
-      @if (selectedWaypointIds().length > 0) {
-        <p-tag
-          [value]="'common.inTask' | translate: { count: selectedWaypointIds().length }"
-          severity="success"
-        />
+        <p class="ds-hero__badge">{{ 'dataSources.activeBadge' | translate }}</p>
+        <h2 class="ds-hero__name">{{ cupMeta().sourceLabel || ('common.noBase' | translate) }}</h2>
+        @if (cupMeta().sourceUrl; as url) {
+          <p class="ds-hero__url" [title]="url">{{ url }}</p>
+        }
+        @if (loadedAtLabel(); as loaded) {
+          <p class="ds-hero__meta">{{ 'dataSources.loadedAt' | translate: { date: loaded } }}</p>
+        }
+      } @else {
+        <h2 class="ds-hero__name ds-hero__name--empty">{{ 'dataSources.activeEmpty' | translate }}</h2>
+        <p class="ds-hero__meta">{{ 'dataSources.activeEmptyHint' | translate }}</p>
       }
     </div>
-    @if (cupMeta().sourceUrl; as url) {
-      <p class="ds-status__url" [title]="url">{{ url }}</p>
-    }
-    @if (loadedAtLabel(); as loaded) {
-      <p class="ds-status__meta">{{ 'dataSources.loadedAt' | translate: { date: loaded } }}</p>
-    }
-    <div class="ds-status__actions">
+    <div class="ds-hero__aside">
+      @if (waypoints().length > 0) {
+        <div class="ds-hero__stats">
+          <span class="ds-stat ds-stat--pts">{{ 'common.pts' | translate: { count: waypoints().length } }}</span>
+          @if (selectedWaypointIds().length > 0) {
+            <span class="ds-stat ds-stat--task">{{
+              'common.inTask' | translate: { count: selectedWaypointIds().length }
+            }}</span>
+          }
+        </div>
+      }
       <p-button
         [label]="'dataSources.clearDb' | translate"
         icon="pi pi-trash"
@@ -66,84 +43,97 @@
     </div>
   </section>
 
-  <app-cup-toolbar (databaseLoaded)="onDatabaseLoaded()" />
+  <div class="ds-layout">
+    <section class="ds-layout__primary gc-card" [attr.aria-label]="'cup.panelAria' | translate">
+      <header class="gc-panel-head">
+        <h2 class="gc-panel-title">{{ 'dataSources.loadTitle' | translate }}</h2>
+      </header>
+      <app-cup-toolbar [standalone]="true" (databaseLoaded)="onDatabaseLoaded()" />
+    </section>
 
-  <section class="ds-section gc-card" [attr.aria-label]="'dataSources.knownAria' | translate">
-    <h2 class="ds-section-title">{{ 'dataSources.knownTitle' | translate }}</h2>
-    <p class="ds-section-hint">{{ 'dataSources.knownHint' | translate }}</p>
-    @if (configError(); as err) {
-      <p class="ds-error">{{ err }}</p>
-    } @else if (configSources().length === 0) {
-      <p class="ds-empty">{{ 'dataSources.noKnown' | translate }}</p>
-    } @else {
-      <ul class="ds-source-list">
-        @for (source of configSources(); track source.id) {
-          <li class="ds-source-row" [class.ds-source-row--active]="isActiveSource(source.url)">
-            <div class="ds-source-row__body">
-              <span class="ds-source-row__label">{{ source.label }}</span>
-              <span class="ds-source-row__url" [title]="source.url">{{ source.url }}</span>
-            </div>
+    <aside class="ds-layout__aside">
+      <section class="ds-panel gc-card" [attr.aria-label]="'dataSources.knownAria' | translate">
+        <header class="gc-panel-head">
+          <h2 class="gc-panel-title">{{ 'dataSources.knownTitle' | translate }}</h2>
+        </header>
+        <p class="gc-panel-hint">{{ 'dataSources.knownHint' | translate }}</p>
+        @if (configError(); as err) {
+          <p class="ds-msg ds-msg--error">{{ err }}</p>
+        } @else if (configSources().length === 0) {
+          <p class="ds-msg">{{ 'dataSources.noKnown' | translate }}</p>
+        } @else {
+          <ul class="ds-source-list">
+            @for (source of configSources(); track source.id) {
+              <li class="ds-source" [class.ds-source--active]="isActiveSource(source.url)">
+                <div class="ds-source__info">
+                  <span class="ds-source__label">{{ source.label }}</span>
+                  <span class="ds-source__url" [title]="source.url">{{ source.url }}</span>
+                </div>
+                <p-button
+                  [label]="isActiveSource(source.url) ? ('dataSources.loaded' | translate) : ('cup.load' | translate)"
+                  [icon]="isActiveSource(source.url) ? 'pi pi-check' : 'pi pi-download'"
+                  size="small"
+                  [outlined]="!isActiveSource(source.url)"
+                  [severity]="isActiveSource(source.url) ? 'success' : undefined"
+                  [loading]="loadingSource()"
+                  [disabled]="loadingSource() || isActiveSource(source.url)"
+                  (onClick)="loadSource(source)"
+                />
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
+      <section class="ds-panel gc-card" [attr.aria-label]="'dataSources.recentsAria' | translate">
+        <header class="gc-panel-head">
+          <h2 class="gc-panel-title">{{ 'dataSources.recentsTitle' | translate }}</h2>
+          @if (recentUrls().length > 0) {
             <p-button
-              [label]="'cup.load' | translate"
-              icon="pi pi-download"
+              [label]="'dataSources.clearRecents' | translate"
+              icon="pi pi-times"
               size="small"
-              [outlined]="!isActiveSource(source.url)"
-              [loading]="loadingSource()"
-              [disabled]="loadingSource()"
-              (onClick)="loadSource(source)"
+              [text]="true"
+              severity="secondary"
+              (onClick)="clearRecents()"
             />
-          </li>
+          }
+        </header>
+        @if (recentUrls().length === 0) {
+          <p class="ds-msg">{{ 'dataSources.noRecents' | translate }}</p>
+        } @else {
+          <ul class="ds-source-list">
+            @for (url of recentUrls(); track url) {
+              <li class="ds-source" [class.ds-source--active]="isActiveSource(url)">
+                <div class="ds-source__info">
+                  <span class="ds-source__label">{{ 'dataSources.recentLabel' | translate }}</span>
+                  <span class="ds-source__url" [title]="url">{{ url }}</span>
+                </div>
+                <div class="ds-source__actions">
+                  <p-button
+                    [label]="isActiveSource(url) ? ('dataSources.loaded' | translate) : ('cup.load' | translate)"
+                    [icon]="isActiveSource(url) ? 'pi pi-check' : 'pi pi-download'"
+                    size="small"
+                    [outlined]="!isActiveSource(url)"
+                    [severity]="isActiveSource(url) ? 'success' : undefined"
+                    [loading]="loadingSource()"
+                    [disabled]="loadingSource() || isActiveSource(url)"
+                    (onClick)="loadRecent(url)"
+                  />
+                  <p-button
+                    icon="pi pi-trash"
+                    size="small"
+                    severity="danger"
+                    [text]="true"
+                    [attr.aria-label]="'dataSources.removeRecent' | translate"
+                    (onClick)="removeRecent(url)"
+                  />
+                </div>
+              </li>
+            }
+          </ul>
         }
-      </ul>
-    }
-  </section>
-
-  <section class="ds-section gc-card" [attr.aria-label]="'dataSources.recentsAria' | translate">
-    <div class="ds-section-head">
-      <h2 class="ds-section-title">{{ 'dataSources.recentsTitle' | translate }}</h2>
-      @if (recentUrls().length > 0) {
-        <p-button
-          [label]="'dataSources.clearRecents' | translate"
-          icon="pi pi-times"
-          size="small"
-          [text]="true"
-          severity="secondary"
-          (onClick)="clearRecents()"
-        />
-      }
-    </div>
-    @if (recentUrls().length === 0) {
-      <p class="ds-empty">{{ 'dataSources.noRecents' | translate }}</p>
-    } @else {
-      <ul class="ds-source-list">
-        @for (url of recentUrls(); track url) {
-          <li class="ds-source-row" [class.ds-source-row--active]="isActiveSource(url)">
-            <div class="ds-source-row__body">
-              <span class="ds-source-row__label">{{ 'dataSources.recentLabel' | translate }}</span>
-              <span class="ds-source-row__url" [title]="url">{{ url }}</span>
-            </div>
-            <div class="ds-source-row__actions">
-              <p-button
-                [label]="'cup.load' | translate"
-                icon="pi pi-download"
-                size="small"
-                [outlined]="!isActiveSource(url)"
-                [loading]="loadingSource()"
-                [disabled]="loadingSource()"
-                (onClick)="loadRecent(url)"
-              />
-              <p-button
-                icon="pi pi-trash"
-                size="small"
-                severity="danger"
-                [text]="true"
-                [attr.aria-label]="'dataSources.removeRecent' | translate"
-                (onClick)="removeRecent(url)"
-              />
-            </div>
-          </li>
-        }
-      </ul>
-    }
-  </section>
+      </section>
+    </aside>
+  </div>
 </div>

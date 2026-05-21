@@ -159,7 +159,12 @@ export const fr = {
   dataSources: {
     title: 'Sources de données',
     intro:
-      'Chargez et gérez la base CUP utilisée par le circuit, la carte et l’export. Les sources connues et vos URL récentes sont listées ci-dessous.',
+      'Chargez et gérez la base CUP utilisée par le circuit, la carte et l’export. Utilisez le panneau principal pour importer ou télécharger un fichier ; les sources configurées et vos URL récentes sont à droite.',
+    loadTitle: 'Charger une base',
+    activeBadge: 'Base active',
+    activeEmpty: 'Aucune base chargée',
+    activeEmptyHint: 'Importez un fichier .cup, saisissez une URL ou choisissez une source ci-contre.',
+    loaded: 'Chargée',
     statusAria: 'État de la base',
     statusTitle: 'Base active',
     loadedAt: 'Chargée le {{date}}',
@@ -180,11 +185,12 @@ export const fr = {
     clearDbMessage:
       'Supprimer tous les points et réinitialiser la tâche ? Cette action est irréversible.',
     clearDbAccept: 'Vider',
-    cleared: 'Base vidée.',
-    goCircuit: 'Composer le circuit',
-    goWaypoints: 'Gérer les waypoints'
+    cleared: 'Base vidée.'
   },
   cup: {
+    sectionQuick: 'Source connue',
+    sectionUrl: 'Depuis une URL',
+    sectionFile: 'Fichier local',
     panelAria: 'Base de points',
     changeSource: 'Changer la base',
     shortcutAria: 'Base CUP active',
@@ -545,7 +551,20 @@ export const fr = {
     cupStyle: 'Style CUP',
     cupStylePickerAria: 'Styles CUP d’orientation',
     cupStylePickerLead:
-      'Même zone que ci-dessous ; la flèche indique l’orientation selon les waypoints du circuit.',
+      'Orientation de la zone (flèche bleue) — repères du circuit, pas la forme R1/A1.',
+    styleOrientation: {
+      axis: 'Axe {{bearing}}°',
+      ref0north: 'Cap fixe · nord carte',
+      ref0a12: 'Cap fixe · A12 = {{a12}}°',
+      ref1: 'Bissectrice · {{prev}} ↔ {{next}}',
+      ref1missing: 'Symétrique · précédent et suivant requis',
+      ref2: 'Vers point suivant · {{next}}',
+      ref2missing: 'Point suivant manquant',
+      ref3: 'Vers point précédent · {{prev}}',
+      ref3missing: 'Point précédent manquant',
+      ref4: 'Vers départ · {{dep}}',
+      ref4missing: 'Départ manquant sur le circuit'
+    },
     lineCup: 'Ligne (CUP Line=1)',
     a1LineHint: 'Ouverture de la ligne (souvent 180°).',
     a1SectorHint: 'Largeur du secteur (°) autour de l’axe d’orientation.',

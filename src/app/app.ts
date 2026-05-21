@@ -1,5 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { Button } from 'primeng/button';
 import { Drawer } from 'primeng/drawer';
@@ -21,6 +21,7 @@ export interface AppNavItem {
   selector: 'app-root',
   imports: [
     RouterOutlet,
+    RouterLink,
     CommonModule,
     Button,
     Drawer,

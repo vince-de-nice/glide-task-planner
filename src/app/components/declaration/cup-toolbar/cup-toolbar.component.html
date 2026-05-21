@@ -1,65 +1,81 @@
-<section class="decl-db gc-card decl-db--full" [attr.aria-label]="'cup.panelAria' | translate">
+<section
+  class="decl-db gc-card"
+  [class.decl-db--full]="!standalone()"
+  [class.decl-db--standalone]="standalone()"
+  [attr.aria-label]="'cup.panelAria' | translate"
+>
   <div class="decl-db__expanded">
-    <div class="decl-db__expanded-head">
-      <h2 class="decl-section-title">{{ 'cup.title' | translate }}</h2>
-    </div>
+    @if (!standalone()) {
+      <div class="decl-db__expanded-head">
+        <h2 class="decl-section-title">{{ 'cup.title' | translate }}</h2>
+      </div>
+    }
     <div class="decl-db__form">
-      <p-select
-        styleClass="decl-db__select"
-        [options]="cupSources()"
-        optionLabel="label"
-        optionValue="url"
-        [placeholder]="'cup.sourcePlaceholder' | translate"
-        [showClear]="true"
-        [filter]="cupSources().length > 8"
-        [filterPlaceholder]="'common.filter' | translate"
-        [ngModel]="cupQuickSourcePick()"
-        (ngModelChange)="onCupQuickPickChange($event)"
-        [disabled]="loading()"
-        size="small"
-      />
-      <div class="decl-db__url-row">
-        <input
-          pInputText
-          fluid
-          pSize="small"
-          class="decl-db__url-input"
-          type="url"
-          [placeholder]="'cup.urlPlaceholder' | translate"
-          [ngModel]="cupUrlInput()"
-          (ngModelChange)="cupUrlInput.set($event)"
+      <div class="decl-db__field">
+        <span class="gc-field-label">{{ 'cup.sectionQuick' | translate }}</span>
+        <p-select
+          styleClass="decl-db__select"
+          [options]="cupSources()"
+          optionLabel="label"
+          optionValue="url"
+          [placeholder]="'cup.sourcePlaceholder' | translate"
+          [showClear]="true"
+          [filter]="cupSources().length > 8"
+          [filterPlaceholder]="'common.filter' | translate"
+          [ngModel]="cupQuickSourcePick()"
+          (ngModelChange)="onCupQuickPickChange($event)"
           [disabled]="loading()"
-        />
-        <p-button
-          [label]="'cup.load' | translate"
-          icon="pi pi-download"
           size="small"
-          [disabled]="loading() || !cupUrlInput().trim()"
-          (onClick)="loadFromUrlInput()"
         />
       </div>
-      <input #cupFileInput type="file" accept=".cup" (change)="onCupFileSelected($event)" hidden />
-      <div class="decl-db__actions">
-        <p-button
-          [label]="'cup.importCup' | translate"
-          icon="pi pi-upload"
-          size="small"
-          severity="secondary"
-          [disabled]="loading()"
-          (onClick)="cupFileInput.click()"
-        />
-        <p-button
-          [label]="'cup.exportCup' | translate"
-          icon="pi pi-file-export"
-          size="small"
-          [outlined]="true"
-          [disabled]="waypoints().length === 0"
-          (onClick)="exportCup()"
-        />
+      <div class="decl-db__field">
+        <span class="gc-field-label">{{ 'cup.sectionUrl' | translate }}</span>
+        <div class="decl-db__url-row">
+          <input
+            pInputText
+            fluid
+            pSize="small"
+            class="decl-db__url-input"
+            type="url"
+            [placeholder]="'cup.urlPlaceholder' | translate"
+            [ngModel]="cupUrlInput()"
+            (ngModelChange)="cupUrlInput.set($event)"
+            [disabled]="loading()"
+          />
+          <p-button
+            [label]="'cup.load' | translate"
+            icon="pi pi-download"
+            size="small"
+            [disabled]="loading() || !cupUrlInput().trim()"
+            (onClick)="loadFromUrlInput()"
+          />
+        </div>
+      </div>
+      <div class="decl-db__field">
+        <span class="gc-field-label">{{ 'cup.sectionFile' | translate }}</span>
+        <input #cupFileInput type="file" accept=".cup" (change)="onCupFileSelected($event)" hidden />
+        <div class="decl-db__actions">
+          <p-button
+            [label]="'cup.importCup' | translate"
+            icon="pi pi-upload"
+            size="small"
+            severity="secondary"
+            [disabled]="loading()"
+            (onClick)="cupFileInput.click()"
+          />
+          <p-button
+            [label]="'cup.exportCup' | translate"
+            icon="pi pi-file-export"
+            size="small"
+            [outlined]="true"
+            [disabled]="waypoints().length === 0"
+            (onClick)="exportCup()"
+          />
+        </div>
       </div>
     </div>
   </div>
-  @if (cupMeta().sourceLabel) {
+  @if (!standalone() && cupMeta().sourceLabel) {
     <p class="decl-db__source">
       {{ 'common.basePrefix' | translate }} <strong>{{ cupMeta().sourceLabel }}</strong>
       @if (cupMeta().sourceUrl) {

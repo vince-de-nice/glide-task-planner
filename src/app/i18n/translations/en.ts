@@ -161,7 +161,12 @@ export const en = {
   dataSources: {
     title: 'Data sources',
     intro:
-      'Load and manage the CUP database used by the task map, circuit, and export. Known sources and your recent URLs are listed below.',
+      'Load and manage the CUP database used by the task map, circuit, and export. Use the main panel to import or download a file; configured sources and recent URLs are on the right.',
+    loadTitle: 'Load a database',
+    activeBadge: 'Active database',
+    activeEmpty: 'No database loaded',
+    activeEmptyHint: 'Import a .cup file, enter a URL, or pick a source on the right.',
+    loaded: 'Loaded',
     statusAria: 'Database status',
     statusTitle: 'Active database',
     loadedAt: 'Loaded on {{date}}',
@@ -181,11 +186,12 @@ export const en = {
     clearDbHeader: 'Clear CUP database',
     clearDbMessage: 'Delete all waypoints and reset the task? This cannot be undone.',
     clearDbAccept: 'Clear',
-    cleared: 'Database cleared.',
-    goCircuit: 'Edit task',
-    goWaypoints: 'Manage waypoints'
+    cleared: 'Database cleared.'
   },
   cup: {
+    sectionQuick: 'Known source',
+    sectionUrl: 'From URL',
+    sectionFile: 'Local file',
     panelAria: 'Waypoint database',
     changeSource: 'Change database',
     shortcutAria: 'Active CUP database',
@@ -545,7 +551,20 @@ export const en = {
     cupStyle: 'CUP style',
     cupStylePickerAria: 'CUP orientation styles',
     cupStylePickerLead:
-      'Same zone as below; the arrow shows orientation from circuit waypoints.',
+      'Zone orientation (blue arrow) — circuit references, not R1/A1 shape.',
+    styleOrientation: {
+      axis: 'Axis {{bearing}}°',
+      ref0north: 'Fixed bearing · map north',
+      ref0a12: 'Fixed bearing · A12 = {{a12}}°',
+      ref1: 'Bisector · {{prev}} ↔ {{next}}',
+      ref1missing: 'Symmetric · previous and next required',
+      ref2: 'To next point · {{next}}',
+      ref2missing: 'Next point missing',
+      ref3: 'To previous point · {{prev}}',
+      ref3missing: 'Previous point missing',
+      ref4: 'To start · {{dep}}',
+      ref4missing: 'Start missing on task'
+    },
     lineCup: 'Line (CUP Line=1)',
     a1LineHint: 'Line opening angle (often 180°).',
     a1SectorHint: 'Sector width (°) around the orientation axis.',

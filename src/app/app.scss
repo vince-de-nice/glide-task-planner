@@ -24,14 +24,18 @@
 }
 
 .header-content {
-  max-width: var(--gc-container);
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 0.75rem clamp(1rem, 3vw, 1.5rem);
-  display: flex;
+  padding: 0.6rem clamp(1rem, 3vw, 1.5rem);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem 1rem;
   min-height: var(--gc-header-h);
+
+  @media (min-width: 900px) {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
 }
 
 .logo {
@@ -58,6 +62,61 @@
 
 .app-menu-btn {
   flex-shrink: 0;
+
+  @media (min-width: 900px) {
+    display: none;
+  }
+}
+
+.app-nav-bar {
+  display: none;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  background: var(--gc-bg);
+  border: 1px solid var(--gc-border);
+  border-radius: var(--gc-radius);
+  flex-shrink: 0;
+
+  @media (min-width: 900px) {
+    display: flex;
+  }
+}
+
+.app-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: var(--gc-radius-sm);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--gc-text-secondary);
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background 0.15s,
+    color 0.15s;
+
+  .pi {
+    font-size: 0.95rem;
+    color: var(--gc-text-muted);
+  }
+
+  &:hover {
+    background: var(--gc-surface);
+    color: var(--gc-text);
+  }
+
+  &--active {
+    background: var(--gc-surface);
+    color: var(--gc-primary);
+    box-shadow: var(--gc-shadow-sm);
+
+    .pi {
+      color: var(--gc-primary);
+    }
+  }
 }
 
 .app-nav-list {
@@ -129,7 +188,8 @@
   }
 
   > app-waypoint-manager,
-  > app-data-sources {
+  > app-data-sources,
+  > app-library-page {
     flex: 1 1 auto;
     min-height: 0;
     overflow-x: hidden;

@@ -7,9 +7,7 @@ import {
   signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
 import { Button } from 'primeng/button';
-import { Tag } from 'primeng/tag';
 import { CupToolbarComponent } from '../declaration/cup-toolbar/cup-toolbar.component';
 import { CupDatabaseService } from '../../services/cup-database.service';
 import { CupSourcesConfigService } from '../../services/cup-sources-config.service';
@@ -24,7 +22,7 @@ import { CupSourceEntry } from '../../models/cup-sources.model';
 @Component({
   selector: 'app-data-sources',
   standalone: true,
-  imports: [CommonModule, RouterLink, Button, Tag, CupToolbarComponent, TranslatePipe],
+  imports: [CommonModule, Button, CupToolbarComponent, TranslatePipe],
   templateUrl: './data-sources.component.html',
   styleUrl: './data-sources.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush

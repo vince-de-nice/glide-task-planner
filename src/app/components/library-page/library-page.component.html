@@ -1,26 +1,5 @@
-<div class="library-page">
-  <header class="lib-page-head">
-    <div class="lib-page-head__text">
-      <h1 class="lib-page-head__title">{{ 'library.pageTitle' | translate }}</h1>
-      <p class="lib-page-head__intro">{{ 'library.pageIntro' | translate }}</p>
-    </div>
-    <div class="lib-page-head__shortcuts">
-      <p-button
-        [label]="'library.goCircuit' | translate"
-        icon="pi pi-map"
-        size="small"
-        routerLink="/declaration"
-      />
-      <p-button
-        [label]="'app.nav.dataSources' | translate"
-        icon="pi pi-database"
-        size="small"
-        [outlined]="true"
-        severity="secondary"
-        routerLink="/data-sources"
-      />
-    </div>
-  </header>
+<div class="library-page gc-page">
+  <p class="gc-page-intro">{{ 'library.pageIntro' | translate }}</p>
 
   @if (circuitMessage()) {
     <p class="gc-alert gc-alert--success lib-page-msg">{{ circuitMessage() }}</p>

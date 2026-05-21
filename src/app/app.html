@@ -19,6 +19,18 @@
         <h1>{{ 'app.title' | translate }}</h1>
         <p class="tagline">{{ currentPageTitle() }}</p>
       </div>
+      <nav class="app-nav-bar" [attr.aria-label]="'app.nav.mainAria' | translate">
+        @for (item of navItems(); track item.route) {
+          <a
+            class="app-nav-link"
+            [routerLink]="item.route"
+            [class.app-nav-link--active]="isActiveRoute(item.route)"
+          >
+            <i [class]="item.icon" aria-hidden="true"></i>
+            <span>{{ item.label }}</span>
+          </a>
+        }
+      </nav>
       <app-language-switcher />
     </div>
   </header>

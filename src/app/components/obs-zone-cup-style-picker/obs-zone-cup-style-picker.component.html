@@ -10,17 +10,21 @@
         role="option"
         [class.cup-style-picker__tile--active]="tile.selected"
         [attr.aria-selected]="tile.selected"
+        [attr.aria-label]="tile.label + ' — ' + tile.referenceText"
         (click)="onPick(tile.value)"
       >
         <span class="cup-style-picker__preview">
-          <app-obs-zone-cup-diagram
-            [zone]="tile.zone"
-            [referenceBearingDeg]="tile.referenceBearingDeg"
-            [legRole]="legContext()?.leg?.role ?? null"
-            [compact]="true"
+          <app-obs-zone-cup-style-orientation-diagram
+            [style]="tile.value"
+            [baseZone]="baseZone()"
+            [legContext]="legContext()"
           />
         </span>
         <span class="cup-style-picker__label">{{ tile.label }}</span>
+        <span class="cup-style-picker__ref">{{ tile.referenceText }}</span>
+        @if (tile.bearingText) {
+          <span class="cup-style-picker__bearing">{{ tile.bearingText }}</span>
+        }
       </button>
     }
   </div>

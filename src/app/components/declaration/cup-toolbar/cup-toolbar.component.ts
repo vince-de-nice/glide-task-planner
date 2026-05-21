@@ -1,8 +1,10 @@
 import {
+  booleanAttribute,
   ChangeDetectionStrategy,
   Component,
   ElementRef,
   inject,
+  input,
   OnInit,
   output,
   signal,
@@ -60,6 +62,9 @@ export class CupToolbarComponent implements OnInit {
   private waypointService = inject(WaypointService);
   private uiFeedback = inject(UiFeedbackService);
   private i18n = inject(TranslateService);
+
+  /** Page dédiée : masque le doublon d’état et applique la mise en page « standalone ». */
+  standalone = input(false, { transform: booleanAttribute });
 
   /** Base chargée ou rechargée avec succès. */
   databaseLoaded = output<void>();

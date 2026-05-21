@@ -73,7 +73,21 @@
   color: var(--gc-text);
 }
 
-.cup-style-picker__tile--active .cup-style-picker__label {
+.cup-style-picker__ref {
+  font-size: 0.5625rem;
+  line-height: 1.25;
+  color: var(--gc-text-muted);
+  padding: 0 0.1rem;
+}
+
+.cup-style-picker__bearing {
+  font-size: 0.5625rem;
+  font-weight: 700;
+  color: var(--gc-primary);
+}
+
+.cup-style-picker__tile--active .cup-style-picker__label,
+.cup-style-picker__tile--active .cup-style-picker__ref {
   color: var(--gc-primary);
 }
 
