@@ -462,12 +462,14 @@ export const fr = {
       fai_line_pev: {
         label: 'FAI — Ligne + PEV',
         description:
-          'Championnat : aérodromes obligatoires, ligne de départ, PEV 5–10 min (Annexe A §7.4.3).'
+          'Championnat : aérodromes obligatoires, ligne de départ, PEV 5–10 min (§7.4.3). ' +
+          'Rayons indicatifs — ajuster selon la fiche de tâche. NearDis = tolérance SeeYou.'
       },
       fai_cylinder_start: {
         label: 'FAI — Cylindre départ',
         description:
-          'Démarrage cylindre ≥ 10 km (Annexe A §7.4.4), PEV possible, aérodromes obligatoires.'
+          'Cylindre départ >= 10 km (§7.4.4) — PEV dans le cylindre = procédure standard. ' +
+          'Aérodromes obligatoires. Rayons indicatifs — ajuster selon la fiche de tâche.'
       },
       custom: {
         label: 'Personnalisé',
@@ -500,7 +502,9 @@ export const fr = {
     legDepartureCylinder: 'Point {{index}} : cylindre de départ requis (pas une ligne).',
     legDepartureRadius: 'Point {{index}} : rayon départ ≥ {{km}} km.',
     faiCylinderWarn:
-      'Cylindre de départ < {{km}} km : vérifiez la feuille de route.'
+      'Cylindre de départ < {{km}} km : vérifiez la feuille de route.',
+    legDepartureLineStyle: 'Point {{index}} : ligne de départ doit être Style 2 (vers suivant), pas Style 3.',
+    legArrivalLineStyle: 'Point {{index}} : ligne d’arrivée doit être Style 3 (vers précédent), pas Style 2.'
   },
   wpType: {
     turnpoint: { label: 'Turnpoints', description: 'Point de virage', shortLabel: 'TP' },
@@ -514,16 +518,17 @@ export const fr = {
       label: 'Cylindre symétrique',
       description: 'Style 1 — orienté vers les points adjacents'
     },
-    start_line: { label: 'Ligne de départ', description: 'Style 2, Line=1 — cylindre coupé (décollage)' },
-    finish_line: { label: 'Ligne d’arrivée', description: 'Style 3, Line=1 — vers le point précédent' },
+    start_line: { label: 'Ligne de départ', description: 'Style 2, Line=1 — R1 = demi-largeur (longueur totale = 2 x R1)' },
+    finish_line: { label: "Ligne d'arrivée", description: 'Style 3, Line=1 — R1 = demi-largeur, orientation vers le point précédent' },
     departure_cylinder: { label: 'Cylindre départ', description: 'Style 0 — cylindre sans ligne (décollage)' },
     arrival_cylinder: { label: 'Cylindre arrivée', description: 'Style 0 — cylindre sans ligne (atterrissage)' },
-    start_cylinder_fai: { label: 'Cylindre FAI départ', description: 'Style 0 — cylindre ≥ 10 km (championnat)' },
+    arrival_ring: { label: 'Anneau arrivée FAI', description: 'Style 0 — cylindre >= 3 km (Finish Ring §7.8.2 — option préférée en championnat)' },
+    start_cylinder_fai: { label: 'Cylindre FAI départ', description: 'Style 0 — cylindre >= 10 km (Cylinder Start §7.4.4)' },
     sector_to_next: {
       label: 'Secteur vers suivant',
       description: 'Style 2 — secteur orienté vers le point suivant'
     },
-    sector_fai: { label: 'Secteur FAI (large)', description: 'Style 0 — grand secteur avec R2 (compétition)' },
+    sector_fai: { label: 'Keyhole CUP (exemple)', description: 'Style 0 — keyhole avec R2 (valeurs spec §6.3 ; ajustez R1/A1/R2/A2/A12 à votre tâche)' },
     custom: { label: 'Personnalisé', description: 'Réglage manuel — seuls les paramètres utiles sont proposés' }
   },
   zoneCup: {

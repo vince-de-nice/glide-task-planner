@@ -202,6 +202,11 @@ export class TaskRuleEngineService {
           const msg = this.i18n.t('rules.legDepartureLine', { index: index + 1 });
           errors.push(msg);
           legIssues.push({ legIndex: index, severity: 'error', message: msg });
+        } else if (zone.cupStyle !== 2) {
+          // Ligne de départ doit être Style 2 (vers point suivant), pas Style 3 (arrivée)
+          const msg = this.i18n.t('rules.legDepartureLineStyle', { index: index + 1 });
+          warnings.push(msg);
+          legIssues.push({ legIndex: index, severity: 'warning', message: msg });
         }
       }
 
@@ -210,6 +215,11 @@ export class TaskRuleEngineService {
           const msg = this.i18n.t('rules.legArrivalLine', { index: index + 1 });
           errors.push(msg);
           legIssues.push({ legIndex: index, severity: 'error', message: msg });
+        } else if (zone.cupStyle !== 3) {
+          // Ligne d'arrivée doit être Style 3 (vers point précédent), pas Style 2 (départ)
+          const msg = this.i18n.t('rules.legArrivalLineStyle', { index: index + 1 });
+          warnings.push(msg);
+          legIssues.push({ legIndex: index, severity: 'warning', message: msg });
         }
       }
 
@@ -349,7 +359,8 @@ export class TaskRuleEngineService {
       }
     }
     if (role === 'arrival' && regulation.constraints.includes('arrival_must_be_line')) {
-      return ['finish_line', 'arrival_cylinder', 'custom'];
+      // arrival_ring (Finish Ring >= 3 km) est également valide en FAI (§7.8.2 Annexe A)
+      return ['finish_line', 'arrival_ring', 'arrival_cylinder', 'custom'];
     }
     return [...new Set([preset, ...base])];
   }

@@ -156,17 +156,23 @@ export const TASK_RULE_PROFILES: Record<TaskRuleProfileId, TaskRuleProfileDefini
     id: 'fai_line_pev',
     label: 'FAI — Ligne + PEV',
     description:
-      'Championnat : aérodromes obligatoires, ligne de départ, PEV 5–10 min (Annexe A §7.4.3).',
+      'Championnat : aérodromes obligatoires, ligne de départ, PEV 5–10 min (§7.4.3). ' +
+      'Rayons par défaut — ajuster selon la fiche de tâche. ' +
+      'NearDis = tolérance SeeYou, pas la règle IGC des 500 m.',
+    // departureM et arrivalM sont des exemples courants de championnat.
+    // La longueur réelle de la ligne (= 2 x R1) est publiée sur la fiche de tâche.
     radiiM: { departureM: 5000, turnpointM: 500, arrivalM: 5000 },
     obsZonePresetByRole: {
       departure: 'start_line',
       turnpoint: 'cylinder_fixed',
+      // Finish Line par défaut — l'organisateur peut choisir Finish Ring (arrival_ring >= 3 km)
       arrival: 'finish_line'
     },
     cupOptions: {
       beforePts: 2,
       afterPts: 2,
       wpDis: false,
+      // NearDis = tolérance de proximité SeeYou (pas la règle FAI §7.6.5 des 500 m IGC)
       nearDisM: 500,
       nearAltM: 300
     },
@@ -176,6 +182,7 @@ export const TASK_RULE_PROFILES: Record<TaskRuleProfileId, TaskRuleProfileDefini
       pevWaitMin: 5,
       pevWindowMin: 10,
       cylinderMinRadiusM: FAI_CYLINDER_START_MIN_RADIUS_M,
+      // Vitesse sol max = exemple ; vérifier la fiche de tâche (§7.4.3.5, >= 170 km/h)
       maxStartGroundSpeedKmh: 180
     },
     constraints: [
@@ -190,11 +197,14 @@ export const TASK_RULE_PROFILES: Record<TaskRuleProfileId, TaskRuleProfileDefini
   fai_cylinder_start: {
     id: 'fai_cylinder_start',
     label: 'FAI — Cylindre départ',
-    description: 'Démarrage cylindre ≥ 10 km (Annexe A §7.4.4), PEV possible, aérodromes obligatoires.',
+    description:
+      'Cylindre départ >= 10 km (§7.4.4). PEV dans le cylindre = procédure standard. ' +
+      'Aérodromes obligatoires. Rayons par défaut — ajuster selon la fiche de tâche.',
     radiiM: { departureM: FAI_CYLINDER_START_MIN_RADIUS_M, turnpointM: 500, arrivalM: 5000 },
     obsZonePresetByRole: {
       departure: 'start_cylinder_fai',
       turnpoint: 'cylinder_fixed',
+      // Finish Line par défaut — l'organisateur peut choisir Finish Ring (arrival_ring >= 3 km)
       arrival: 'finish_line'
     },
     cupOptions: {
@@ -206,6 +216,7 @@ export const TASK_RULE_PROFILES: Record<TaskRuleProfileId, TaskRuleProfileDefini
     },
     startFai: {
       startKind: 'cylinder',
+      // PEV dans le cylindre = procédure normale (§7.4.4.2)
       pevEnabled: true,
       pevWaitMin: 5,
       pevWindowMin: 10,

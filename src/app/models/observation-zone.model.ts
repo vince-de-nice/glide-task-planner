@@ -1,28 +1,28 @@
 import { CircuitLegRole } from './circuit.model';
 
 /**
- * Zone dâ€™observation dâ€™un point de tÃ¢che (SeeYou CUP ObsZone + export XCSoar).
+ * Zone d'observation d'un point de tâche (SeeYou CUP ObsZone + export XCSoar).
  * @see https://github.com/naviter/seeyou_file_formats/blob/main/CUP_file_format.md
  */
 export interface ObservationZoneConfig {
-  /** Identifiant de prÃ©rÃ©glage (UI) */
+  /** Identifiant de préréglage (UI) */
   presetId?: ObsZonePresetId;
   /**
-   * CUP Style â€” orientation de la zone :
-   * 0 fixe, 1 symÃ©trique, 2 vers point suivant, 3 vers prÃ©cÃ©dent, 4 vers dÃ©part
+   * CUP Style ? orientation de la zone :
+   * 0 fixe, 1 symétrique, 2 vers point suivant, 3 vers précédent, 4 vers départ
    */
   cupStyle: 0 | 1 | 2 | 3 | 4;
-  /** Rayon principal R1 (m) */
+  /** Rayon principal R1 (m). Pour les lignes : R1 = demi-largeur (longueur totale = 2 x R1). */
   r1M: number;
-  /** Angle A1 (Â°) â€” secteurs, lignes */
+  /** Angle A1 (°) ? secteurs, lignes */
   a1Deg?: number;
-  /** Rayon intÃ©rieur R2 (m) â€” secteur FAI / keyhole */
+  /** Rayon intérieur R2 (m) ? secteur FAI / keyhole */
   r2M?: number;
-  /** Angle A2 (Â°) */
+  /** Angle A2 (°) */
   a2Deg?: number;
-  /** Angle A12 (Â°) â€” cap de rÃ©fÃ©rence en Style 0 ; axe du secteur â‰ˆ A12 + 180Â° (SeeYou/XCSoar) */
+  /** Angle A12 (°) ? cap de référence en Style 0 ; axe du secteur ? A12 + 180° (SeeYou/XCSoar) */
   a12Deg?: number;
-  /** Ligne de dÃ©part / arrivÃ©e (CUP `Line=1`) */
+  /** Ligne de départ / arrivée (CUP `Line=1`) */
   line?: boolean;
 }
 
@@ -33,6 +33,7 @@ export type ObsZonePresetId =
   | 'finish_line'
   | 'departure_cylinder'
   | 'arrival_cylinder'
+  | 'arrival_ring'
   | 'start_cylinder_fai'
   | 'sector_to_next'
   | 'sector_fai'
@@ -49,70 +50,76 @@ export const OBS_ZONE_PRESETS: ObsZonePresetOption[] = [
   {
     id: 'cylinder_fixed',
     label: 'Cylindre fixe',
-    description: 'Style 0 â€” cylindre orientÃ© au nord (SeeYou)',
+    description: 'Style 0 ? cylindre orienté au nord (SeeYou)',
     forRoles: ['turnpoint']
   },
   {
     id: 'cylinder_symmetric',
-    label: 'Cylindre symÃ©trique',
-    description: 'Style 1 â€” orientÃ© vers les points adjacents',
+    label: 'Cylindre symétrique',
+    description: 'Style 1 ? orienté vers les points adjacents',
     forRoles: ['turnpoint']
   },
   {
     id: 'start_line',
-    label: 'Ligne de dÃ©part',
-    description: 'Style 2, Line=1 â€” cylindre coupÃ© (dÃ©collage)',
+    label: 'Ligne de départ',
+    description: 'Style 2, Line=1 ? R1 = demi-largeur (longueur totale = 2 x R1)',
     forRoles: ['departure']
   },
   {
     id: 'finish_line',
-    label: 'Ligne dâ€™arrivÃ©e',
-    description: 'Style 3, Line=1 â€” vers le point prÃ©cÃ©dent',
+    label: "Ligne d'arrivée",
+    description: 'Style 3, Line=1 ? R1 = demi-largeur, orientation vers le point précédent',
     forRoles: ['arrival']
   },
   {
     id: 'departure_cylinder',
-    label: 'Cylindre dÃ©part',
-    description: 'Style 0 â€” cylindre sans ligne (dÃ©collage)',
+    label: 'Cylindre départ',
+    description: 'Style 0 ? cylindre sans ligne (décollage)',
     forRoles: ['departure']
   },
   {
     id: 'arrival_cylinder',
-    label: 'Cylindre arrivÃ©e',
-    description: 'Style 0 â€” cylindre sans ligne (atterrissage)',
+    label: 'Cylindre arrivée',
+    description: 'Style 0 ? cylindre sans ligne (atterrissage)',
+    forRoles: ['arrival']
+  },
+  {
+    id: 'arrival_ring',
+    label: 'Anneau arrivée FAI',
+    description: 'Style 0 ? cylindre >= 3 km (Finish Ring, §7.8.2 Annexe A ? option préférée en championnat)',
     forRoles: ['arrival']
   },
   {
     id: 'start_cylinder_fai',
-    label: 'Cylindre FAI dÃ©part',
-    description: 'Style 0 â€” cylindre â‰¥ 10 km (championnat)',
+    label: 'Cylindre FAI départ',
+    description: 'Style 0 ? cylindre >= 10 km (Cylinder Start, §7.4.4 Annexe A)',
     forRoles: ['departure']
   },
   {
     id: 'sector_to_next',
     label: 'Secteur vers suivant',
-    description: 'Style 2 â€” secteur orientÃ© vers le point suivant',
+    description: 'Style 2 ? secteur orienté vers le point suivant',
     forRoles: ['turnpoint', 'departure']
   },
   {
     id: 'sector_fai',
-    label: 'Secteur FAI (large)',
-    description: 'Style 0 â€” grand secteur avec R2 (compÃ©tition)',
+    label: 'Keyhole CUP (exemple)',
+    description: 'Style 0 ? keyhole annulaire avec R2 (valeurs spec §6.3 ; ajustez R1/A1/R2/A2/A12 à votre tâche)',
     forRoles: ['turnpoint']
   },
   {
     id: 'custom',
-    label: 'PersonnalisÃ©',
-    description: 'RÃ©glage manuel â€” seuls les paramÃ¨tres utiles sont proposÃ©s'
+    label: 'Personnalisé',
+    description: 'Réglage manuel ? seuls les paramètres utiles sont proposés'
   }
 ];
 
 export const CUP_STYLE_LABELS: Record<ObservationZoneConfig['cupStyle'], string> = {
   0: 'Fixe (0)',
-  1: 'SymÃ©trique (1)',
+  1: 'Symétrique (1)',
   2: 'Vers point suivant (2)',
-  3: 'Vers point prÃ©cÃ©dent (3)',
-  4: 'Vers dÃ©part (4)'
+  3: 'Vers point précédent (3)',
+  4: 'Vers départ (4)'
 };
 
 export type CupZoneParamKey = 'style' | 'r1' | 'a1' | 'r2' | 'a2' | 'a12' | 'line';
@@ -127,7 +134,7 @@ export interface CupZoneParamVisibility {
   line: boolean;
 }
 
-/** Champs CUP pertinents selon la gÃ©omÃ©trie (cylindre / secteur / ligne) et le style. */
+/** Champs CUP pertinents selon la géométrie (cylindre / secteur / ligne) et le style. */
 export function cupZoneParamVisibility(
   zone: ObservationZoneConfig,
   options?: { legRole?: CircuitLegRole }
@@ -151,7 +158,7 @@ export function cupZoneParamVisibility(
   };
 }
 
-/** Retire les paramÃ¨tres CUP non utilisÃ©s pour ce point (export / sauvegarde). */
+/** Retire les paramètres CUP non utilisés pour ce point (export / sauvegarde). */
 export function applyCupZoneParamVisibility(
   zone: ObservationZoneConfig,
   legRole?: CircuitLegRole
@@ -213,15 +220,16 @@ export function observationZoneFromPreset(
       return { presetId, cupStyle: 0, r1M: r };
     case 'arrival_cylinder':
       return { presetId, cupStyle: 0, r1M: r };
+    case 'arrival_ring':
+      // Finish Ring FAI §7.8.2 ? rayon minimum 3 km
+      return { presetId, cupStyle: 0, r1M: Math.max(r, 3_000) };
     case 'start_cylinder_fai':
-      return {
-        presetId,
-        cupStyle: 0,
-        r1M: Math.max(r, 10_000)
-      };
+      // Cylinder Start FAI §7.4.4 ? rayon minimum 10 km
+      return { presetId, cupStyle: 0, r1M: Math.max(r, 10_000) };
     case 'sector_to_next':
       return { presetId, cupStyle: 2, r1M: r, a1Deg: 90 };
     case 'sector_fai':
+      // Exemple keyhole CUP spec (§6.3 du format CUP) ? R1/R2/A1/A2/A12 à ajuster
       return {
         presetId,
         cupStyle: 0,
@@ -289,7 +297,7 @@ export function formatCupObsZoneLine(index: number, zone: ObservationZoneConfig)
   return parts.join(',');
 }
 
-/** Empreinte lÃ©gÃ¨re pour rafraÃ®chir les vues quand la zone change. */
+/** Empreinte légère pour rafraîchir les vues quand la zone change. */
 export function observationZoneSignature(zone: ObservationZoneConfig | undefined): string {
   if (!zone) return '';
   return [
@@ -306,13 +314,13 @@ export function observationZoneSignature(zone: ObservationZoneConfig | undefined
 
 export function observationZoneShortLabel(zone: ObservationZoneConfig): string {
   if (zone.line) {
-    return `Ligne ${zone.r1M} m`;
+    return `Ligne ${zone.r1M * 2} m`;
   }
   if (zone.r2M && zone.r2M > 1000) {
-    return `Secteur ${(zone.r1M / 1000).toFixed(0)} km`;
+    return `Keyhole ${(zone.r1M / 1000).toFixed(0)} km`;
   }
   if (zone.a1Deg != null && zone.a1Deg > 0 && zone.a1Deg < 360) {
-    return `Secteur ${zone.a1Deg}Â° Â· ${zone.r1M} m`;
+    return `Secteur ${zone.a1Deg}\xb0 \xb7 ${zone.r1M} m`;
   }
   if (zone.cupStyle === 1) {
     return `Cyl. sym. ${zone.r1M} m`;

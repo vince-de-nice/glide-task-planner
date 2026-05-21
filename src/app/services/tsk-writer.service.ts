@@ -16,6 +16,11 @@ import {
   ResolvedTaskRegulation
 } from '../models/task-declaration.model';
 import { TaskRuleEngineService } from './task-rule-engine.service';
+import {
+  bearingDegrees,
+  cupFixedAxisBearingDeg,
+  ObsZoneLegContext
+} from '../utils/obs-zone-map.util';
 
 @Injectable({
   providedIn: 'root'
@@ -34,7 +39,12 @@ export class TskWriterService {
     const lines: string[] = ['<?xml version="1.0" encoding="UTF-8"?>'];
     lines.push(this.buildTaskOpenTag(regulation));
 
-    for (const leg of legs) {
+    // Point de départ pour Style 4 (vers départ)
+    const depLeg = legs.find(l => l.role === 'departure');
+    const departureWp = depLeg ? (waypointsById.get(depLeg.waypointId) ?? null) : null;
+
+    for (let i = 0; i < legs.length; i++) {
+      const leg = legs[i];
       const wp = waypointsById.get(leg.waypointId);
       if (!wp) continue;
       const pointType = this.tskPointTypeFromLegRole(leg.role);
@@ -49,11 +59,26 @@ export class TskWriterService {
         leg.role,
         r
       );
+
+      // Cap de référence pour orienter les secteurs dans le TSK (radiales absolues).
+      const prevWp = i > 0 ? (waypointsById.get(legs[i - 1].waypointId) ?? null) : null;
+      const nextWp = i < legs.length - 1 ? (waypointsById.get(legs[i + 1].waypointId) ?? null) : null;
+      const ctx: ObsZoneLegContext = {
+        legIndex: i,
+        leg,
+        waypoint: wp,
+        prev: prevWp,
+        next: nextWp,
+        departure: departureWp,
+        defaultRadiusM: r
+      };
+      const referenceBearingDeg = this.computeReferenceBearing(obsZone.cupStyle, obsZone.a12Deg, ctx);
+
       const elev = formatTskAltitude(resolveLegElevationM(wp, leg));
       const lat = this.formatCoord(wp.latitude);
       const lon = this.formatCoord(wp.longitude);
       const name = this.escapeXml(wp.name);
-      const tskZone = mapObservationZoneToTsk(obsZone, leg.role);
+      const tskZone = mapObservationZoneToTsk(obsZone, leg.role, referenceBearingDeg);
 
       lines.push(`\t<Point type="${pointType}">`);
       lines.push(`\t\t<Waypoint name="${name}" comment="" id="0" altitude="${elev}">`);
@@ -65,6 +90,46 @@ export class TskWriterService {
 
     lines.push('</Task>');
     return lines.join('\n') + '\n';
+  }
+
+  /**
+   * Calcule le cap de référence absolu (°) pour orienter une zone CUP dans le TSK.
+   * Équivalent simplifié de cupZoneReferenceBearingDeg (sans les lignes qui n'en ont pas besoin).
+   */
+  private computeReferenceBearing(
+    cupStyle: number,
+    a12Deg: number | undefined,
+    ctx: ObsZoneLegContext
+  ): number {
+    const { waypoint: wp, prev, next, departure } = ctx;
+    switch (cupStyle) {
+      case 0:
+        return cupFixedAxisBearingDeg(a12Deg);
+      case 1:
+        if (prev && next) {
+          const fromPrev = bearingDegrees(prev.latitude, prev.longitude, wp.latitude, wp.longitude);
+          const toNext = bearingDegrees(wp.latitude, wp.longitude, next.latitude, next.longitude);
+          let diff = toNext - fromPrev;
+          if (diff > 180) diff -= 360;
+          if (diff < -180) diff += 360;
+          return (fromPrev + diff / 2 + 360) % 360;
+        }
+        return cupFixedAxisBearingDeg(a12Deg);
+      case 2:
+        return next
+          ? bearingDegrees(wp.latitude, wp.longitude, next.latitude, next.longitude)
+          : 0;
+      case 3:
+        return prev
+          ? bearingDegrees(prev.latitude, prev.longitude, wp.latitude, wp.longitude)
+          : 0;
+      case 4:
+        return departure
+          ? bearingDegrees(wp.latitude, wp.longitude, departure.latitude, departure.longitude)
+          : 0;
+      default:
+        return cupFixedAxisBearingDeg(a12Deg);
+    }
   }
 
   /** @deprecated Préférer generateFromLegs pour respecter les zones par point. */
@@ -151,7 +216,8 @@ export class TskWriterService {
     const lon = this.formatCoord(p.longitude);
     const name = this.escapeXml(p.name);
     const elev = formatTskAltitude(p.elevationM);
-    const tskZone = mapObservationZoneToTsk(obsZone, legRole);
+    // Méthode dépréciée : pas de contexte waypoint → bearing inconnu (0° = Nord).
+    const tskZone = mapObservationZoneToTsk(obsZone, legRole, undefined);
 
     return [
       `\t<Point type="${type}">`,
@@ -198,13 +264,24 @@ export class TskWriterService {
     }
     const attrs: string[] = ['type="RT"'];
     const fai = regulation.startFai;
+
+    // Heure d'ouverture du start (HH:MM:SS → XCSoar start_open_time).
+    if (regulation.cupOptions.noStart) {
+      attrs.push(`start_open_time="${this.escapeXml(regulation.cupOptions.noStart)}"`);
+    }
+
+    // PEV : attributs spécifiques XCSoar pour le départ PEV.
     if (fai.pevEnabled) {
       attrs.push(`pev_start_wait_minutes="${fai.pevWaitMin}"`);
       attrs.push(`pev_start_window_minutes="${fai.pevWindowMin}"`);
     }
-    if (regulation.cupOptions.noStart) {
-      attrs.push(`start_open_time="${this.escapeXml(regulation.cupOptions.noStart)}"`);
+
+    // Vitesse sol max au départ : km/h → m/s (XCSoar start_max_speed en m/s).
+    if (fai.maxStartGroundSpeedKmh != null) {
+      const speedMs = Math.round((fai.maxStartGroundSpeedKmh / 3.6) * 10) / 10;
+      attrs.push(`start_max_speed="${speedMs}"`);
     }
+
     return `<Task ${attrs.join(' ')}>`;
   }
 }

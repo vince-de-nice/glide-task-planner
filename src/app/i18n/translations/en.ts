@@ -462,12 +462,14 @@ export const en = {
       fai_line_pev: {
         label: 'FAI — Line + PEV',
         description:
-          'Championship: mandatory airfields, start line, PEV 5–10 min (Annex A §7.4.3).'
+          'Championship: mandatory airfields, start line, PEV 5–10 min (§7.4.3). ' +
+          'Default radii — adjust to task sheet. NearDis = SeeYou tolerance, not IGC §7.6.5 rule.'
       },
       fai_cylinder_start: {
         label: 'FAI — Cylinder start',
         description:
-          'Cylinder start ≥ 10 km (Annex A §7.4.4), PEV optional, mandatory airfields.'
+          'Cylinder start >= 10 km (§7.4.4) — PEV inside cylinder is the standard procedure. ' +
+          'Mandatory airfields. Default radii — adjust to task sheet.'
       },
       custom: {
         label: 'Custom',
@@ -500,7 +502,9 @@ export const en = {
     legDepartureCylinder: 'Point {{index}}: start cylinder required (not a line).',
     legDepartureRadius: 'Point {{index}}: start radius ≥ {{km}} km.',
     faiCylinderWarn:
-      'Start cylinder < {{km}} km: check the task sheet.'
+      'Start cylinder < {{km}} km: check the task sheet.',
+    legDepartureLineStyle: 'Point {{index}}: start line should be Style 2 (to next), not Style 3.',
+    legArrivalLineStyle: 'Point {{index}}: finish line should be Style 3 (to previous), not Style 2.'
   },
   wpType: {
     turnpoint: { label: 'Turn points', description: 'Turn point', shortLabel: 'TP' },
@@ -514,16 +518,17 @@ export const en = {
       label: 'Symmetric cylinder',
       description: 'Style 1 — oriented toward adjacent points'
     },
-    start_line: { label: 'Start line', description: 'Style 2, Line=1 — cut cylinder (take-off)' },
-    finish_line: { label: 'Finish line', description: 'Style 3, Line=1 — toward previous point' },
+    start_line: { label: 'Start line', description: 'Style 2, Line=1 — R1 = half gate width (total length = 2 x R1)' },
+    finish_line: { label: 'Finish line', description: 'Style 3, Line=1 — R1 = half gate width, oriented toward previous point' },
     departure_cylinder: { label: 'Start cylinder', description: 'Style 0 — cylinder without line (take-off)' },
     arrival_cylinder: { label: 'Finish cylinder', description: 'Style 0 — cylinder without line (landing)' },
-    start_cylinder_fai: { label: 'FAI start cylinder', description: 'Style 0 — cylinder ≥ 10 km (championship)' },
+    arrival_ring: { label: 'FAI finish ring', description: 'Style 0 — cylinder >= 3 km (Finish Ring §7.8.2 — preferred option in championships)' },
+    start_cylinder_fai: { label: 'FAI start cylinder', description: 'Style 0 — cylinder >= 10 km (Cylinder Start §7.4.4)' },
     sector_to_next: {
       label: 'Sector to next',
       description: 'Style 2 — sector oriented toward next point'
     },
-    sector_fai: { label: 'FAI sector (large)', description: 'Style 0 — large sector with R2 (competition)' },
+    sector_fai: { label: 'CUP keyhole (example)', description: 'Style 0 — keyhole with R2 (CUP spec §6.3 example values; adjust R1/A1/R2/A2/A12 to your task)' },
     custom: { label: 'Custom', description: 'Manual setup — only useful parameters shown' }
   },
   zoneCup: {
