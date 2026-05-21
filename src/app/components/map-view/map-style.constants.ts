@@ -193,6 +193,23 @@ function terrainDemSourceSpec(): {
   };
 }
 
+/**
+ * Style minimal pour la carte hors écran d'échantillonnage DEM (pas d'imagerie).
+ */
+export function buildDemOnlyMapStyle(): StyleSpecification {
+  return {
+    version: 8,
+    sources: {
+      [MAP_SOURCE.TERRAIN_DEM]: terrainDemSourceSpec()
+    },
+    layers: [],
+    terrain: {
+      source: MAP_SOURCE.TERRAIN_DEM,
+      exaggeration: 1
+    }
+  };
+}
+
 export function buildBaseMapStyle(
   basemapId: BasemapId = DEFAULT_BASEMAP_ID,
   hillshadeVisible = false

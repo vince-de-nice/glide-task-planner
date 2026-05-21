@@ -1,5 +1,8 @@
 import { Injectable } from '@angular/core';
-import type { Map as MaplibreMap } from 'maplibre-gl';
+import {
+  TerrainDemMapService,
+  type DemSegmentBounds
+} from './terrain-dem-map.service';
 
 /** Point d'échantillonnage le long d'une branche, altitudes en m MSL. */
 export interface TerrainSample {
@@ -29,34 +32,36 @@ const MAX_SAMPLES = 300;
 const SAMPLE_PER_KM = 5;
 
 /**
- * Service d'échantillonnage du DEM le long d'une branche.
- *
- * Utilise [`map.queryTerrainElevation`](https://maplibre.org/maplibre-gl-js/docs/API/classes/Map/#queryterrainelevation)
- * sur une carte MapLibre fournie par le composant (mini-carte de l'écran profil de sécurité).
- *
- * Les échantillons sont interpolés sur le **grand cercle** entre A et B (slerp sphérique)
- * pour rester précis sur les branches longues.
+ * Échantillonnage du DEM le long des branches via une carte MapLibre dédiée
+ * ({@link TerrainDemMapService}), avec cache des profils et des altitudes par point.
  */
 @Injectable({ providedIn: 'root' })
 export class TerrainProfileService {
-  private readonly cache = new Map<string, LegProfile>();
-  private map: MaplibreMap | null = null;
+  private readonly profileCache = new Map<string, LegProfile>();
 
-  /** Le composant écran inscrit son instance de carte MapLibre. */
-  setMap(map: MaplibreMap | null): void {
-    this.map = map;
+  constructor(private readonly demMap: TerrainDemMapService) {}
+
+  /**
+   * @deprecated La carte visible n'est plus utilisée pour le DEM ; conservé pour compatibilité.
+   */
+  setMap(_map: unknown | null): void {
+    /* no-op */
   }
 
-  /** Vide le cache d'échantillons (ex. quand la finesse / le circuit change). */
   clearCache(): void {
-    this.cache.clear();
+    this.profileCache.clear();
+    this.demMap.clearElevationCache();
   }
 
   /**
-   * Échantillonne le DEM entre A et B en N points.
-   *
-   * Si la carte n'est pas prête ou si les tuiles DEM ne sont pas chargées sur la zone,
-   * les échantillons concernés ont `elevationM = null` et `hasGaps` vaut vrai.
+   * Précharge les tuiles DEM pour tous les segments du circuit (une vue, cache tuiles maximal).
+   */
+  async ensureDemForSegments(segments: DemSegmentBounds[]): Promise<void> {
+    await this.demMap.ensureCoverage(segments);
+  }
+
+  /**
+   * Échantillonne le DEM entre A et B (appeler {@link ensureDemForSegments} avant si possible).
    */
   sampleLegProfile(
     from: [number, number],
@@ -67,10 +72,6 @@ export class TerrainProfileService {
     return this.sampleLegRange(from, to, 0, totalDistanceKm, nbPoints);
   }
 
-  /**
-   * Échantillonne le DEM le long du grand cercle prolongé entre A et B,
-   * de `startDistanceKm` à `endDistanceKm` (peut dépasser [0, longueur branche]).
-   */
   sampleLegRange(
     from: [number, number],
     to: [number, number],
@@ -85,7 +86,7 @@ export class TerrainProfileService {
       clamp(Math.round(spanKm * SAMPLE_PER_KM), MIN_SAMPLES, MAX_SAMPLES);
 
     const key = cacheKeyRange(from, to, startDistanceKm, endDistanceKm, sampleCount);
-    const cached = this.cache.get(key);
+    const cached = this.profileCache.get(key);
     if (cached) return cached;
 
     const samples: TerrainSample[] = [];
@@ -94,7 +95,7 @@ export class TerrainProfileService {
       const distanceKm = startDistanceKm + spanKm * frac;
       const t = totalDistanceKm > 0 ? distanceKm / totalDistanceKm : 0;
       const point = interpolateGreatCircle(from, to, t);
-      const elevation = this.queryElevation(point);
+      const elevation = this.demMap.queryElevation(point[0], point[1]);
       samples.push({
         distanceKm,
         longitude: point[0],
@@ -113,22 +114,43 @@ export class TerrainProfileService {
     };
 
     if (!profile.hasGaps) {
-      this.cache.set(key, profile);
+      this.profileCache.set(key, profile);
     }
     return profile;
   }
 
-  private queryElevation(lngLat: [number, number]): number | null {
-    const map = this.map;
-    if (!map) return null;
-    try {
-      const raw = map.queryTerrainElevation(lngLat);
-      if (raw == null || !Number.isFinite(raw)) return null;
-      return raw;
-    } catch {
-      // RangeError possible si tuile DEM hors plage zoom — on traite comme manquant.
-      return null;
+  applyEndpointTerrainFallback(
+    profile: LegProfile,
+    fromElevationM: number | null,
+    toElevationM: number | null
+  ): LegProfile {
+    if (!profile.hasGaps) return profile;
+    if (
+      fromElevationM == null ||
+      toElevationM == null ||
+      !Number.isFinite(fromElevationM) ||
+      !Number.isFinite(toElevationM)
+    ) {
+      return profile;
     }
+
+    const total = profile.totalDistanceKm;
+    if (total <= 0) return profile;
+
+    const samples = profile.samples.map(s => {
+      if (s.elevationM != null) return s;
+      const t = clamp(s.distanceKm / total, 0, 1);
+      return {
+        ...s,
+        elevationM: fromElevationM + (toElevationM - fromElevationM) * t
+      };
+    });
+
+    return {
+      ...profile,
+      samples,
+      hasGaps: samples.some(s => s.elevationM == null)
+    };
   }
 }
 
@@ -172,7 +194,6 @@ function haversineKm(a: [number, number], b: [number, number]): number {
   return EARTH_RADIUS_KM * c;
 }
 
-/** Point sur le grand cercle prolongé ; t = 0 à A, t = 1 à B, t hors [0,1] extrapolé. */
 function interpolateGreatCircle(
   from: [number, number],
   to: [number, number],
