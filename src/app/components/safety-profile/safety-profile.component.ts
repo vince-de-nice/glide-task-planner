@@ -18,13 +18,18 @@ import type {
   GeoJSONSource,
   LngLatBoundsLike,
   Map as MaplibreMap,
+  MapLayerMouseEvent,
   StyleSpecification
 } from 'maplibre-gl';
-import type { FeatureCollection, LineString } from 'geojson';
+import type { FeatureCollection, LineString, Point } from 'geojson';
 import { TaskStateService } from '../../services/task-state.service';
 import { WaypointService } from '../../services/waypoint.service';
 import { TerrainProfileService } from '../../services/terrain-profile.service';
-import { GlideEnvelopeService, LegEnvelope } from '../../services/glide-envelope.service';
+import {
+  GlideEnvelopeService,
+  LegEnvelope,
+  type EnvelopeSample
+} from '../../services/glide-envelope.service';
 import {
   DEFAULT_SAFETY_PARAMS,
   SAFETY_PARAMS_BOUNDS,
@@ -35,10 +40,13 @@ import { Waypoint } from '../../models/waypoint.model';
 import { TranslateService } from '../../i18n/translate.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import {
+  applyBasemapToMap,
+  BASEMAP_PRESETS,
   buildBaseMapStyle,
   DEFAULT_BASEMAP_ID,
-  MAP_LAYER,
-  MAP_SOURCE
+  isBasemapId,
+  MAP_BASEMAP_STORAGE_KEY,
+  type BasemapId
 } from '../map-view/map-style.constants';
 import {
   LegChartLabels,
@@ -50,6 +58,14 @@ import {
   defaultLegYMaxM,
   landableColorFromId
 } from '../../utils/safety-profile-chart.util';
+import { buildProfileLegPointsGeoJson } from '../../utils/safety-cone-map-geojson.util';
+import {
+  buildSafetyConeMeshSpecs,
+  coneTopAltitudeM,
+  createSafetyConeCustomLayer,
+  SAFETY_CONES_CUSTOM_LAYER_ID,
+  type SafetyConeThreeCustomLayer
+} from '../../utils/safety-cone-three-layer.util';
 
 export interface LegLandableToggle {
   id: string;
@@ -72,6 +88,34 @@ interface LegRender {
 }
 
 const EMPTY_FC: FeatureCollection = { type: 'FeatureCollection', features: [] };
+
+/** Sources / calques carte dédiés à l’écran profil de sécurité. */
+const PROFILE_MAP_SOURCE = {
+  BRANCHES: 'safety-profile-branches',
+  POINTS: 'safety-profile-points',
+  CURSOR: 'safety-profile-cursor',
+  CURSOR_TRACK: 'safety-profile-cursor-track'
+} as const;
+
+const PROFILE_MAP_LAYER = {
+  BRANCHES: 'safety-profile-branches',
+  BRANCHES_HIT: 'safety-profile-branches-hit',
+  POINTS: 'safety-profile-points',
+  POINT_LABELS: 'safety-profile-point-labels',
+  CURSOR_TRACK: 'safety-profile-cursor-track',
+  CURSOR_POINT: 'safety-profile-cursor-point'
+} as const;
+
+/** Ordre de superposition des calques métier (bas → haut). */
+const PROFILE_LAYER_STACK: readonly string[] = [
+  SAFETY_CONES_CUSTOM_LAYER_ID,
+  PROFILE_MAP_LAYER.BRANCHES_HIT,
+  PROFILE_MAP_LAYER.BRANCHES,
+  PROFILE_MAP_LAYER.POINTS,
+  PROFILE_MAP_LAYER.POINT_LABELS,
+  PROFILE_MAP_LAYER.CURSOR_TRACK,
+  PROFILE_MAP_LAYER.CURSOR_POINT
+];
 
 @Component({
   selector: 'app-safety-profile',
@@ -110,20 +154,38 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   groundMarginM = signal<number>(DEFAULT_SAFETY_PARAMS.groundMarginM);
 
   mapReady = signal(false);
+  readonly basemapId = signal<BasemapId>(DEFAULT_BASEMAP_ID);
+  basemapPanelExpanded = signal(false);
+  /** Volumes 3D des cônes de demi-finesse sur la carte (branche active). */
+  cones3dVisible = signal(true);
+  /** Style initial — les changements de fond passent par applyBasemapToMap. */
   mapStyle: StyleSpecification = buildBaseMapStyle(DEFAULT_BASEMAP_ID, true);
   mapCenter = signal<[number, number]>([6.5, 46.5]);
   mapZoom = signal<[number]>([6]);
   profilesLoading = signal(false);
   profilesVersion = signal(0);
-  collapsedLegs = signal<Set<number>>(new Set());
+  /** Branche affichée dans la coupe (index 0…n-1). */
+  selectedLegIndex = signal(0);
+  paramsPanelOpen = signal(false);
   /** Altitude max (échelle verticale) par branche ; absent = défaut relief. */
   legYMaxOverrides = signal<Record<number, number>>({});
 
   private map: MaplibreMap | null = null;
+  /** Première couche métier (ancrage pour changement de fond). */
+  private dataLayerAnchorId: string | null = null;
   private idleHandler: (() => void) | null = null;
-  private styleLoadedHandler: (() => void) | null = null;
   private idleRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  private branchClickHandler: ((e: MapLayerMouseEvent) => void) | null = null;
+  private branchEnterHandler: (() => void) | null = null;
+  private branchLeaveHandler: (() => void) | null = null;
+  private safetyConesLayer: SafetyConeThreeCustomLayer | null = null;
   private lastProfileHash = '';
+  readonly profileMapCursor = signal<{
+    legIndex: number;
+    longitude: number;
+    latitude: number;
+    distanceKm: number;
+  } | null>(null);
 
   readonly currentParams = computed<SafetyParams>(() => ({
     glideRatio: this.glideRatio(),
@@ -179,6 +241,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       tooltipSafety: this.i18n.t('safetyProfile.chart.tooltipSafety'),
       landableColors: this.i18n.t('safetyProfile.chart.landableColors'),
       landableConeBelowMin: this.i18n.t('safetyProfile.chart.landableConeBelowMin'),
+      coneIntersectionAltitude: this.i18n.t('safetyProfile.chart.coneIntersectionAltitude'),
       tooltipLandablesTitle: this.i18n.t('safetyProfile.chart.tooltipLandablesTitle'),
       tooltipLandableAt: this.i18n.t('safetyProfile.chart.tooltipLandableAt'),
       conesTruncated: this.i18n.t('safetyProfile.chart.conesTruncated')
@@ -186,6 +249,21 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   });
 
   readonly legRenders = signal<LegRender[]>([]);
+
+  readonly activeLegRender = computed(() => {
+    const renders = this.legRenders();
+    const idx = this.selectedLegIndex();
+    return renders.find(l => l.index === idx) ?? renders[0] ?? null;
+  });
+
+  readonly basemapOptions = computed(() => {
+    this.i18n.locale();
+    return BASEMAP_PRESETS.map(p => ({
+      id: p.id,
+      icon: p.icon,
+      label: this.i18n.t(p.labelKey)
+    }));
+  });
 
   constructor() {
     // Sync local signals with persisted params (when task is loaded externally).
@@ -206,9 +284,33 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
         this.refreshProfiles();
       }
     });
+
+    effect(() => {
+      this.selectedLegIndex();
+      this.legRenders();
+      if (this.mapReady()) {
+        this.updateBranchLines();
+      }
+    });
+
+    effect(() => {
+      this.activeLegRender();
+      this.cones3dVisible();
+      this.currentParams();
+      if (this.mapReady()) {
+        this.updateSafetyCones3d();
+        this.updateProfileMapPoints();
+      }
+    });
   }
 
   ngOnInit(): void {
+    const storedBasemap = localStorage.getItem(MAP_BASEMAP_STORAGE_KEY);
+    if (storedBasemap && isBasemapId(storedBasemap)) {
+      this.basemapId.set(storedBasemap);
+      this.mapStyle = buildBaseMapStyle(storedBasemap, true);
+    }
+
     const pairs = this.legPairs();
     if (pairs.length > 0) {
       const lng = pairs[0].from.longitude;
@@ -219,31 +321,191 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.profileMapCursor.set(null);
     this.terrainProfile.setMap(null);
     if (this.idleRefreshTimer) clearTimeout(this.idleRefreshTimer);
     if (this.map) {
       if (this.idleHandler) this.map.off('idle', this.idleHandler);
-      if (this.styleLoadedHandler) this.map.off('styledata', this.styleLoadedHandler);
+      if (this.branchClickHandler) {
+        this.map.off('click', PROFILE_MAP_LAYER.BRANCHES_HIT, this.branchClickHandler);
+      }
+      if (this.branchEnterHandler) {
+        this.map.off('mouseenter', PROFILE_MAP_LAYER.BRANCHES_HIT, this.branchEnterHandler);
+      }
+      if (this.branchLeaveHandler) {
+        this.map.off('mouseleave', PROFILE_MAP_LAYER.BRANCHES_HIT, this.branchLeaveHandler);
+      }
+      if (this.map.getLayer(SAFETY_CONES_CUSTOM_LAYER_ID)) {
+        this.map.removeLayer(SAFETY_CONES_CUSTOM_LAYER_ID);
+      }
     }
+    this.safetyConesLayer = null;
     this.map = null;
+  }
+
+  toggleBasemapPanel(): void {
+    this.basemapPanelExpanded.update(v => !v);
+  }
+
+  toggleCones3d(): void {
+    this.cones3dVisible.update(v => !v);
+    this.updateSafetyCones3d();
+    this.fitToActiveLeg();
+  }
+
+  selectBasemap(id: BasemapId): void {
+    if (id === this.basemapId()) {
+      this.basemapPanelExpanded.set(false);
+      return;
+    }
+    this.basemapId.set(id);
+    localStorage.setItem(MAP_BASEMAP_STORAGE_KEY, id);
+    const map = this.map;
+    const anchor = this.dataLayerAnchorId;
+    if (map && anchor) {
+      applyBasemapToMap(map, id, anchor);
+      this.repositionProfileMapLayers();
+      this.updateSafetyCones3d();
+      this.updateProfileMapPoints();
+    }
+    this.basemapPanelExpanded.set(false);
   }
 
   onMapLoad(map: MaplibreMap): void {
     this.map = map;
     this.terrainProfile.setMap(map);
-    map.addSource(MAP_SOURCE.TASK_LINES, { type: 'geojson', data: EMPTY_FC });
+    this.dataLayerAnchorId = SAFETY_CONES_CUSTOM_LAYER_ID;
+
+    this.safetyConesLayer = createSafetyConeCustomLayer();
+    map.addLayer(this.safetyConesLayer);
+
+    map.addSource(PROFILE_MAP_SOURCE.POINTS, { type: 'geojson', data: EMPTY_FC });
     map.addLayer({
-      id: MAP_LAYER.TASK_LINES,
-      type: 'line',
-      source: MAP_SOURCE.TASK_LINES,
+      id: PROFILE_MAP_LAYER.POINTS,
+      type: 'circle',
+      source: PROFILE_MAP_SOURCE.POINTS,
       paint: {
-        'line-color': '#fbbf24',
-        'line-width': 4,
+        'circle-radius': [
+          'match',
+          ['get', 'role'],
+          'from',
+          10,
+          'to',
+          10,
+          'landable',
+          9,
+          8
+        ],
+        'circle-color': ['get', 'color'],
+        'circle-stroke-width': 2.5,
+        'circle-stroke-color': '#ffffff',
+        'circle-opacity': 1
+      }
+    });
+    map.addLayer({
+      id: PROFILE_MAP_LAYER.POINT_LABELS,
+      type: 'symbol',
+      source: PROFILE_MAP_SOURCE.POINTS,
+      layout: {
+        'text-field': ['get', 'label'],
+        'text-size': 11,
+        'text-offset': [0, 1.35],
+        'text-anchor': 'top',
+        'text-max-width': 10,
+        'text-optional': true
+      },
+      paint: {
+        'text-color': ['get', 'color'],
+        'text-halo-color': '#ffffff',
+        'text-halo-width': 1.75
+      }
+    });
+
+    map.addSource(PROFILE_MAP_SOURCE.BRANCHES, { type: 'geojson', data: EMPTY_FC });
+    map.addLayer({
+      id: PROFILE_MAP_LAYER.BRANCHES_HIT,
+      type: 'line',
+      source: PROFILE_MAP_SOURCE.BRANCHES,
+      paint: { 'line-width': 14, 'line-opacity': 0 }
+    });
+    map.addLayer({
+      id: PROFILE_MAP_LAYER.BRANCHES,
+      type: 'line',
+      source: PROFILE_MAP_SOURCE.BRANCHES,
+      paint: {
+        'line-color': [
+          'case',
+          ['==', ['get', 'selected'], true],
+          '#f97316',
+          '#fbbf24'
+        ],
+        'line-width': [
+          'case',
+          ['==', ['get', 'selected'], true],
+          6,
+          3
+        ],
+        'line-opacity': [
+          'case',
+          ['==', ['get', 'selected'], true],
+          1,
+          0.55
+        ]
+      }
+    });
+    map.addSource(PROFILE_MAP_SOURCE.CURSOR_TRACK, {
+      type: 'geojson',
+      data: EMPTY_FC
+    });
+    map.addSource(PROFILE_MAP_SOURCE.CURSOR, {
+      type: 'geojson',
+      data: EMPTY_FC
+    });
+    map.addLayer({
+      id: PROFILE_MAP_LAYER.CURSOR_TRACK,
+      type: 'line',
+      source: PROFILE_MAP_SOURCE.CURSOR_TRACK,
+      paint: {
+        'line-color': '#f97316',
+        'line-width': 5,
         'line-opacity': 0.9
       }
     });
-    this.updateTaskLines();
-    this.fitToTask();
+    map.addLayer({
+      id: PROFILE_MAP_LAYER.CURSOR_POINT,
+      type: 'circle',
+      source: PROFILE_MAP_SOURCE.CURSOR,
+      paint: {
+        'circle-radius': 9,
+        'circle-color': '#ffffff',
+        'circle-stroke-width': 3,
+        'circle-stroke-color': '#dc2626',
+        'circle-opacity': 1
+      }
+    });
+    this.branchClickHandler = (e: MapLayerMouseEvent) => {
+      const feat = e.features?.[0];
+      if (!feat?.properties) return;
+      const raw = feat.properties['legIndex'];
+      const idx =
+        typeof raw === 'number' ? raw : typeof raw === 'string' ? parseInt(raw, 10) : NaN;
+      if (Number.isFinite(idx)) this.selectLeg(idx);
+    };
+    this.branchEnterHandler = () => {
+      map.getCanvas().style.cursor = 'pointer';
+    };
+    this.branchLeaveHandler = () => {
+      map.getCanvas().style.cursor = '';
+    };
+    map.on('click', PROFILE_MAP_LAYER.BRANCHES_HIT, this.branchClickHandler);
+    map.on('mouseenter', PROFILE_MAP_LAYER.BRANCHES_HIT, this.branchEnterHandler);
+    map.on('mouseleave', PROFILE_MAP_LAYER.BRANCHES_HIT, this.branchLeaveHandler);
+
+    this.repositionProfileMapLayers();
+    this.updateBranchLines();
+    this.updateSafetyCones3d();
+    this.updateProfileMapPoints();
+    this.fitToActiveLeg();
 
     this.idleHandler = () => {
       if (this.idleRefreshTimer) return;
@@ -253,10 +515,17 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       }, 600);
     };
     map.on('idle', this.idleHandler);
+    map.setMinPitch(0);
+    map.setMaxPitch(85);
 
     requestAnimationFrame(() => {
       map.resize();
-      this.fitToTask();
+      this.fitToActiveLeg();
+    });
+
+    map.once('idle', () => {
+      this.updateSafetyCones3d();
+      this.updateProfileMapPoints();
     });
 
     this.mapReady.set(true);
@@ -291,29 +560,35 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     this.lastProfileHash = '';
   }
 
-  toggleLeg(index: number): void {
-    this.collapsedLegs.update(set => {
-      const next = new Set(set);
-      if (next.has(index)) {
-        next.delete(index);
-      } else {
-        next.add(index);
-      }
-      return next;
-    });
+  toggleParamsPanel(): void {
+    this.paramsPanelOpen.update(open => !open);
   }
 
-  isLegCollapsed(index: number): boolean {
-    return this.collapsedLegs().has(index);
+  closeParamsPanel(): void {
+    this.paramsPanelOpen.set(false);
   }
 
-  collapseAll(): void {
-    const indices = this.legRenders().map(l => l.index);
-    this.collapsedLegs.set(new Set(indices));
+  selectLeg(index: number): void {
+    const renders = this.legRenders();
+    if (!renders.some(l => l.index === index)) return;
+    if (index === this.selectedLegIndex()) return;
+    this.selectedLegIndex.set(index);
+    const cursor = this.profileMapCursor();
+    if (cursor && cursor.legIndex !== index) {
+      this.profileMapCursor.set(null);
+      this.syncProfileMapCursor();
+    }
+    this.updateSafetyCones3d();
+    this.updateProfileMapPoints();
+    this.fitToActiveLeg();
   }
 
-  expandAll(): void {
-    this.collapsedLegs.set(new Set());
+  selectPrevLeg(): void {
+    this.selectLeg(this.selectedLegIndex() - 1);
+  }
+
+  selectNextLeg(): void {
+    this.selectLeg(this.selectedLegIndex() + 1);
   }
 
   defaultYMaxForLeg(leg: LegRender): number {
@@ -377,17 +652,265 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     return leg.landableToggles.filter(t => t.enabled).length;
   }
 
+  onChartSampleHover(legIndex: number, sample: EnvelopeSample | null): void {
+    if (sample == null) {
+      this.profileMapCursor.set(null);
+    } else {
+      this.profileMapCursor.set({
+        legIndex,
+        longitude: sample.longitude,
+        latitude: sample.latitude,
+        distanceKm: sample.distanceKm
+      });
+    }
+    this.syncProfileMapCursor();
+  }
+
   goToCircuit(): void {
     void this.router.navigate(['/declaration']);
   }
 
-  private updateTaskLines(): void {
+  private syncProfileMapCursor(): void {
+    const map = this.map;
+    if (!map) return;
+
+    const pointSource = map.getSource(PROFILE_MAP_SOURCE.CURSOR);
+    const trackSource = map.getSource(PROFILE_MAP_SOURCE.CURSOR_TRACK);
+    if (
+      !pointSource ||
+      pointSource.type !== 'geojson' ||
+      !trackSource ||
+      trackSource.type !== 'geojson'
+    ) {
+      return;
+    }
+
+    const cursor = this.profileMapCursor();
+    if (!cursor) {
+      (pointSource as GeoJSONSource).setData(EMPTY_FC);
+      (trackSource as GeoJSONSource).setData(EMPTY_FC);
+      return;
+    }
+
+    const leg = this.legRenders().find(l => l.index === cursor.legIndex);
+    if (!leg) {
+      (pointSource as GeoJSONSource).setData(EMPTY_FC);
+      (trackSource as GeoJSONSource).setData(EMPTY_FC);
+      return;
+    }
+
+    const pointFc: FeatureCollection<Point> = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: { distanceKm: cursor.distanceKm },
+          geometry: {
+            type: 'Point',
+            coordinates: [cursor.longitude, cursor.latitude]
+          }
+        }
+      ]
+    };
+
+    const trackCoords: [number, number][] = [
+      [leg.fromWaypoint.longitude, leg.fromWaypoint.latitude],
+      [cursor.longitude, cursor.latitude]
+    ];
+    const trackFc: FeatureCollection<LineString> = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'LineString', coordinates: trackCoords }
+        }
+      ]
+    };
+
+    (pointSource as GeoJSONSource).setData(pointFc);
+    (trackSource as GeoJSONSource).setData(trackFc);
+  }
+
+  private repositionProfileMapLayers(): void {
+    const map = this.map;
+    if (!map) return;
+    for (const layerId of PROFILE_LAYER_STACK) {
+      if (map.getLayer(layerId)) {
+        map.moveLayer(layerId);
+      }
+    }
+  }
+
+  private updateProfileMapPoints(): void {
+    const map = this.map;
+    if (!map) return;
+    const source = map.getSource(PROFILE_MAP_SOURCE.POINTS);
+    if (!source || source.type !== 'geojson') return;
+
+    const leg = this.activeLegRender();
+    if (!leg) {
+      (source as GeoJSONSource).setData(EMPTY_FC);
+      return;
+    }
+
+    const landables = leg.landableToggles
+      .filter(t => t.enabled)
+      .flatMap(t => {
+        const wp = this.waypointService.getWaypoint(t.id);
+        if (!wp) return [];
+        return [
+          {
+            id: t.id,
+            role: 'landable' as const,
+            longitude: wp.longitude,
+            latitude: wp.latitude,
+            label: t.shortName,
+            color: t.color
+          }
+        ];
+      });
+
+    const fc = buildProfileLegPointsGeoJson({
+      from: {
+        longitude: leg.fromWaypoint.longitude,
+        latitude: leg.fromWaypoint.latitude,
+        name: leg.fromWaypoint.name
+      },
+      to: {
+        longitude: leg.toWaypoint.longitude,
+        latitude: leg.toWaypoint.latitude,
+        name: leg.toWaypoint.name
+      },
+      landables
+    });
+    (source as GeoJSONSource).setData(fc);
+    this.repositionProfileMapLayers();
+  }
+
+  private updateSafetyCones3d(): void {
+    const layer = this.safetyConesLayer;
+    if (!layer) return;
+
+    const leg = this.activeLegRender();
+    if (!this.cones3dVisible() || !leg) {
+      layer.setSpecs([]);
+      layer.setVisible(false);
+      return;
+    }
+
+    const enabledIds = new Set(
+      leg.landableToggles.filter(t => t.enabled).map(t => t.id)
+    );
+    const enabledCones = leg.envelope.landableCones.filter(c =>
+      enabledIds.has(c.id)
+    );
+
+    const apexMap = new Map<string, [number, number]>();
+    for (const cone of enabledCones) {
+      const wp = this.waypointService.getWaypoint(cone.id);
+      if (wp) {
+        apexMap.set(cone.id, [wp.longitude, wp.latitude]);
+      }
+    }
+
+    const halfRatio = Math.max(1, this.glideRatio() / 2);
+    const specs = buildSafetyConeMeshSpecs({
+      landableCones: enabledCones,
+      halfRatio,
+      landableApexLngLat: apexMap
+    });
+
+    layer.setSpecs(specs);
+    layer.setVisible(specs.length > 0);
+    this.repositionProfileMapLayers();
+    this.map?.triggerRepaint();
+  }
+
+  private fitToActiveLeg(): void {
+    const map = this.map;
+    const leg = this.activeLegRender();
+    if (!map || !leg) return;
+
+    const cones3d = this.cones3dVisible();
+    const enabledLandables = leg.landableToggles
+      .filter(t => t.enabled)
+      .flatMap(t => {
+        const wp = this.waypointService.getWaypoint(t.id);
+        return wp ? [wp] : [];
+      });
+
+    const lngs: number[] = [];
+    const lats: number[] = [];
+
+    if (cones3d && enabledLandables.length > 0) {
+      /*
+       * En mode 3D : centrer sur les terrains posables actifs et inclure
+       * le rayon de la base du cône le plus grand pour montrer la forme conique.
+       * baseRadius (km) = (yMaxM - min(baseAltitudeM)) * halfRatio / 1000.
+       */
+      const halfRatio = Math.max(1, this.glideRatio() / 2);
+      let maxBaseRadiusKm = 2;
+
+      for (const cone of leg.envelope.landableCones.filter(c =>
+        leg.landableToggles.some(t => t.id === c.id && t.enabled)
+      )) {
+        /* Rayon de la base = (altitude max de la courbe - tip) * halfRatio / 1000
+           Pas de terrain dans ce calcul — c'est la géométrie pure du cône. */
+        const topAlt = coneTopAltitudeM(cone);
+        const r = ((topAlt - cone.baseAltitudeM) * halfRatio) / 1000;
+        if (r > maxBaseRadiusKm) maxBaseRadiusKm = r;
+      }
+
+      /* Rayon converti approximativement en degrés (1° ≈ 111 km). */
+      const degOffset = maxBaseRadiusKm / 90; // légèrement supérieur à /111 pour une marge
+
+      for (const wp of enabledLandables) {
+        lngs.push(wp.longitude - degOffset, wp.longitude + degOffset);
+        lats.push(wp.latitude - degOffset, wp.latitude + degOffset);
+      }
+    } else {
+      lngs.push(leg.fromWaypoint.longitude, leg.toWaypoint.longitude);
+      lats.push(leg.fromWaypoint.latitude, leg.toWaypoint.latitude);
+      for (const s of leg.envelope.samples) {
+        lngs.push(s.longitude);
+        lats.push(s.latitude);
+      }
+    }
+
+    const bounds: LngLatBoundsLike = [
+      [Math.min(...lngs), Math.min(...lats)],
+      [Math.max(...lngs), Math.max(...lats)]
+    ];
+
+    try {
+      const cam = map.cameraForBounds(bounds, {
+        padding: 40,
+        maxZoom: cones3d ? 10 : 13
+      });
+      if (!cam) return;
+
+      /* Ne pas imposer pitch/bearing : l'utilisateur règle l'inclinaison à la souris. */
+      map.easeTo({
+        center: cam.center,
+        zoom: cam.zoom,
+        bearing: map.getBearing(),
+        pitch: map.getPitch(),
+        duration: 700
+      });
+    } catch {
+      /* bounds invalides */
+    }
+  }
+
+  private updateBranchLines(): void {
     const map = this.map;
     if (!map) return;
     const pairs = this.legPairs();
-    const features = pairs.map(p => ({
+    const selected = this.selectedLegIndex();
+    const features = pairs.map((p, idx) => ({
       type: 'Feature' as const,
-      properties: { legIndex: p.toLeg.waypointId },
+      properties: { legIndex: idx, selected: idx === selected },
       geometry: {
         type: 'LineString' as const,
         coordinates: [
@@ -397,7 +920,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       } satisfies LineString
     }));
     const fc: FeatureCollection = { type: 'FeatureCollection', features };
-    const source = map.getSource(MAP_SOURCE.TASK_LINES);
+    const source = map.getSource(PROFILE_MAP_SOURCE.BRANCHES);
     if (source && source.type === 'geojson') {
       (source as GeoJSONSource).setData(fc);
     }
@@ -538,7 +1061,15 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     if (hash === this.lastProfileHash) return;
     this.lastProfileHash = hash;
 
+    const selected = this.selectedLegIndex();
+    if (renders.length > 0 && !renders.some(r => r.index === selected)) {
+      this.selectedLegIndex.set(renders[0].index);
+    }
+
     this.legRenders.set(renders);
     this.profilesLoading.set(false);
+    this.updateBranchLines();
+    this.updateSafetyCones3d();
+    this.updateProfileMapPoints();
   }
 }

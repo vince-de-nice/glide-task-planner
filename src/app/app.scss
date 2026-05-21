@@ -189,12 +189,17 @@
 
   > app-waypoint-manager,
   > app-data-sources,
-  > app-library-page,
-  > app-safety-profile {
+  > app-library-page {
     flex: 1 1 auto;
     min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;
+  }
+
+  > app-safety-profile {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
   }
 }
 

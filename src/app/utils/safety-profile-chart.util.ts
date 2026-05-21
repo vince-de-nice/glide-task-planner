@@ -54,3 +54,16 @@ export function landableColorFromId(id: string): string {
   const light = 36 + ((hash >> 3) % 14);
   return `hsl(${hue.toFixed(1)} ${sat}% ${light}%)`;
 }
+
+/** Couleur plus lumineuse pour les volumes 3D sur la carte (même teinte, meilleure visibilité). */
+export function landableConeColorFromId(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  }
+  let hue = (hash * GOLDEN_ANGLE_DEG) % 360;
+  if (hue >= RED_HUE_EXCLUDE_MIN || hue <= RED_HUE_EXCLUDE_MAX) {
+    hue = 30 + ((hue + 40) % 300);
+  }
+  return `hsl(${hue.toFixed(1)} 90% 58%)`;
+}

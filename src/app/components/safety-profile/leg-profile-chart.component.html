@@ -6,13 +6,15 @@
 @let lbl = labels();
 @let layers = landableLayers();
 @let bounds = legBounds();
+@let intersections = coneIntersections();
 
-<div class="leg-chart">
+<div class="leg-chart" #chartHost>
   <svg
     #svg
     class="leg-chart__svg"
     [attr.viewBox]="'0 0 ' + g.width + ' ' + g.height"
-    preserveAspectRatio="xMidYMid meet"
+    preserveAspectRatio="none"
+    overflow="visible"
     role="img"
     [attr.aria-label]="lbl.altitude"
     (mousemove)="onMouseMove($event, $any(svg))"
@@ -106,6 +108,24 @@
 
     @if (s.safetyPath) {
       <path class="leg-chart__safety-line" [attr.d]="s.safetyPath" />
+    }
+
+    @for (hit of intersections; track hit.key) {
+      <circle
+        class="leg-chart__intersection-dot"
+        [attr.cx]="hit.x"
+        [attr.cy]="hit.y"
+        r="3.5"
+        [attr.fill]="hit.color"
+        [attr.stroke]="hit.color"
+      />
+      <text
+        class="leg-chart__intersection-label"
+        [attr.x]="hit.x"
+        [attr.y]="hit.labelY"
+        [attr.fill]="hit.color"
+        text-anchor="middle"
+      >{{ hit.text }}</text>
     }
 
     @if (fromM) {

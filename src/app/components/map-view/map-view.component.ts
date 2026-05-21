@@ -59,7 +59,6 @@ import { UiFeedbackService } from '../../services/ui-feedback.service';
 import { MapFocusService } from '../../services/map-focus.service';
 
 const SHOW_FULL_CATALOG_KEY = 'gc-map-show-full-catalog';
-const MAP_BASEMAP_KEY = 'gc-map-basemap';
 import type { StyleSpecification } from 'maplibre-gl';
 import { formatElevationDisplay } from '../../utils/elevation.util';
 import {
@@ -70,6 +69,7 @@ import {
   CATALOG_DOT_MIN_ZOOM,
   DEFAULT_BASEMAP_ID,
   isBasemapId,
+  MAP_BASEMAP_STORAGE_KEY,
   MAP_LAYER,
   MAP_SOURCE,
   MAP_TERRAIN_HILLSHADE_KEY,
@@ -310,7 +310,7 @@ export class MapViewComponent implements OnInit {
       return;
     }
     this.basemapId.set(id);
-    localStorage.setItem(MAP_BASEMAP_KEY, id);
+    localStorage.setItem(MAP_BASEMAP_STORAGE_KEY, id);
     const map = this.map;
     if (map && this.dataLayerAnchorId) {
       applyBasemapToMap(map, id, this.dataLayerAnchorId);
@@ -430,7 +430,7 @@ export class MapViewComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    const storedBasemap = localStorage.getItem(MAP_BASEMAP_KEY);
+    const storedBasemap = localStorage.getItem(MAP_BASEMAP_STORAGE_KEY);
     if (storedBasemap && isBasemapId(storedBasemap)) {
       this.basemapId.set(storedBasemap);
     }

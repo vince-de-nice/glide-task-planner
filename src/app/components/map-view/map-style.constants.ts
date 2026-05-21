@@ -26,6 +26,9 @@ export interface BasemapPreset {
 
 export const DEFAULT_BASEMAP_ID: BasemapId = 'esri-satellite';
 
+/** Clé localStorage partagée entre la carte principale et le profil de sécurité. */
+export const MAP_BASEMAP_STORAGE_KEY = 'gc-map-basemap';
+
 export const BASEMAP_PRESETS: readonly BasemapPreset[] = [
   {
     id: 'esri-satellite',

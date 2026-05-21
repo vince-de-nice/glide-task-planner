@@ -1,9 +1,14 @@
 import {
+  AfterViewInit,
   ChangeDetectionStrategy,
   Component,
   computed,
+  ElementRef,
   input,
-  signal
+  OnDestroy,
+  output,
+  signal,
+  viewChild
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import type {
@@ -36,6 +41,7 @@ export interface LegChartLabels {
   tooltipLandablesTitle: string;
   tooltipLandableAt: string;
   conesTruncated: string;
+  coneIntersectionAltitude: string;
 }
 
 interface ChartGeometry {
@@ -74,6 +80,16 @@ interface LandableLayerDraw {
   isBinding: boolean;
 }
 
+/** Repère d'intersection entre cônes ou avec l'altitude min (rouge). */
+interface ConeIntersectionMark {
+  key: string;
+  x: number;
+  y: number;
+  labelY: number;
+  text: string;
+  color: string;
+}
+
 interface LandableAtHover {
   name: string;
   shortName: string;
@@ -88,9 +104,19 @@ interface AxisTick {
   label: string;
 }
 
-const CHART_WIDTH = 800;
-const CHART_HEIGHT = 280;
-const PADDING = { top: 20, right: 32, bottom: 40, left: 60 };
+const CHART_WIDTH_DEFAULT = 800;
+const CHART_HEIGHT_DEFAULT = 280;
+const MIN_CHART_WIDTH = 280;
+const MIN_CHART_HEIGHT = 140;
+
+function chartPadding(width: number, height: number): ChartGeometry['padding'] {
+  return {
+    top: Math.max(16, Math.round(height * 0.06)),
+    right: Math.max(20, Math.round(width * 0.028)),
+    bottom: Math.max(40, Math.round(height * 0.14)),
+    left: Math.max(44, Math.round(width * 0.06))
+  };
+}
 
 @Component({
   selector: 'app-leg-profile-chart',
@@ -100,7 +126,16 @@ const PADDING = { top: 20, right: 32, bottom: 40, left: 60 };
   styleUrls: ['./leg-profile-chart.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class LegProfileChartComponent {
+export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
+  private readonly chartHost =
+    viewChild.required<ElementRef<HTMLElement>>('chartHost');
+  private resizeObserver: ResizeObserver | null = null;
+
+  /** Dimensions du conteneur (px) — le viewBox SVG suit pour remplir la largeur. */
+  private readonly chartSize = signal({
+    width: CHART_WIDTH_DEFAULT,
+    height: CHART_HEIGHT_DEFAULT
+  });
   samples = input.required<EnvelopeSample[]>();
   landableCones = input<LandableConeVisual[]>([]);
   fromEndpoint = input.required<LegEndpointInfo>();
@@ -117,6 +152,9 @@ export class LegProfileChartComponent {
   yMaxM = input.required<number>();
 
   hoveredSample = signal<EnvelopeSample | null>(null);
+
+  /** Position le long de la branche (coordonnées échantillon DEM). */
+  readonly sampleHover = output<EnvelopeSample | null>();
 
   readonly geometry = computed<ChartGeometry>(() => {
     const data = this.samples();
@@ -157,16 +195,39 @@ export class LegProfileChartComponent {
       }
     }
 
+    const size = this.chartSize();
     return {
-      width: CHART_WIDTH,
-      height: CHART_HEIGHT,
-      padding: PADDING,
+      width: size.width,
+      height: size.height,
+      padding: chartPadding(size.width, size.height),
       xMin,
       xMax: xMax === xMin ? xMin + 1 : xMax,
       yMin,
       yMax
     };
   });
+
+  ngAfterViewInit(): void {
+    const el = this.chartHost().nativeElement;
+    const applySize = (): void => {
+      const rect = el.getBoundingClientRect();
+      const width = Math.round(rect.width);
+      const height = Math.round(rect.height);
+      if (width < MIN_CHART_WIDTH || height < MIN_CHART_HEIGHT) return;
+      const prev = this.chartSize();
+      if (prev.width === width && prev.height === height) return;
+      this.chartSize.set({ width, height });
+    };
+
+    applySize();
+    this.resizeObserver = new ResizeObserver(() => applySize());
+    this.resizeObserver.observe(el);
+  }
+
+  ngOnDestroy(): void {
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
+  }
 
   readonly series = computed<ChartSeries>(() => {
     const g = this.geometry();
@@ -264,6 +325,64 @@ export class LegProfileChartComponent {
     });
   });
 
+  readonly coneIntersections = computed<ConeIntersectionMark[]>(() => {
+    const g = this.geometry();
+    const data = this.samples();
+    const cones = this.landableCones();
+    if (cones.length === 0 || data.length === 0) return [];
+
+    const plotW = g.width - g.padding.left - g.padding.right;
+    const plotH = g.height - g.padding.top - g.padding.bottom;
+    const xKm = (km: number): number =>
+      g.padding.left + ((km - g.xMin) / (g.xMax - g.xMin)) * plotW;
+    const yM = (m: number): number =>
+      g.padding.top + plotH - ((m - g.yMin) / (g.yMax - g.yMin)) * plotH;
+
+    const raw: Omit<ConeIntersectionMark, 'labelY'>[] = [];
+
+    for (const cone of cones) {
+      const color = landableColorFromId(cone.id);
+      const safetyHits = findCurveLineCrossings(
+        cone.curve,
+        data,
+        distKm => interpolateSafetyM(data, distKm),
+        xKm,
+        yM
+      );
+      for (let i = 0; i < safetyHits.length; i++) {
+        raw.push({
+          key: `safety-${cone.id}-${i}`,
+          x: safetyHits[i].x,
+          y: safetyHits[i].y,
+          text: `${Math.round(safetyHits[i].altM)} m`,
+          color
+        });
+      }
+    }
+
+    for (let a = 0; a < cones.length; a++) {
+      for (let b = a + 1; b < cones.length; b++) {
+        const hits = findCurvePairCrossings(
+          cones[a].curve,
+          cones[b].curve,
+          xKm,
+          yM
+        );
+        for (let i = 0; i < hits.length; i++) {
+          raw.push({
+            key: `pair-${cones[a].id}-${cones[b].id}-${i}`,
+            x: hits[i].x,
+            y: hits[i].y,
+            text: `${Math.round(hits[i].altM)} m`,
+            color: landableColorFromId(cones[a].id)
+          });
+        }
+      }
+    }
+
+    return dedupeIntersectionMarks(raw, g.padding.top);
+  });
+
   readonly landablesAtHover = computed<LandableAtHover[]>(() => {
     const hover = this.hoveredSample();
     if (!hover) return [];
@@ -299,10 +418,14 @@ export class LegProfileChartComponent {
     const g = this.geometry();
     const plotW = g.width - g.padding.left - g.padding.right;
     const ticks = niceTicks(g.xMin, g.xMax, 6);
+    const last = ticks[ticks.length - 1];
+    if (ticks.length > 0 && g.xMax - last > 0.25) {
+      ticks.push(g.xMax);
+    }
     return ticks.map(value => ({
       value,
       position: g.padding.left + ((value - g.xMin) / (g.xMax - g.xMin)) * plotW,
-      label: `${value.toFixed(value < 10 ? 1 : 0)}`
+      label: formatDistanceTick(value)
     }));
   });
 
@@ -364,11 +487,16 @@ export class LegProfileChartComponent {
     const rel = (xSvg - g.padding.left) / plotW;
     if (rel < 0 || rel > 1) {
       this.hoveredSample.set(null);
+      this.sampleHover.emit(null);
       return;
     }
     const km = g.xMin + rel * (g.xMax - g.xMin);
     const data = this.samples();
-    if (data.length === 0) return;
+    if (data.length === 0) {
+      this.hoveredSample.set(null);
+      this.sampleHover.emit(null);
+      return;
+    }
     let closest = data[0];
     let best = Math.abs(data[0].distanceKm - km);
     for (const s of data) {
@@ -379,10 +507,12 @@ export class LegProfileChartComponent {
       }
     }
     this.hoveredSample.set(closest);
+    this.sampleHover.emit(closest);
   }
 
   onMouseLeave(): void {
     this.hoveredSample.set(null);
+    this.sampleHover.emit(null);
   }
 
   tooltipPosition(sample: EnvelopeSample): { x: number; y: number } {
@@ -550,6 +680,100 @@ function crossingWithSafety(
   };
 }
 
+interface CurveCrossHit {
+  distKm: number;
+  altM: number;
+  x: number;
+  y: number;
+}
+
+function findCurveLineCrossings(
+  curve: LandableConeSample[],
+  samples: EnvelopeSample[],
+  lineAltAt: (distKm: number) => number | null,
+  xKm: (km: number) => number,
+  yM: (m: number) => number
+): CurveCrossHit[] {
+  const hits: CurveCrossHit[] = [];
+  for (let i = 1; i < curve.length; i++) {
+    const a = curve[i - 1];
+    const b = curve[i];
+    const lineA = lineAltAt(a.distanceKm);
+    const lineB = lineAltAt(b.distanceKm);
+    if (lineA == null || lineB == null) continue;
+    const fa = a.altitudeM - lineA;
+    const fb = b.altitudeM - lineB;
+    if (fa * fb >= 0) continue;
+    const t = fa / (fa - fb);
+    const distKm = a.distanceKm + t * (b.distanceKm - a.distanceKm);
+    const coneAlt = a.altitudeM + t * (b.altitudeM - a.altitudeM);
+    const lineAlt =
+      interpolateSafetyM(samples, distKm) ??
+      lineA + t * (lineB - lineA);
+    const altM = (coneAlt + lineAlt) / 2;
+    hits.push({
+      distKm,
+      altM,
+      x: xKm(distKm),
+      y: yM(altM)
+    });
+  }
+  return hits;
+}
+
+function findCurvePairCrossings(
+  curveA: LandableConeSample[],
+  curveB: LandableConeSample[],
+  xKm: (km: number) => number,
+  yM: (m: number) => number
+): CurveCrossHit[] {
+  const n = Math.min(curveA.length, curveB.length);
+  if (n < 2) return [];
+  const hits: CurveCrossHit[] = [];
+  for (let i = 1; i < n; i++) {
+    const aA = curveA[i - 1];
+    const aB = curveA[i];
+    const bA = curveB[i - 1];
+    const bB = curveB[i];
+    if (Math.abs(aA.distanceKm - bA.distanceKm) > 0.01) continue;
+    const fa = aA.altitudeM - bA.altitudeM;
+    const fb = aB.altitudeM - bB.altitudeM;
+    if (fa * fb >= 0) continue;
+    const t = fa / (fa - fb);
+    const distKm = aA.distanceKm + t * (aB.distanceKm - aA.distanceKm);
+    const altM = aA.altitudeM + t * (aB.altitudeM - aA.altitudeM);
+    hits.push({
+      distKm,
+      altM,
+      x: xKm(distKm),
+      y: yM(altM)
+    });
+  }
+  return hits;
+}
+
+function dedupeIntersectionMarks(
+  marks: Omit<ConeIntersectionMark, 'labelY'>[],
+  plotTop: number
+): ConeIntersectionMark[] {
+  const kept: ConeIntersectionMark[] = [];
+  for (const mark of marks) {
+    if (
+      kept.some(
+        k => Math.abs(k.x - mark.x) < 32 && Math.abs(k.y - mark.y) < 14
+      )
+    ) {
+      continue;
+    }
+    const stack = kept.filter(k => Math.abs(k.x - mark.x) < 48).length;
+    kept.push({
+      ...mark,
+      labelY: Math.max(plotTop + 6, mark.y - 8 - stack * 11)
+    });
+  }
+  return kept;
+}
+
 function interpolateSafetyM(
   samples: EnvelopeSample[],
   alongKm: number
@@ -592,6 +816,11 @@ function interpolateTerrainM(
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function formatDistanceTick(km: number): string {
+  if (km < 10) return km.toFixed(1);
+  return Number.isInteger(km) ? `${km}` : km.toFixed(1);
 }
 
 function niceTicks(min: number, max: number, target: number): number[] {
