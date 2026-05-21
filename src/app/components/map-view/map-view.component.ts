@@ -72,6 +72,8 @@ import {
   MAP_BASEMAP_STORAGE_KEY,
   MAP_LAYER,
   MAP_SOURCE,
+  MAP_TEXT_FONT_BOLD,
+  MAP_TEXT_FONT_REGULAR,
   MAP_TERRAIN_HILLSHADE_KEY,
   reorderMapOverlayLayers,
   setTerrainHillshadeVisible,
@@ -602,7 +604,7 @@ export class MapViewComponent implements OnInit {
       layout: {
         'text-field': ['get', 'text'],
         'text-size': 11,
-        'text-font': ['Open Sans Regular'],
+        'text-font': [...MAP_TEXT_FONT_REGULAR],
         'text-offset': [0, -1.2]
       },
       paint: {
@@ -644,7 +646,7 @@ export class MapViewComponent implements OnInit {
       layout: {
         'text-field': ['get', 'point_count_abbreviated'],
         'text-size': 11,
-        'text-font': ['Open Sans Bold']
+        'text-font': [...MAP_TEXT_FONT_BOLD]
       },
       paint: {
         'text-color': '#f8fafc'
@@ -685,7 +687,7 @@ export class MapViewComponent implements OnInit {
         'text-size': 10,
         'text-offset': [0.5, 0],
         'text-anchor': 'left',
-        'text-font': ['Open Sans Regular'],
+        'text-font': [...MAP_TEXT_FONT_REGULAR],
         'text-allow-overlap': false
       },
       paint: {
@@ -735,7 +737,7 @@ export class MapViewComponent implements OnInit {
         'text-size': 11,
         'text-offset': [0.7, 0],
         'text-anchor': 'left',
-        'text-font': ['Open Sans Regular'],
+        'text-font': [...MAP_TEXT_FONT_REGULAR],
         'text-allow-overlap': false
       },
       paint: {

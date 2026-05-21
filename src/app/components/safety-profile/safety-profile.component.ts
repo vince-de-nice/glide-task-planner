@@ -47,6 +47,7 @@ import {
   isBasemapId,
   MAP_BASEMAP_STORAGE_KEY,
   MAP_SOURCE,
+  MAP_TEXT_FONT_REGULAR,
   type BasemapId
 } from '../map-view/map-style.constants';
 import {
@@ -335,26 +336,29 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.profileMapCursor.set(null);
     if (this.idleRefreshTimer) clearTimeout(this.idleRefreshTimer);
-    if (this.map) {
-      if (this.branchClickHandler) {
-        this.map.off('click', PROFILE_MAP_LAYER.BRANCHES_HIT, this.branchClickHandler);
-      }
-      if (this.branchEnterHandler) {
-        this.map.off('mouseenter', PROFILE_MAP_LAYER.BRANCHES_HIT, this.branchEnterHandler);
-      }
-      if (this.branchLeaveHandler) {
-        this.map.off('mouseleave', PROFILE_MAP_LAYER.BRANCHES_HIT, this.branchLeaveHandler);
-      }
-      if (this.map.getLayer(SAFETY_CONES_CUSTOM_LAYER_ID)) {
-        this.map.removeLayer(SAFETY_CONES_CUSTOM_LAYER_ID);
-      }
-      if (this.map.getLayer(SAFETY_MIN_ALTITUDE_LAYER_ID)) {
-        this.map.removeLayer(SAFETY_MIN_ALTITUDE_LAYER_ID);
-      }
-    }
+
+    const map = this.map;
+    this.map = null;
     this.safetyConesLayer = null;
     this.safetyMinAltitudeLayer = null;
-    this.map = null;
+
+    if (!map || typeof map.getLayer !== 'function') {
+      return;
+    }
+
+    try {
+      if (this.branchClickHandler) {
+        map.off('click', PROFILE_MAP_LAYER.BRANCHES_HIT, this.branchClickHandler);
+      }
+      if (this.branchEnterHandler) {
+        map.off('mouseenter', PROFILE_MAP_LAYER.BRANCHES_HIT, this.branchEnterHandler);
+      }
+      if (this.branchLeaveHandler) {
+        map.off('mouseleave', PROFILE_MAP_LAYER.BRANCHES_HIT, this.branchLeaveHandler);
+      }
+    } catch {
+      /* ngx-maplibre a déjà détruit la carte */
+    }
   }
 
   toggleBasemapPanel(): void {
@@ -598,6 +602,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       source: PROFILE_MAP_SOURCE.POINTS,
       layout: {
         'text-field': ['get', 'label'],
+        'text-font': [...MAP_TEXT_FONT_REGULAR],
         'text-size': 11,
         'text-offset': [0, 1.35],
         'text-anchor': 'top',
@@ -1154,16 +1159,11 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
 
     this.profilesLoading.set(true);
     try {
-      const demSegments = pairs.map(
-        p =>
-          ({
-            from: [p.from.longitude, p.from.latitude] as [number, number],
-            to: [p.to.longitude, p.to.latitude] as [number, number]
-          })
-      );
-      await this.terrainProfile.ensureDemForSegments(demSegments);
+      this.terrainProfile.clearCache();
 
-      const renders: LegRender[] = pairs.map((pair, idx) => {
+      const renders: LegRender[] = [];
+      for (let idx = 0; idx < pairs.length; idx++) {
+      const pair = pairs[idx];
       const fromLngLat: [number, number] = [
         pair.from.longitude,
         pair.from.latitude
@@ -1182,7 +1182,10 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
         toElevationM: toElev ?? null
       };
 
-      const initial = this.terrainProfile.sampleLegProfile(fromLngLat, toLngLat);
+      const initial = await this.terrainProfile.sampleLegProfileAtDemZoom(
+        fromLngLat,
+        toLngLat
+      );
       const disabledSet = new Set(
         pair.fromLeg.safetyOutgoing?.disabledLandableIds ?? []
       );
@@ -1204,16 +1207,18 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
         endpoints,
         initial.samples
       );
-      let profile =
+      let profile = initial;
+      if (
         extentActive.startKm < 0 ||
         extentActive.endKm > initial.totalDistanceKm
-          ? this.terrainProfile.sampleLegRange(
-              fromLngLat,
-              toLngLat,
-              extentActive.startKm,
-              extentActive.endKm
-            )
-          : initial;
+      ) {
+        profile = await this.terrainProfile.sampleLegRangeAtDemZoom(
+          fromLngLat,
+          toLngLat,
+          extentActive.startKm,
+          extentActive.endKm
+        );
+      }
       profile = this.terrainProfile.applyEndpointTerrainFallback(
         profile,
         fromElev ?? null,
@@ -1237,7 +1242,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
         enabled: !disabledSet.has(la.id)
       }));
 
-      return {
+      renders.push({
         index: idx,
         fromWaypoint: pair.from,
         toWaypoint: pair.to,
@@ -1252,8 +1257,8 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
         distanceKm: profile.totalDistanceKm,
         envelope,
         landableToggles
-      };
       });
+      }
 
       const hash = renders
         .map(r => {

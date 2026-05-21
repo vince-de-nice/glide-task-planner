@@ -1,6 +1,9 @@
 import { Injectable } from '@angular/core';
 import {
+  DEM_SAMPLE_ZOOM,
   TerrainDemMapService,
+  demChunkMaxSpanKm,
+  splitSegmentIntoChunks,
   type DemSegmentBounds
 } from './terrain-dem-map.service';
 
@@ -27,9 +30,9 @@ export interface LegProfile {
 }
 
 const EARTH_RADIUS_KM = 6371;
-const MIN_SAMPLES = 50;
-const MAX_SAMPLES = 300;
-const SAMPLE_PER_KM = 5;
+const MIN_SAMPLES = 80;
+const MAX_SAMPLES = 600;
+const SAMPLE_PER_KM = 10;
 
 /**
  * Échantillonnage du DEM le long des branches via une carte MapLibre dédiée
@@ -54,14 +57,95 @@ export class TerrainProfileService {
   }
 
   /**
-   * Précharge les tuiles DEM pour tous les segments du circuit (une vue, cache tuiles maximal).
+   * Échantillonne le DEM à z15 sur toute la branche (fenêtres successives + requête par fenêtre).
    */
-  async ensureDemForSegments(segments: DemSegmentBounds[]): Promise<void> {
-    await this.demMap.ensureCoverage(segments);
+  async sampleLegProfileAtDemZoom(
+    from: [number, number],
+    to: [number, number],
+    nbPoints?: number
+  ): Promise<LegProfile> {
+    const totalDistanceKm = haversineKm(from, to);
+    return this.sampleLegRangeAtDemZoom(from, to, 0, totalDistanceKm, nbPoints);
   }
 
   /**
-   * Échantillonne le DEM entre A et B (appeler {@link ensureDemForSegments} avant si possible).
+   * Échantillonne le DEM à z15 entre `startDistanceKm` et `endDistanceKm` le long de A→B.
+   */
+  async sampleLegRangeAtDemZoom(
+    from: [number, number],
+    to: [number, number],
+    startDistanceKm: number,
+    endDistanceKm: number,
+    nbPoints?: number
+  ): Promise<LegProfile> {
+    const totalDistanceKm = haversineKm(from, to);
+    const spanKm = Math.max(0.01, endDistanceKm - startDistanceKm);
+    const sampleCount =
+      nbPoints ??
+      clamp(Math.round(spanKm * SAMPLE_PER_KM), MIN_SAMPLES, MAX_SAMPLES);
+
+    const key =
+      cacheKeyRange(from, to, startDistanceKm, endDistanceKm, sampleCount) +
+      `@z${DEM_SAMPLE_ZOOM}`;
+    const cached = this.profileCache.get(key);
+    if (cached) return cached;
+
+    const samples: TerrainSample[] = [];
+    for (let i = 0; i < sampleCount; i++) {
+      const frac = sampleCount === 1 ? 0 : i / (sampleCount - 1);
+      const distanceKm = startDistanceKm + spanKm * frac;
+      const t = totalDistanceKm > 0 ? distanceKm / totalDistanceKm : 0;
+      const point = interpolateGreatCircle(from, to, t);
+      samples.push({
+        distanceKm,
+        longitude: point[0],
+        latitude: point[1],
+        elevationM: null
+      });
+    }
+
+    const tStart = totalDistanceKm > 0 ? startDistanceKm / totalDistanceKm : 0;
+    const tEnd = totalDistanceKm > 0 ? endDistanceKm / totalDistanceKm : 1;
+    const rangeSegment: DemSegmentBounds = {
+      from: interpolateGreatCircle(from, to, tStart),
+      to: interpolateGreatCircle(from, to, tEnd)
+    };
+    const midLat =
+      samples.reduce((sum, s) => sum + s.latitude, 0) / Math.max(1, samples.length);
+    const chunkMaxKm = demChunkMaxSpanKm(midLat);
+    const chunks = splitSegmentIntoChunks(rangeSegment, chunkMaxKm);
+
+    for (let ci = 0; ci < chunks.length; ci++) {
+      await this.demMap.ensureChunkCoverage(chunks[ci]);
+      const frac0 = ci / chunks.length;
+      const frac1 = (ci + 1) / chunks.length;
+      const dMin = startDistanceKm + spanKm * frac0 - 0.03;
+      const dMax = startDistanceKm + spanKm * frac1 + 0.03;
+      for (const s of samples) {
+        if (s.distanceKm < dMin || s.distanceKm > dMax || s.elevationM != null) {
+          continue;
+        }
+        s.elevationM = this.demMap.queryElevation(s.longitude, s.latitude);
+      }
+    }
+
+    const profile: LegProfile = {
+      fromLngLat: from,
+      toLngLat: to,
+      samples,
+      totalDistanceKm,
+      sampleCount,
+      hasGaps: samples.some(s => s.elevationM === null)
+    };
+
+    if (!profile.hasGaps) {
+      this.profileCache.set(key, profile);
+    }
+    return profile;
+  }
+
+  /**
+   * @deprecated Utiliser {@link sampleLegProfileAtDemZoom} (requiert tuiles z15 déjà chargées).
    */
   sampleLegProfile(
     from: [number, number],

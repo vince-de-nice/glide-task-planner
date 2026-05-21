@@ -88,7 +88,7 @@ export class SafetyMinAltitudeThreeCustomLayer implements CustomLayerInterface {
 
   onRemove(): void {
     this.disposeMesh();
-    this.renderer?.dispose();
+    // Ne pas appeler renderer.dispose() : contexte WebGL partagé avec MapLibre.
     this.renderer = null;
     this.map = null;
   }

@@ -137,7 +137,7 @@ export class SafetyConeThreeCustomLayer implements CustomLayerInterface {
 
   onRemove(): void {
     this.disposeMeshes();
-    this.renderer?.dispose();
+    // Ne pas appeler renderer.dispose() : contexte WebGL partagé avec MapLibre.
     this.renderer = null;
     this.map = null;
   }

@@ -29,6 +29,18 @@ export const DEFAULT_BASEMAP_ID: BasemapId = 'esri-satellite';
 /** Clé localStorage partagée entre la carte principale et le profil de sécurité. */
 export const MAP_BASEMAP_STORAGE_KEY = 'gc-map-basemap';
 
+/** Polices rendues localement par MapLibre ≥ 5.24 (pas d’URL glyphs). */
+export const MAP_TEXT_FONT_REGULAR = [
+  'Noto Sans Regular',
+  'Arial Unicode MS Regular',
+  'sans-serif'
+] as const;
+export const MAP_TEXT_FONT_BOLD = [
+  'Noto Sans Bold',
+  'Arial Unicode MS Bold',
+  'sans-serif'
+] as const;
+
 export const BASEMAP_PRESETS: readonly BasemapPreset[] = [
   {
     id: 'esri-satellite',
@@ -251,7 +263,6 @@ export function buildBaseMapStyle(
 
   return {
     version: 8,
-    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
     sources,
     layers,
     terrain: {
