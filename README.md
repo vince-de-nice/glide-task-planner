@@ -7,7 +7,7 @@ Repository: [github.com/vince-de-nice/glide-task-planner](https://github.com/vin
 
 ## Stack
 
-Angular 21 · PrimeNG · Leaflet · Vitest
+Angular 21 · PrimeNG · MapLibre GL · Vitest
 
 ## Quick start
 
@@ -31,7 +31,7 @@ The bundled file `public/assets/cup/default.cup` is about **500 KB**. It loads a
 ## Features
 
 - Default and remote CUP import (`?cup=/assets/...` or `https://…`)
-- Task builder on list and map (Leaflet)
+- Task builder on list and map (MapLibre GL)
 - Observation zones (FAI keyhole, sectors, lines)
 - Multi-format export: FLARM, CUP, CUPX, XCSoar `.tsk`, IGC C-records
 - Saved circuits library (localStorage)

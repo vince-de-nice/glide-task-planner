@@ -102,14 +102,35 @@
     </div>
   }
 
-  <div
-    class="map-container"
-    leaflet
-    [leafletOptions]="mapOptions"
-    (leafletMapReady)="onMapReady($event)"
-    (leafletDoubleClick)="onMapDoubleClick($event)"
-    (leafletMapZoomEnd)="onMapZoomEnd()"
-  ></div>
+  <div class="map-container">
+    <mgl-map
+      [mapStyle]="mapStyle"
+      [center]="mapCenter()"
+      [zoom]="mapZoom()"
+      [doubleClickZoom]="false"
+      (mapLoad)="onMapLoad($event)"
+      (mapDblClick)="onMapDblClick($event)"
+    />
+    @if (contextMenu(); as ctx) {
+      <div
+        class="gc-map-ctx-anchor"
+        [style.left.px]="ctx.x"
+        [style.top.px]="ctx.y"
+        (click)="$event.stopPropagation()"
+      >
+        <app-waypoint-context-menu
+          [waypoint]="ctx.waypoint"
+          [circuitLegs]="circuitLegs()"
+          [typeLabel]="waypointTypeLabel(ctx.waypoint)"
+          [canSetDeparture]="taskState.canSetDeparture(ctx.waypoint.id)"
+          [canSetArrival]="taskState.canSetArrival(ctx.waypoint.id)"
+          [labels]="contextPopupLabels()"
+          [roleLabel]="circuitRoleLabel"
+          (action)="onContextAction($event, ctx.waypoint)"
+        />
+      </div>
+    }
+  </div>
 </div>
 
 <app-waypoint-edit-dialog

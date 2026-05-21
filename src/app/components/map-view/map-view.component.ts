@@ -7,7 +7,6 @@ import {
   output,
   OnInit,
   effect,
-  ViewChild,
   signal
 } from '@angular/core';
 import { TranslateService } from '../../i18n/translate.service';
@@ -20,38 +19,34 @@ import {
 import { WAYPOINT_TYPE_ORDER } from '../../utils/waypoint-type-display.util';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LeafletDirective } from '@bluehalo/ngx-leaflet';
+import { MapComponent } from '@maplibre/ngx-maplibre-gl';
 import {
-  latLng,
-  tileLayer,
-  layerGroup,
-  marker,
-  polyline,
-  divIcon,
-  popup,
-  Map as LeafletMap,
-  MapOptions,
-  LeafletMouseEvent,
-  LayerGroup,
-  Layer
-} from 'leaflet';
+  Popup,
+  type GeoJSONSource,
+  type Map as MaplibreMap,
+  type MapLayerMouseEvent,
+  type MapMouseEvent
+} from 'maplibre-gl';
+import type { Feature, FeatureCollection, Geometry, Point } from 'geojson';
+import type { PoaffProperties } from '../../services/airspace-layer.service';
 import { extendBoundsWithShape } from '../../utils/obs-zone-map.util';
 import {
   buildObsZoneShapesForCircuit,
-  renderObsZoneShapes
-} from './map-obs-zones-layer.util';
+  buildObsZonesGeoJson
+} from './obs-zone-geojson.util';
 import { DEFAULT_TASK_EXPORT_RADIUS_M } from '../../models/task-declaration.model';
 import { WaypointService } from '../../services/waypoint.service';
 import { TaskStateService } from '../../services/task-state.service';
 import { DistanceService } from '../../services/distance.service';
-import { AirspaceLayerService } from '../../services/airspace-layer.service';
+import { AirspaceLayerService, AirspaceLoadResult } from '../../services/airspace-layer.service';
 import { DEFAULT_POAFF_REGION_ID } from '../../config/map-airspace.config';
 import { Waypoint, WaypointType } from '../../models/waypoint.model';
-import { buildMapMarkerHtml, estimateMapLabelSize, formatMapRoleSuffix } from './map-marker.util';
 import {
-  buildWaypointContextPopupHtml,
-  WaypointMapAction
-} from './map-waypoint-popup.util';
+  formatMapRoleSuffix,
+  patchWaypointsGeoJson,
+  type WaypointMapFeatureProps
+} from './map-waypoints-geojson.util';
+import { WaypointMapAction } from './map-waypoint-popup.util';
 import {
   WaypointEditDialogComponent,
   WaypointEditPayload
@@ -64,19 +59,28 @@ import { Toolbar } from 'primeng/toolbar';
 import { ToggleSwitch } from 'primeng/toggleswitch';
 import { Tooltip } from 'primeng/tooltip';
 import { UiFeedbackService } from '../../services/ui-feedback.service';
-const SATELLITE_TILES = {
-  url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-  attribution:
-    'Imagerie &copy; <a href="https://www.esri.com/">Esri</a> — Esri, Maxar, Earthstar Geographics'
-};
+import {
+  buildBaseMapStyle,
+  MAP_LAYER,
+  MAP_SOURCE,
+  southWestNorthEastToLngLatBounds
+} from './map-style.constants';
+import { buildTaskLinesGeoJson } from './map-task-lines-geojson.util';
+import { WaypointContextMenuComponent } from './waypoint-context-menu.component';
+const EMPTY_FC: FeatureCollection = { type: 'FeatureCollection', features: [] };
 
-const SATELLITE_LABELS = {
-  url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
-  maxZoom: 19
-};
+function setGeoJsonData(map: MaplibreMap, sourceId: string, data: FeatureCollection): void {
+  const source = map.getSource(sourceId);
+  if (source && source.type === 'geojson') {
+    (source as GeoJSONSource).setData(data);
+  }
+}
 
-/** Texte des libellés visible à partir de ce zoom Leaflet (plus on zoome, plus z est grand). */
-const MIN_ZOOM_FOR_LABELS = 11;
+export interface MapContextMenuState {
+  waypoint: Waypoint;
+  x: number;
+  y: number;
+}
 
 @Component({
   selector: 'app-map-view',
@@ -84,8 +88,9 @@ const MIN_ZOOM_FOR_LABELS = 11;
   imports: [
     CommonModule,
     FormsModule,
-    LeafletDirective,
+    MapComponent,
     WaypointEditDialogComponent,
+    WaypointContextMenuComponent,
     Button,
     Select,
     Menu,
@@ -99,10 +104,8 @@ const MIN_ZOOM_FOR_LABELS = 11;
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class MapViewComponent implements OnInit {
-  @ViewChild(LeafletDirective) private leaflet?: LeafletDirective;
-
   private waypointService = inject(WaypointService);
-  private taskState = inject(TaskStateService);
+  readonly taskState = inject(TaskStateService);
   private uiFeedback = inject(UiFeedbackService);
   private i18n = inject(TranslateService);
   private distanceService = inject(DistanceService);
@@ -110,7 +113,6 @@ export class MapViewComponent implements OnInit {
 
   compact = input(false);
 
-  /** Message de retour (toast) après une action sur un waypoint. */
   actionMessage = output<string>();
 
   waypoints = this.waypointService.waypoints;
@@ -118,24 +120,28 @@ export class MapViewComponent implements OnInit {
   circuitLegs = this.taskState.circuitLegs;
   defaultZoneRadiusM = this.taskState.defaultZoneRadiusM;
 
+  readonly mapStyle = buildBaseMapStyle();
+  readonly mapCenter = signal<[number, number]>([6.5, 46.5]);
+  readonly mapZoom = signal<[number]>([6]);
+
   readonly typeFilterOptions = computed(() => {
     this.i18n.locale();
     return WAYPOINT_TYPE_ORDER.map(type => waypointTypeDisplayI18n(type, this.i18n));
   });
   readonly poaffRegions = this.airspaceLayerService.poaffRegions;
+  readonly contextPopupLabels = computed(() => {
+    this.i18n.locale();
+    return mapPopupLabels(this.i18n);
+  });
 
-  /** Aperçu à l’échelle des zones d’observation (CUP / tâche). */
   obsZonesVisible = signal(true);
   airspaceVisible = signal(false);
   airspaceRegionId = signal(DEFAULT_POAFF_REGION_ID);
   airspaceStatus = signal<string | null>(null);
   airspaceLoading = signal(false);
-  /** true une fois `public/config/airspace.json` lu (affiche le bon mode POAFF / OpenAIP). */
   airspaceConfigReady = signal(false);
 
-  /** Types de waypoints affichés sur la carte (catalogue). */
   catalogTypeFilter = signal<WaypointType[]>(['turnpoint', 'airfield', 'landable', 'custom']);
-
   filtersExpanded = signal(false);
 
   readonly toolbarMenuItems = computed<MenuItem[]>(() => {
@@ -160,34 +166,46 @@ export class MapViewComponent implements OnInit {
     ];
   });
 
-  mapOptions!: MapOptions;
-
-  private map: LeafletMap | null = null;
-  private markersLayer: LayerGroup | null = null;
-  private taskLinesLayer: LayerGroup | null = null;
-  private obsZonesLayer: LayerGroup | null = null;
-  private airspaceLayer: Layer | null = null;
+  private map: MaplibreMap | null = null;
+  private airspacePopup: Popup | null = null;
+  private readonly waypointFeatureCache = new Map<string, Feature<Point, WaypointMapFeatureProps>>();
   mapReady = signal(false);
+
+  contextMenu = signal<MapContextMenuState | null>(null);
 
   editDialogOpen = signal(false);
   editingWaypoint = signal<Waypoint | null>(null);
   editIsCreate = signal(false);
   private pendingCreateCoords: { lat: number; lng: number } | null = null;
 
-  /** Distance tâche affichée sur la carte (km, hors branches déco/attero). */
   taskDistanceKm = signal<string | null>(null);
 
   constructor() {
     effect(() => {
       this.waypoints();
+      this.catalogTypeFilter();
       this.selectedWaypointIds();
       this.circuitLegs();
-      this.defaultZoneRadiusM();
-      this.obsZonesVisible();
-      this.catalogTypeFilter();
-      if (this.mapReady() && this.map && this.markersLayer) {
-        this.refreshMarkers();
+      if (this.mapReady()) {
+        this.updateWaypointsSource();
+      }
+    });
+
+    effect(() => {
+      this.selectedWaypointIds();
+      this.circuitLegs();
+      if (this.mapReady()) {
         this.updateTaskLines();
+        this.updateTaskDistanceLabel();
+      }
+    });
+
+    effect(() => {
+      this.obsZonesVisible();
+      this.circuitLegs();
+      this.defaultZoneRadiusM();
+      this.waypoints();
+      if (this.mapReady()) {
         this.updateObsZones();
       }
     });
@@ -230,9 +248,6 @@ export class MapViewComponent implements OnInit {
       }
       return types.filter(t => t !== type);
     });
-    if (this.mapReady()) {
-      this.refreshMarkers();
-    }
   }
 
   onAirspaceToggle(on: boolean): void {
@@ -244,7 +259,7 @@ export class MapViewComponent implements OnInit {
   }
 
   private disableAirspaceLayer(): void {
-    this.removeAirspaceLayer();
+    this.removeAirspaceFromMap();
     this.airspaceVisible.set(false);
     this.airspaceStatus.set(null);
   }
@@ -257,7 +272,8 @@ export class MapViewComponent implements OnInit {
     this.airspaceLoading.set(true);
     this.airspaceStatus.set(this.i18n.t('map.airspaceLoading'));
 
-    if (!this.map) {
+    const map = this.map;
+    if (!map) {
       this.airspaceLoading.set(false);
       this.airspaceStatus.set(this.i18n.t('map.mapNotReady'));
       return;
@@ -274,9 +290,7 @@ export class MapViewComponent implements OnInit {
       return;
     }
 
-    this.removeAirspaceLayer();
-    result.layer.addTo(this.map);
-    this.airspaceLayer = result.layer;
+    this.applyAirspaceLayer(map, result);
     this.airspaceVisible.set(true);
 
     const hint =
@@ -298,92 +312,57 @@ export class MapViewComponent implements OnInit {
     await this.enableAirspaceLayer();
   }
 
-  private initAirspacePane(map: LeafletMap): void {
-    if (!map.getPane('airspace')) {
-      map.createPane('airspace');
-      const pane = map.getPane('airspace');
-      if (pane) pane.style.zIndex = '350';
-    }
-    if (!map.getPane('obsZones')) {
-      map.createPane('obsZones');
-      const pane = map.getPane('obsZones');
-      if (pane) pane.style.zIndex = '420';
-    }
-  }
-
-  private removeAirspaceLayer(): void {
-    if (this.airspaceLayer && this.map) {
-      this.map.removeLayer(this.airspaceLayer);
-      this.airspaceLayer = null;
-    }
-  }
-
   ngOnInit(): void {
     void this.airspaceLayerService.ensureConfigLoaded().then(() => {
       this.airspaceConfigReady.set(true);
     });
 
     const wps = this.waypointService.waypoints();
-    const center =
-      wps.length > 0 ? latLng(wps[0].latitude, wps[0].longitude) : latLng(46.5, 6.5);
-
-    this.mapOptions = {
-      layers: [
-        tileLayer(SATELLITE_TILES.url, {
-          attribution: SATELLITE_TILES.attribution,
-          maxZoom: 19
-        }),
-        tileLayer(SATELLITE_LABELS.url, {
-          maxZoom: SATELLITE_LABELS.maxZoom,
-          opacity: 0.85
-        })
-      ],
-      zoom: wps.length > 0 ? 9 : 6,
-      center,
-      zoomControl: true
-    };
-  }
-
-  onMapReady(map: LeafletMap): void {
-    this.map = map;
-    map.doubleClickZoom.disable();
-    this.initAirspacePane(map);
-    this.markersLayer = layerGroup().addTo(map);
-    this.mapReady.set(true);
-    this.refreshMarkers();
-    this.updateTaskLines();
-    this.updateObsZones();
-    this.updateTaskDistanceLabel();
-    requestAnimationFrame(() => {
-      map.invalidateSize();
-      this.refreshMarkers();
-      this.updateObsZones();
-      this.syncLabelVisibility();
-    });
-    this.syncLabelVisibility();
-  }
-
-  onMapZoomEnd(): void {
-    this.syncLabelVisibility();
-    if (this.mapReady() && this.markersLayer) {
-      this.refreshMarkers();
+    if (wps.length > 0) {
+      this.mapCenter.set([wps[0].longitude, wps[0].latitude]);
+      this.mapZoom.set([9]);
     }
   }
 
-  private syncLabelVisibility(): void {
-    const map = this.getMap();
-    if (!map) return;
-    map
-      .getContainer()
-      .classList.toggle('gc-map-labels-visible', map.getZoom() >= MIN_ZOOM_FOR_LABELS);
+  onMapLoad(map: MaplibreMap): void {
+    this.map = map;
+    map.doubleClickZoom.disable();
+    this.initDataLayers(map);
+    this.mapReady.set(true);
+    this.updateWaypointsSource();
+    this.updateTaskLines();
+    this.updateObsZones();
+    this.updateTaskDistanceLabel();
+
+    map.on('click', MAP_LAYER.WAYPOINTS_DOT, e => this.onWaypointLayerClick(e));
+    map.on('mouseenter', MAP_LAYER.WAYPOINTS_DOT, () => {
+      map.getCanvas().style.cursor = 'pointer';
+    });
+    map.on('mouseleave', MAP_LAYER.WAYPOINTS_DOT, () => {
+      map.getCanvas().style.cursor = '';
+    });
+    map.on('click', MAP_LAYER.AIRSPACE_FILL, e => this.showAirspacePopup(e));
+    map.on('click', e => {
+      const onWaypoint = map.queryRenderedFeatures(e.point, {
+        layers: [MAP_LAYER.WAYPOINTS_DOT]
+      }).length;
+      if (!onWaypoint) {
+        this.closeContextMenu();
+      }
+    });
+    map.on('move', () => this.repositionContextMenu());
+
+    requestAnimationFrame(() => {
+      map.resize();
+      this.updateWaypointsSource();
+      this.updateObsZones();
+    });
   }
 
-  onMapDoubleClick(event: LeafletMouseEvent): void {
-    if (!this.map) return;
-    event.originalEvent.preventDefault();
-    event.originalEvent.stopPropagation();
-
-    const { lat, lng } = event.latlng;
+  onMapDblClick(event: MapMouseEvent): void {
+    event.preventDefault();
+    const { lng, lat } = event.lngLat;
+    this.closeContextMenu();
     this.pendingCreateCoords = { lat, lng };
     this.editingWaypoint.set({
       id: '',
@@ -394,6 +373,156 @@ export class MapViewComponent implements OnInit {
     });
     this.editIsCreate.set(true);
     this.editDialogOpen.set(true);
+  }
+
+  private initDataLayers(map: MaplibreMap): void {
+    const beforeObs = MAP_LAYER.ESRI_LABELS;
+
+    map.addSource(MAP_SOURCE.WAYPOINTS, { type: 'geojson', data: EMPTY_FC });
+    map.addSource(MAP_SOURCE.TASK_LINES, { type: 'geojson', data: EMPTY_FC });
+    map.addSource(MAP_SOURCE.TASK_LABELS, { type: 'geojson', data: EMPTY_FC });
+    map.addSource(MAP_SOURCE.OBS_ZONES, { type: 'geojson', data: EMPTY_FC });
+
+    map.addLayer({
+      id: MAP_LAYER.OBS_FILL,
+      type: 'fill',
+      source: MAP_SOURCE.OBS_ZONES,
+      filter: ['!=', ['get', 'isLine'], true],
+      paint: {
+        'fill-color': ['get', 'fill'],
+        'fill-opacity': 0.14
+      }
+    });
+
+    map.addLayer({
+      id: MAP_LAYER.OBS_LINE,
+      type: 'line',
+      source: MAP_SOURCE.OBS_ZONES,
+      paint: {
+        'line-color': ['get', 'stroke'],
+        'line-width': ['case', ['get', 'isLine'], 4, 2],
+        'line-opacity': 0.9
+      }
+    });
+
+    map.addLayer({
+      id: MAP_LAYER.TASK_LINES,
+      type: 'line',
+      source: MAP_SOURCE.TASK_LINES,
+      paint: {
+        'line-color': [
+          'case',
+          ['==', ['get', 'counted'], true],
+          '#fbbf24',
+          '#94a3b8'
+        ],
+        'line-width': ['case', ['==', ['get', 'counted'], true], 4, 3],
+        'line-opacity': ['case', ['==', ['get', 'counted'], true], 0.95, 0.7],
+        'line-dasharray': [
+          'case',
+          ['==', ['get', 'counted'], true],
+          ['literal', [1, 0]],
+          ['literal', [7, 6]]
+        ]
+      }
+    });
+
+    map.addLayer({
+      id: MAP_LAYER.TASK_LABELS,
+      type: 'symbol',
+      source: MAP_SOURCE.TASK_LABELS,
+      layout: {
+        'text-field': ['get', 'text'],
+        'text-size': 11,
+        'text-font': ['Open Sans Regular'],
+        'text-offset': [0, -1.2]
+      },
+      paint: {
+        'text-color': '#fbbf24',
+        'text-halo-color': '#0f172a',
+        'text-halo-width': 1.2
+      }
+    });
+
+    map.addLayer({
+      id: MAP_LAYER.WAYPOINTS_DOT,
+      type: 'circle',
+      source: MAP_SOURCE.WAYPOINTS,
+      paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 3, 12, 5],
+        'circle-color': ['get', 'color'],
+        'circle-stroke-width': ['case', ['get', 'inCircuit'], 2, 0],
+        'circle-stroke-color': '#fbbf24'
+      }
+    });
+
+    map.addLayer({
+      id: MAP_LAYER.WAYPOINTS_LABEL,
+      type: 'symbol',
+      source: MAP_SOURCE.WAYPOINTS,
+      minzoom: 11,
+      layout: {
+        'text-field': ['get', 'label'],
+        'text-size': 11,
+        'text-offset': [0.6, 0],
+        'text-anchor': 'left',
+        'text-font': ['Open Sans Regular'],
+        'text-allow-overlap': false
+      },
+      paint: {
+        'text-color': '#ffffff',
+        'text-halo-color': '#000000',
+        'text-halo-width': 1.5
+      }
+    });
+
+    map.moveLayer(MAP_LAYER.OBS_FILL, beforeObs);
+    map.moveLayer(MAP_LAYER.OBS_LINE, beforeObs);
+    map.moveLayer(MAP_LAYER.TASK_LINES, beforeObs);
+    map.moveLayer(MAP_LAYER.TASK_LABELS, beforeObs);
+    map.moveLayer(MAP_LAYER.WAYPOINTS_DOT, beforeObs);
+    map.moveLayer(MAP_LAYER.WAYPOINTS_LABEL, beforeObs);
+  }
+
+  private onWaypointLayerClick(event: MapLayerMouseEvent): void {
+    event.originalEvent.stopPropagation();
+    const feature = event.features?.[0];
+    const id = feature?.properties?.['id'] as string | undefined;
+    if (!id) return;
+    const wp = this.waypointService.getWaypoint(id);
+    if (!wp || !this.map) return;
+    const point = this.map.project([wp.longitude, wp.latitude]);
+    this.contextMenu.set({ waypoint: wp, x: point.x, y: point.y });
+  }
+
+  private repositionContextMenu(): void {
+    const ctx = this.contextMenu();
+    const map = this.map;
+    if (!ctx || !map) return;
+    const point = map.project([ctx.waypoint.longitude, ctx.waypoint.latitude]);
+    this.contextMenu.set({ ...ctx, x: point.x, y: point.y });
+  }
+
+  closeContextMenu(): void {
+    this.contextMenu.set(null);
+  }
+
+  onContextAction(action: WaypointMapAction, wp: Waypoint): void {
+    void this.handleWaypointAction(action, wp);
+  }
+
+  private showAirspacePopup(event: MapLayerMouseEvent): void {
+    const feature = event.features?.[0];
+    const map = this.map;
+    if (!feature || !map) return;
+    const html = this.airspaceLayerService.buildPoaffPopupHtml(
+      feature as Feature<Geometry, PoaffProperties>
+    );
+    this.airspacePopup?.remove();
+    this.airspacePopup = new Popup({ closeOnClick: true, maxWidth: '280px' })
+      .setLngLat(event.lngLat)
+      .setHTML(html)
+      .addTo(map);
   }
 
   onEditDialogSave(payload: WaypointEditPayload): void {
@@ -423,6 +552,7 @@ export class MapViewComponent implements OnInit {
   }
 
   private openEditDialog(wp: Waypoint): void {
+    this.closeContextMenu();
     this.editingWaypoint.set(wp);
     this.editIsCreate.set(false);
     this.editDialogOpen.set(true);
@@ -450,58 +580,27 @@ export class MapViewComponent implements OnInit {
     return result;
   }
 
-  private refreshMarkers(): void {
-    if (!this.map || !this.markersLayer) return;
+  private updateWaypointsSource(): void {
+    const map = this.map;
+    if (!map) return;
+    const data = patchWaypointsGeoJson(this.waypointFeatureCache, {
+      waypoints: this.waypointsToRender(),
+      getSuffix: wp => this.waypointSuffix(wp),
+      isInCircuit: wp => this.taskState.getCircuitIndices(wp.id).length > 0
+    });
+    setGeoJsonData(map, MAP_SOURCE.WAYPOINTS, data);
+  }
 
-    this.markersLayer.clearLayers();
-
-    for (const wp of this.waypointsToRender()) {
-      const indices = this.taskState.getCircuitIndices(wp.id);
-      const inCircuit = indices.length > 0;
-      const roleTokens = this.taskState.getWaypointMapRoleTokens(wp.id);
-
-      let suffix: string | null = null;
-      if (roleTokens.length > 0) {
-        suffix = formatMapRoleSuffix(roleTokens);
-      } else if (inCircuit) {
-        suffix = `(${indices.join(',')})`;
-      }
-
-      const markerHtml = buildMapMarkerHtml({
-        name: wp.name,
-        type: wp.type,
-        suffix
-      });
-
-      const labelsVisible = (this.map?.getZoom() ?? 0) >= MIN_ZOOM_FOR_LABELS;
-      const iconSize = labelsVisible
-        ? estimateMapLabelSize(wp.name, suffix)
-        : ([6, 6] as [number, number]);
-      const iconAnchor: [number, number] = labelsVisible
-        ? [3, iconSize[1] / 2]
-        : [3, 3];
-
-      const icon = divIcon({
-        className: 'gc-map-marker-icon',
-        html: markerHtml,
-        iconSize,
-        iconAnchor
-      });
-
-      const mapMarker = marker([wp.latitude, wp.longitude], { icon });
-      if (!labelsVisible) {
-        mapMarker.bindTooltip(wp.name + (suffix ? ` ${suffix}` : ''), {
-          direction: 'right',
-          offset: [8, 0]
-        });
-      }
-      mapMarker
-        .on('click', (ev: LeafletMouseEvent) => {
-          ev.originalEvent.stopPropagation();
-          this.openWaypointContextMenu(wp);
-        })
-        .addTo(this.markersLayer!);
+  private waypointSuffix(wp: Waypoint): string | null {
+    const roleTokens = this.taskState.getWaypointMapRoleTokens(wp.id);
+    if (roleTokens.length > 0) {
+      return formatMapRoleSuffix(roleTokens);
     }
+    const indices = this.taskState.getCircuitIndices(wp.id);
+    if (indices.length > 0) {
+      return `(${indices.join(',')})`;
+    }
+    return null;
   }
 
   onObsZonesToggle(visible: boolean): void {
@@ -509,22 +608,17 @@ export class MapViewComponent implements OnInit {
     this.updateObsZones();
   }
 
-  /** Rafraîchit les zones après modification depuis le dialogue circuit. */
   refreshObservationZones(): void {
-    if (this.mapReady() && this.map) {
+    if (this.mapReady()) {
       this.updateObsZones();
     }
   }
 
   private updateObsZones(): void {
-    if (!this.map) return;
-
-    if (!this.obsZonesLayer) {
-      this.obsZonesLayer = layerGroup([], { pane: 'obsZones' }).addTo(this.map);
-    }
-    this.obsZonesLayer.clearLayers();
-
+    const map = this.map;
+    if (!map) return;
     if (!this.obsZonesVisible() || this.circuitLegs().length === 0) {
+      setGeoJsonData(map, MAP_SOURCE.OBS_ZONES, EMPTY_FC);
       return;
     }
 
@@ -534,22 +628,21 @@ export class MapViewComponent implements OnInit {
       wpById,
       this.defaultZoneRadiusM() || DEFAULT_TASK_EXPORT_RADIUS_M
     );
-    renderObsZoneShapes(this.obsZonesLayer, shapes);
+    setGeoJsonData(map, MAP_SOURCE.OBS_ZONES, buildObsZonesGeoJson(shapes));
   }
 
   private updateTaskLines(): void {
-    if (!this.map) return;
-
-    if (!this.taskLinesLayer) {
-      this.taskLinesLayer = layerGroup().addTo(this.map);
-    }
-    this.taskLinesLayer.clearLayers();
-
+    const map = this.map;
+    if (!map) return;
     const wps = this.selectedWaypointIds()
       .map(id => this.waypointService.getWaypoint(id))
       .filter((wp): wp is Waypoint => wp !== undefined);
 
-    if (wps.length < 2) return;
+    if (wps.length < 2) {
+      setGeoJsonData(map, MAP_SOURCE.TASK_LINES, EMPTY_FC);
+      setGeoJsonData(map, MAP_SOURCE.TASK_LABELS, EMPTY_FC);
+      return;
+    }
 
     const { legDistances } = this.distanceService.calculateTaskDistance(
       wps,
@@ -557,26 +650,102 @@ export class MapViewComponent implements OnInit {
       this.taskState.getCircuitRoles()
     );
 
-    for (const leg of legDistances) {
-      const from = wps[leg.fromIndex];
-      const to = wps[leg.toIndex];
-      polyline(
-        [
-          [from.latitude, from.longitude],
-          [to.latitude, to.longitude]
-        ],
+    const legs = legDistances.map(leg => ({
+      from: wps[leg.fromIndex],
+      to: wps[leg.toIndex],
+      counted: leg.counted,
+      distanceKm: leg.distance
+    }));
+
+    const { lines, labels } = buildTaskLinesGeoJson(legs);
+    setGeoJsonData(map, MAP_SOURCE.TASK_LINES, lines);
+    setGeoJsonData(map, MAP_SOURCE.TASK_LABELS, labels);
+  }
+
+  private applyAirspaceLayer(map: MaplibreMap, result: AirspaceLoadResult): void {
+    this.removeAirspaceFromMap();
+
+    if (result.source === 'openaip' && result.rasterTileUrl) {
+      map.addSource(MAP_SOURCE.OPENAIP, {
+        type: 'raster',
+        tiles: [result.rasterTileUrl],
+        tileSize: 256,
+        scheme: 'tms',
+        maxzoom: 14
+      });
+      map.addLayer(
         {
-          color: leg.counted ? '#fbbf24' : '#94a3b8',
-          weight: leg.counted ? 4 : 3,
-          opacity: leg.counted ? 0.95 : 0.7,
-          dashArray: leg.counted ? undefined : '7 6'
-        }
-      ).addTo(this.taskLinesLayer);
+          id: MAP_LAYER.OPENAIP_RASTER,
+          type: 'raster',
+          source: MAP_SOURCE.OPENAIP,
+          paint: { 'raster-opacity': 0.72 }
+        },
+        MAP_LAYER.OBS_FILL
+      );
+      return;
+    }
+
+    if (result.geojson) {
+      map.addSource(MAP_SOURCE.AIRSPACE, {
+        type: 'geojson',
+        data: result.geojson
+      });
+      map.addLayer(
+        {
+          id: MAP_LAYER.AIRSPACE_FILL,
+          type: 'fill',
+          source: MAP_SOURCE.AIRSPACE,
+          paint: {
+            'fill-color': ['coalesce', ['get', 'fill'], '#f0abfc'],
+            'fill-opacity': [
+              'min',
+              ['*', ['coalesce', ['get', 'fill-opacity'], 0.45], 0.55],
+              0.45
+            ]
+          }
+        },
+        MAP_LAYER.OBS_FILL
+      );
+      map.addLayer(
+        {
+          id: MAP_LAYER.AIRSPACE_LINE,
+          type: 'line',
+          source: MAP_SOURCE.AIRSPACE,
+          paint: {
+            'line-color': ['coalesce', ['get', 'stroke'], '#c026d3'],
+            'line-width': ['coalesce', ['get', 'stroke-width'], 1.5],
+            'line-opacity': ['coalesce', ['get', 'stroke-opacity'], 0.85]
+          }
+        },
+        MAP_LAYER.OBS_FILL
+      );
+    }
+  }
+
+  private removeAirspaceFromMap(): void {
+    const map = this.map;
+    if (!map) return;
+    this.airspacePopup?.remove();
+    this.airspacePopup = null;
+
+    for (const layerId of [
+      MAP_LAYER.AIRSPACE_FILL,
+      MAP_LAYER.AIRSPACE_LINE,
+      MAP_LAYER.OPENAIP_RASTER
+    ]) {
+      if (map.getLayer(layerId)) {
+        map.removeLayer(layerId);
+      }
+    }
+    for (const sourceId of [MAP_SOURCE.AIRSPACE, MAP_SOURCE.OPENAIP]) {
+      if (map.getSource(sourceId)) {
+        map.removeSource(sourceId);
+      }
     }
   }
 
   centerOnTask(): void {
-    const map = this.getMap();
+    const map = this.map;
     if (!map) return;
 
     const legs = this.circuitLegs();
@@ -609,7 +778,10 @@ export class MapViewComponent implements OnInit {
     }
 
     if (bounds) {
-      map.fitBounds(bounds, { padding: [48, 48], maxZoom: 14 });
+      map.fitBounds(southWestNorthEastToLngLatBounds(bounds), {
+        padding: 48,
+        maxZoom: 14
+      });
       return;
     }
 
@@ -617,32 +789,50 @@ export class MapViewComponent implements OnInit {
       .map(l => wpById.get(l.waypointId))
       .filter((wp): wp is Waypoint => wp !== undefined);
     if (points.length === 1) {
-      map.setView([points[0].latitude, points[0].longitude], 11);
+      map.flyTo({ center: [points[0].longitude, points[0].latitude], zoom: 11 });
     }
   }
 
   centerOnWaypoint(waypointId: string): void {
-    const map = this.getMap();
+    const map = this.map;
     const wp = this.waypointService.getWaypoint(waypointId);
     if (!map || !wp) return;
-    map.flyTo([wp.latitude, wp.longitude], Math.max(map.getZoom(), 12), { duration: 0.4 });
+    map.flyTo({
+      center: [wp.longitude, wp.latitude],
+      zoom: Math.max(map.getZoom(), 12),
+      duration: 400
+    });
   }
 
   centerOnAll(): void {
-    const map = this.getMap();
+    const map = this.map;
     if (!map) return;
 
     const wps = this.waypoints();
     if (wps.length === 0) return;
 
     if (wps.length === 1) {
-      map.setView([wps[0].latitude, wps[0].longitude], 11);
-    } else {
-      map.fitBounds(
-        wps.map(wp => [wp.latitude, wp.longitude]),
-        { padding: [40, 40], maxZoom: 10 }
-      );
+      map.flyTo({ center: [wps[0].longitude, wps[0].latitude], zoom: 11 });
+      return;
     }
+
+    let south = 90;
+    let west = 180;
+    let north = -90;
+    let east = -180;
+    for (const wp of wps) {
+      south = Math.min(south, wp.latitude);
+      north = Math.max(north, wp.latitude);
+      west = Math.min(west, wp.longitude);
+      east = Math.max(east, wp.longitude);
+    }
+    map.fitBounds(
+      [
+        [west, south],
+        [east, north]
+      ],
+      { padding: 40, maxZoom: 10 }
+    );
   }
 
   async clearSelection(): Promise<void> {
@@ -656,42 +846,6 @@ export class MapViewComponent implements OnInit {
     }
   }
 
-  private openWaypointContextMenu(wp: Waypoint): void {
-    if (!this.map) return;
-
-    const html = buildWaypointContextPopupHtml({
-      waypoint: wp,
-      circuitLegs: this.taskState.circuitLegs(),
-      typeLabel: waypointTypeDisplayI18n(wp.type, this.i18n).description,
-      canSetDeparture: this.taskState.canSetDeparture(wp.id),
-      canSetArrival: this.taskState.canSetArrival(wp.id),
-      labels: mapPopupLabels(this.i18n),
-      roleLabel: role => circuitRoleShortLabelI18n(role, this.i18n)
-    });
-
-    const popupInstance = popup({
-      closeOnClick: true,
-      className: 'gc-wp-context-leaflet'
-    })
-      .setLatLng([wp.latitude, wp.longitude])
-      .setContent(html)
-      .openOn(this.map);
-
-    const container = popupInstance.getElement();
-    const menu = container?.querySelector('.gc-wp-ctx');
-    if (!menu) return;
-
-    menu.addEventListener('click', event => {
-      const target = (event.target as HTMLElement).closest<HTMLElement>('[data-action]');
-      if (!target) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const action = target.getAttribute('data-action') as WaypointMapAction | null;
-      if (!action) return;
-      void this.handleWaypointAction(action, wp);
-    });
-  }
-
   private async handleWaypointAction(action: WaypointMapAction, wp: Waypoint): Promise<void> {
     if (action === 'delete-waypoint') {
       const ok = await this.uiFeedback.confirm({
@@ -700,7 +854,7 @@ export class MapViewComponent implements OnInit {
         acceptLabel: this.i18n.t('common.delete'),
         acceptButtonStyleClass: 'p-button-danger'
       });
-      this.map?.closePopup();
+      this.closeContextMenu();
       if (!ok) return;
       this.taskState.removeAllOccurrences(wp.id);
       this.waypointService.deleteWaypoint(wp.id);
@@ -708,7 +862,7 @@ export class MapViewComponent implements OnInit {
       return;
     }
     const message = this.runWaypointAction(action, wp);
-    this.map?.closePopup();
+    this.closeContextMenu();
     if (message) this.actionMessage.emit(message);
   }
 
@@ -737,8 +891,11 @@ export class MapViewComponent implements OnInit {
         this.taskState.removeAllOccurrences(wp.id);
         return this.i18n.t('mapActions.removeAll', { name: wp.name });
       case 'center': {
-        const map = this.getMap();
-        map?.setView([wp.latitude, wp.longitude], Math.max(map.getZoom(), 11));
+        const map = this.map;
+        map?.flyTo({
+          center: [wp.longitude, wp.latitude],
+          zoom: Math.max(map.getZoom(), 11)
+        });
         return null;
       }
       case 'delete-waypoint':
@@ -749,10 +906,13 @@ export class MapViewComponent implements OnInit {
   }
 
   invalidateSize(): void {
-    this.leaflet?.getMap()?.invalidateSize();
+    this.map?.resize();
   }
 
-  private getMap(): LeafletMap | null {
-    return this.map ?? this.leaflet?.getMap() ?? null;
+  waypointTypeLabel(wp: Waypoint): string {
+    return waypointTypeDisplayI18n(wp.type, this.i18n).description;
   }
+
+  readonly circuitRoleLabel = (role: Parameters<typeof circuitRoleShortLabelI18n>[0]) =>
+    circuitRoleShortLabelI18n(role, this.i18n);
 }

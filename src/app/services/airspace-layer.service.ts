@@ -1,6 +1,5 @@
 import { Injectable, inject } from '@angular/core';
 import { TranslateService } from '../i18n/translate.service';
-import { geoJSON, GeoJSON, Layer, PathOptions, TileLayer, tileLayer } from 'leaflet';
 import type { Feature, FeatureCollection, Geometry } from 'geojson';
 
 import {
@@ -15,9 +14,12 @@ import {
 export type AirspaceSource = 'openaip' | 'poaff' | 'none';
 
 export interface AirspaceLoadResult {
-  layer: Layer;
   source: AirspaceSource;
   label: string;
+  /** Tuiles raster OpenAIP (TMS). */
+  rasterTileUrl?: string;
+  /** GeoJSON POAFF pour sources MapLibre. */
+  geojson?: FeatureCollection;
 }
 
 export type AirspaceLoadFailure =
@@ -26,7 +28,7 @@ export type AirspaceLoadFailure =
   | 'parse'
   | 'unknown';
 
-interface PoaffProperties {
+export interface PoaffProperties {
   id?: string;
   nameV?: string;
   class?: string;
@@ -39,6 +41,14 @@ interface PoaffProperties {
   fill?: string;
   'stroke-opacity'?: number;
   'fill-opacity'?: number;
+}
+
+export interface PoaffPaintProps {
+  stroke: string;
+  strokeWidth: number;
+  strokeOpacity: number;
+  fill: string;
+  fillOpacity: number;
 }
 
 @Injectable({
@@ -82,9 +92,9 @@ export class AirspaceLayerService {
 
     if (this.openAipApiKey) {
       return {
-        layer: this.createOpenAipTileLayer(this.openAipApiKey),
         source: 'openaip',
-        label: 'OpenAIP'
+        label: 'OpenAIP',
+        rasterTileUrl: `${OPENAIP_TILE_URL}?apiKey=${encodeURIComponent(this.openAipApiKey)}`
       };
     }
 
@@ -92,12 +102,12 @@ export class AirspaceLayerService {
     if (!region) return null;
 
     const loaded = await this.loadPoaffGeoJson(region);
-    if (!loaded.layer) return null;
+    if (!loaded.geojson) return null;
 
     return {
-      layer: loaded.layer,
       source: 'poaff',
-      label: `POAFF — ${region.label}`
+      label: `POAFF — ${region.label}`,
+      geojson: loaded.geojson
     };
   }
 
@@ -114,33 +124,58 @@ export class AirspaceLayerService {
     if (!region) return { result: null, failure: 'unknown' };
 
     const loaded = await this.loadPoaffGeoJson(region);
-    if (loaded.layer) {
+    if (loaded.geojson) {
       return {
         result: {
-          layer: loaded.layer,
           source: 'poaff',
-          label: `POAFF — ${region.label}`
+          label: `POAFF — ${region.label}`,
+          geojson: loaded.geojson
         }
       };
     }
     return { result: null, failure: loaded.failure ?? 'unknown' };
   }
 
-  private createOpenAipTileLayer(apiKey: string): TileLayer {
-    return tileLayer(`${OPENAIP_TILE_URL}?apiKey=${encodeURIComponent(apiKey)}`, {
-      pane: 'airspace',
-      tms: true,
-      opacity: 0.72,
-      maxNativeZoom: 14,
-      maxZoom: 19,
-      attribution:
-        this.i18n.t('map.attribution')
-    });
+  poaffPaint(feature: Feature<Geometry, PoaffProperties>): PoaffPaintProps {
+    const p = feature.properties ?? {};
+    return {
+      stroke: p.stroke ?? '#c026d3',
+      strokeWidth: p['stroke-width'] ?? 1.5,
+      strokeOpacity: p['stroke-opacity'] ?? 0.85,
+      fill: p.fill ?? '#f0abfc',
+      fillOpacity: Math.min((p['fill-opacity'] ?? 0.45) * 0.55, 0.45)
+    };
+  }
+
+  buildPoaffPopupHtml(feature: Feature<Geometry, PoaffProperties>): string {
+    const p = feature.properties ?? {};
+    const name = p.nameV ?? p.id ?? 'Zone';
+    const vertical = [p.lower, p.upper].filter(Boolean).join(' → ');
+    return (
+      `<div class="gc-airspace-popup"><strong>${this.escapeHtml(name)}</strong>` +
+      (p.class ? `<p>Type : ${this.escapeHtml(p.class)}</p>` : '') +
+      (vertical ? `<p>${this.escapeHtml(vertical)}</p>` : '') +
+      (p.desc ? `<p class="gc-airspace-popup__desc">${this.escapeHtml(p.desc)}</p>` : '') +
+      `</div>`
+    );
+  }
+
+  poaffFailureMessage(failure: AirspaceLoadFailure | undefined): string {
+    switch (failure) {
+      case 'not_found':
+        return this.i18n.t('map.failNotFound');
+      case 'network':
+        return this.i18n.t('map.failNetwork');
+      case 'parse':
+        return this.i18n.t('map.failParse');
+      default:
+        return this.i18n.t('map.failGeneric');
+    }
   }
 
   private async loadPoaffGeoJson(
     region: PoaffRegion
-  ): Promise<{ layer: GeoJSON | null; failure?: AirspaceLoadFailure }> {
+  ): Promise<{ geojson: FeatureCollection | null; failure?: AirspaceLoadFailure }> {
     const urls = [poaffRegionAssetUrl(region), poaffRegionProxyUrl(region)];
     let lastFailure: AirspaceLoadFailure = 'not_found';
 
@@ -160,61 +195,13 @@ export class AirspaceLayerService {
           lastFailure = 'parse';
           continue;
         }
-        return {
-          layer: geoJSON(data, {
-            pane: 'airspace',
-            style: feature =>
-              feature ? this.poaffStyle(feature as Feature<Geometry, PoaffProperties>) : {},
-            onEachFeature: (feature, layer) =>
-              this.bindPoaffPopup(feature as Feature<Geometry, PoaffProperties>, layer)
-          })
-        };
+        return { geojson: data };
       } catch {
         lastFailure = 'network';
       }
     }
 
-    return { layer: null, failure: lastFailure };
-  }
-
-  poaffFailureMessage(failure: AirspaceLoadFailure | undefined): string {
-    switch (failure) {
-      case 'not_found':
-        return this.i18n.t('map.failNotFound');
-      case 'network':
-        return this.i18n.t('map.failNetwork');
-      case 'parse':
-        return this.i18n.t('map.failParse');
-      default:
-        return this.i18n.t('map.failGeneric');
-    }
-  }
-
-  private poaffStyle(feature: Feature<Geometry, PoaffProperties>): PathOptions {
-    const p = feature.properties ?? {};
-    return {
-      color: p.stroke ?? '#c026d3',
-      weight: p['stroke-width'] ?? 1.5,
-      opacity: p['stroke-opacity'] ?? 0.85,
-      fillColor: p.fill ?? '#f0abfc',
-      fillOpacity: Math.min((p['fill-opacity'] ?? 0.45) * 0.55, 0.45)
-    };
-  }
-
-  private bindPoaffPopup(
-    feature: Feature<Geometry, PoaffProperties>,
-    layer: Layer
-  ): void {
-    const p = feature.properties ?? {};
-    const name = p.nameV ?? p.id ?? 'Zone';
-    const vertical = [p.lower, p.upper].filter(Boolean).join(' → ');
-    layer.bindPopup(
-      `<div class="gc-airspace-popup"><strong>${this.escapeHtml(name)}</strong>` +
-        (p.class ? `<p>Type : ${this.escapeHtml(p.class)}</p>` : '') +
-        (vertical ? `<p>${this.escapeHtml(vertical)}</p>` : '') +
-        (p.desc ? `<p class="gc-airspace-popup__desc">${this.escapeHtml(p.desc)}</p>` : '') +
-        `</div>`
-    );
+    return { geojson: null, failure: lastFailure };
   }
 
   private escapeHtml(text: string): string {

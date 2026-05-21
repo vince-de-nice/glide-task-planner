@@ -219,8 +219,8 @@
   white-space: nowrap;
 }
 
-/* ngx-leaflet applique .leaflet-container sur cet élément */
 .map-container {
+  position: relative;
   flex: 1 1 auto;
   min-height: 220px;
   width: 100%;
@@ -229,6 +229,24 @@
   border: 1px solid var(--gc-border-strong);
   overflow: hidden;
   background: #1e293b;
+
+  mgl-map {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.gc-map-ctx-anchor {
+  position: absolute;
+  z-index: 5;
+  transform: translate(8px, -8px);
+  max-width: min(280px, calc(100% - 16px));
+  pointer-events: auto;
+  background: var(--gc-surface);
+  border: 1px solid var(--gc-border);
+  border-radius: var(--gc-radius-sm);
+  box-shadow: 0 4px 16px rgb(15 23 42 / 0.18);
 }
 
 .map-hint {
@@ -237,70 +255,6 @@
   color: var(--gc-text-muted);
   margin: 0.4rem 0 0;
   line-height: 1.35;
-}
-
-:host ::ng-deep .gc-map-marker-icon {
-  background: transparent !important;
-  border: none !important;
-  cursor: pointer;
-}
-
-:host ::ng-deep .gc-map-label {
-  display: flex;
-  align-items: center;
-  box-sizing: border-box;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  cursor: pointer;
-}
-
-:host ::ng-deep .gc-map-label__dot {
-  flex-shrink: 0;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--map-accent, #ea580c);
-}
-
-:host ::ng-deep .gc-map-label__text {
-  display: none;
-  flex: 1 1 auto;
-  min-width: 0;
-  margin-left: 2px;
-  white-space: nowrap;
-  font-family: var(--gc-font);
-  font-size: 0.65rem;
-  font-weight: 500;
-  line-height: 1.1;
-  color: #fff;
-  text-shadow:
-    -0.5px -0.5px 0 #000,
-    0.5px -0.5px 0 #000,
-    -0.5px 0.5px 0 #000,
-    0.5px 0.5px 0 #000,
-    0 -0.5px 0 #000,
-    0 0.5px 0 #000,
-    -0.5px 0 0 #000,
-    0.5px 0 0 #000;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-}
-
-:host ::ng-deep .leaflet-container.gc-map-labels-visible .gc-map-label__text {
-  display: block;
-}
-
-:host ::ng-deep .gc-wp-context-leaflet .leaflet-popup-content-wrapper {
-  border-radius: var(--gc-radius-sm);
-  padding: 0;
-}
-
-:host ::ng-deep .gc-wp-context-leaflet .leaflet-popup-content {
-  margin: 0;
-  min-width: 220px;
 }
 
 :host ::ng-deep .gc-wp-ctx {

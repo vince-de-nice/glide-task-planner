@@ -31,18 +31,18 @@
               }
             ],
             "styles": [
-              "node_modules/leaflet/dist/leaflet.css",
+              "node_modules/maplibre-gl/dist/maplibre-gl.css",
               "src/styles.scss"
             ],
-            "allowedCommonJsDependencies": ["leaflet", "jszip"]
+            "allowedCommonJsDependencies": ["jszip", "maplibre-gl"]
           },
           "configurations": {
             "production": {
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "900kB",
-                  "maximumError": "1.6MB"
+                  "maximumWarning": "1.5MB",
+                  "maximumError": "2.6MB"
                 },
                 {
                   "type": "anyComponentStyle",
