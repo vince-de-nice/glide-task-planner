@@ -21,6 +21,10 @@ export class ObsZoneCupDiagramComponent {
   /** Axe du secteur (° vrai) — même logique que la carte / l’aperçu. */
   referenceBearingDeg = input(0);
   legRole = input<CircuitLegRole | null>(null);
+  /** Tuile compacte : masque la légende des paramètres. */
+  compact = input(false);
+
+  readonly arrowMarkerId = `cup-arrow-${Math.random().toString(36).slice(2, 9)}`;
 
   readonly viewBox = OBS_ZONE_CUP_DIAGRAM_VIEWBOX;
   readonly center = OBS_ZONE_CUP_CENTER;

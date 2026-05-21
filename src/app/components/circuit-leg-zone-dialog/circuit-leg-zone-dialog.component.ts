@@ -3,10 +3,14 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Dialog } from 'primeng/dialog';
 import { Button } from 'primeng/button';
-import { Select } from 'primeng/select';
 import { InputNumber } from 'primeng/inputnumber';
 import { Checkbox } from 'primeng/checkbox';
 import { ObsZoneCupDiagramComponent } from '../obs-zone-cup-diagram/obs-zone-cup-diagram.component';
+import { ObsZonePresetPickerComponent } from '../obs-zone-preset-picker/obs-zone-preset-picker.component';
+import {
+  CupStyleValue,
+  ObsZoneCupStylePickerComponent
+} from '../obs-zone-cup-style-picker/obs-zone-cup-style-picker.component';
 import { CircuitLeg } from '../../models/circuit.model';
 import { Waypoint } from '../../models/waypoint.model';
 import {
@@ -22,7 +26,7 @@ import {
 import { formatElevationDisplay, resolveLegElevationM } from '../../utils/elevation.util';
 import { TaskStateService } from '../../services/task-state.service';
 import { WaypointService } from '../../services/waypoint.service';
-import { cupZoneReferenceBearingDeg } from '../../utils/obs-zone-map.util';
+import { cupZoneReferenceBearingDeg, ObsZoneLegContext } from '../../utils/obs-zone-map.util';
 import { TranslateService } from '../../i18n/translate.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import {
@@ -46,8 +50,6 @@ const CUP_PARAM_I18N_KEYS: Record<CupZoneParamKey, string> = {
   line: 'zoneCup.paramLine'
 };
 
-const CUP_STYLES = [0, 1, 2, 3, 4] as const;
-
 @Component({
   selector: 'app-circuit-leg-zone-dialog',
   standalone: true,
@@ -56,10 +58,11 @@ const CUP_STYLES = [0, 1, 2, 3, 4] as const;
     FormsModule,
     Dialog,
     Button,
-    Select,
     InputNumber,
     Checkbox,
     ObsZoneCupDiagramComponent,
+    ObsZonePresetPickerComponent,
+    ObsZoneCupStylePickerComponent,
     TranslatePipe
   ],
   templateUrl: './circuit-leg-zone-dialog.component.html',
@@ -106,14 +109,6 @@ export class CircuitLegZoneDialogComponent {
     }).map(p => ({
       id: p.id,
       label: obsZonePresetLabelI18n(p.id, this.i18n)
-    }));
-  });
-
-  readonly cupStyleOptions = computed(() => {
-    this.i18n.locale();
-    return CUP_STYLES.map(value => ({
-      value,
-      label: this.i18n.t(`zoneCup.style${value}`)
     }));
   });
 
@@ -176,11 +171,11 @@ export class CircuitLegZoneDialogComponent {
     );
   });
 
-  readonly cupDiagramRefBearing = computed(() => {
+  /** Waypoints du circuit + rayon règlement — pour les aperçus de la grille (pas le formulaire). */
+  readonly obsZoneLegContext = computed((): ObsZoneLegContext | null => {
     const leg = this.leg();
     const wp = this.waypoint();
-    const zone = this.normalizedZoneFromForm();
-    if (!leg || !wp || !zone) return 0;
+    if (!leg || !wp) return null;
 
     const legs = this.taskState.circuitLegs();
     const i = this.legIndex();
@@ -189,9 +184,9 @@ export class CircuitLegZoneDialogComponent {
       ? (this.waypointService.getWaypoint(depLeg.waypointId) ?? null)
       : null;
 
-    return cupZoneReferenceBearingDeg(zone, {
+    return {
       legIndex: i,
-      leg: { ...leg, obsZone: zone },
+      leg,
       waypoint: wp,
       prev: i > 0 ? (this.waypointService.getWaypoint(legs[i - 1]?.waypointId) ?? null) : null,
       next:
@@ -200,6 +195,17 @@ export class CircuitLegZoneDialogComponent {
           : null,
       departure: departureWp,
       defaultRadiusM: this.defaultRadiusM()
+    };
+  });
+
+  /** Cap pour le grand schéma (zone en cours d’édition dans le formulaire). */
+  readonly cupDiagramRefBearing = computed(() => {
+    const ctx = this.obsZoneLegContext();
+    const zone = this.normalizedZoneFromForm();
+    if (!ctx || !zone) return 0;
+    return cupZoneReferenceBearingDeg(zone, {
+      ...ctx,
+      leg: { ...ctx.leg, obsZone: zone }
     });
   });
 
@@ -256,6 +262,10 @@ export class CircuitLegZoneDialogComponent {
     this.presetId.set('custom');
   }
 
+  onCupStylePick(value: CupStyleValue): void {
+    this.onCupStyleChange(value);
+  }
+
   onCupStyleChange(value: 0 | 1 | 2 | 3 | 4): void {
     this.cupStyle.set(value);
     if (value !== 0) {
@@ -283,20 +293,8 @@ export class CircuitLegZoneDialogComponent {
     this.presetId.set('custom');
   }
 
-  onPresetChange(value: unknown): void {
-    const id = this.resolvePresetId(value);
-    if (!id) return;
+  onPresetPick(id: ObsZonePresetId): void {
     this.applyPreset(id);
-  }
-
-  private resolvePresetId(value: unknown): ObsZonePresetId | null {
-    if (value == null) return null;
-    if (typeof value === 'string') return value as ObsZonePresetId;
-    if (typeof value === 'object' && value !== null && 'id' in value) {
-      const id = (value as { id: unknown }).id;
-      return typeof id === 'string' ? (id as ObsZonePresetId) : null;
-    }
-    return null;
   }
 
   private applyPreset(id: ObsZonePresetId): void {

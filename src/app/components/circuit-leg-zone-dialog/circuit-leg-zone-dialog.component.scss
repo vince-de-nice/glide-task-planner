@@ -99,10 +99,34 @@
   }
 }
 
+.leg-zone-dialog__selected-preset {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.5rem;
+  margin: 0 0 0.35rem;
+  font-size: 0.8125rem;
+}
+
+.leg-zone-dialog__selected-preset-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--gc-text-muted);
+}
+
+.leg-zone-dialog__selected-preset-value {
+  font-weight: 700;
+  color: var(--gc-primary);
+}
+
 .leg-zone-dialog__hint {
   font-size: 0.6875rem;
   color: var(--gc-text-muted);
   line-height: 1.35;
+
+  &--preset {
+    margin: 0 0 0.55rem;
+  }
 }
 
 .leg-zone-dialog__field-hint {

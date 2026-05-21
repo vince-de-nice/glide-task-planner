@@ -13,6 +13,12 @@
   background: #fff;
 }
 
+.cup-diagram--compact .cup-diagram__svg {
+  min-height: 0;
+  max-height: none;
+  aspect-ratio: 32 / 22;
+}
+
 .cup-diagram__shape {
   vector-effect: non-scaling-stroke;
 }

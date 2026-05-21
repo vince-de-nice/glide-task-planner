@@ -537,8 +537,15 @@ export const fr = {
     diagramAria: 'Schéma des paramètres CUP',
     diagramTitle: 'Schéma des paramètres CUP',
     diagramLead: 'Vue de dessus (nord en haut). Paramètres utiles pour la configuration actuelle.',
+    presetPickerAria: 'Types de zone d’observation',
+    presetPickerTitle: 'Choisir un type de zone',
+    presetPickerLead:
+      'Aperçus selon le règlement (rayons) et l’orientation des waypoints du circuit — pas les valeurs saisies ci-dessous.',
     zoneType: 'Type de zone',
     cupStyle: 'Style CUP',
+    cupStylePickerAria: 'Styles CUP d’orientation',
+    cupStylePickerLead:
+      'Même zone que ci-dessous ; la flèche indique l’orientation selon les waypoints du circuit.',
     lineCup: 'Ligne (CUP Line=1)',
     a1LineHint: 'Ouverture de la ligne (souvent 180°).',
     a1SectorHint: 'Largeur du secteur (°) autour de l’axe d’orientation.',

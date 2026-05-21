@@ -15,40 +15,39 @@
       {{ 'zoneCup.pointMeta' | translate: { index: legIndex() + 1, role: roleLabel() } }}
     </p>
 
+    @if (zoneFormMounted()) {
+      <app-obs-zone-preset-picker
+        [options]="presetOptions()"
+        [selectedId]="presetId()"
+        [defaultRadiusM]="defaultRadiusM()"
+        [legContext]="obsZoneLegContext()"
+        (presetPick)="onPresetPick($event)"
+      />
+    }
+
     <div class="leg-zone-dialog__cup-layout">
       <div class="leg-zone-dialog__cup-fields">
-        <div class="leg-zone-dialog__field">
-          <label for="zone-preset">{{ 'zoneCup.zoneType' | translate }}</label>
-          <p-select
-            inputId="zone-preset"
-            [options]="presetOptions()"
-            optionLabel="label"
-            optionValue="id"
-            [ngModel]="presetId()"
-            (ngModelChange)="onPresetChange($event)"
-            fluid
-            size="small"
-          />
-          @if (presetHint()) {
-            <span class="leg-zone-dialog__hint">{{ presetHint() }}</span>
-          }
-        </div>
+        @if (presetHint()) {
+          <p class="leg-zone-dialog__selected-preset">
+            <span class="leg-zone-dialog__selected-preset-label">{{ 'zoneCup.zoneType' | translate }}</span>
+            <span class="leg-zone-dialog__selected-preset-value">
+              {{ presetOptions().find(o => o.id === presetId())?.label }}
+            </span>
+          </p>
+          <p class="leg-zone-dialog__hint leg-zone-dialog__hint--preset">{{ presetHint() }}</p>
+        }
 
         @if (zoneFormMounted()) {
           <div class="leg-zone-dialog__fields-col">
-            <div class="leg-zone-dialog__field">
-              <label for="zone-style">{{ 'zoneCup.cupStyle' | translate }}</label>
-              <p-select
-                inputId="zone-style"
-                [options]="cupStyleOptions()"
-                optionLabel="label"
-                optionValue="value"
-                [ngModel]="cupStyle()"
-                (ngModelChange)="onCupStyleChange($event)"
-                fluid
-                size="small"
+            @if (normalizedZoneFromForm(); as baseZone) {
+              <app-obs-zone-cup-style-picker
+                [baseZone]="baseZone"
+                [selectedStyle]="cupStyle()"
+                [defaultRadiusM]="defaultRadiusM()"
+                [legContext]="obsZoneLegContext()"
+                (stylePick)="onCupStylePick($event)"
               />
-            </div>
+            }
             <div class="leg-zone-dialog__field">
               <label for="zone-r1">{{ 'zoneCup.paramR1' | translate }} (m)</label>
               <p-inputNumber

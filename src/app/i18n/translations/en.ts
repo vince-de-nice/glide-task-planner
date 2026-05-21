@@ -537,8 +537,15 @@ export const en = {
     diagramAria: 'CUP parameters diagram',
     diagramTitle: 'CUP parameters diagram',
     diagramLead: 'Top-down view (north up). Parameters relevant to the current setup.',
+    presetPickerAria: 'Observation zone types',
+    presetPickerTitle: 'Choose a zone type',
+    presetPickerLead:
+      'Previews use current rules (radii) and circuit waypoint geometry — not the fields below.',
     zoneType: 'Zone type',
     cupStyle: 'CUP style',
+    cupStylePickerAria: 'CUP orientation styles',
+    cupStylePickerLead:
+      'Same zone as below; the arrow shows orientation from circuit waypoints.',
     lineCup: 'Line (CUP Line=1)',
     a1LineHint: 'Line opening angle (often 180°).',
     a1SectorHint: 'Sector width (°) around the orientation axis.',

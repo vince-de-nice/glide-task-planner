@@ -1,0 +1,27 @@
+<section class="zone-preset-picker" [attr.aria-label]="'zoneCup.presetPickerAria' | translate">
+  <h3 class="zone-preset-picker__title">{{ 'zoneCup.presetPickerTitle' | translate }}</h3>
+  <p class="zone-preset-picker__lead">{{ 'zoneCup.presetPickerLead' | translate }}</p>
+
+  <div class="zone-preset-picker__grid" role="listbox">
+    @for (tile of tiles(); track tile.id) {
+      <button
+        type="button"
+        class="zone-preset-picker__tile"
+        role="option"
+        [class.zone-preset-picker__tile--active]="tile.selected"
+        [attr.aria-selected]="tile.selected"
+        (click)="onPick(tile.id)"
+      >
+        <span class="zone-preset-picker__preview">
+          <app-obs-zone-cup-diagram
+            [zone]="tile.zone"
+            [referenceBearingDeg]="tile.referenceBearingDeg"
+            [legRole]="legContext()?.leg?.role ?? null"
+            [compact]="true"
+          />
+        </span>
+        <span class="zone-preset-picker__label">{{ tile.label }}</span>
+      </button>
+    }
+  </div>
+</section>
