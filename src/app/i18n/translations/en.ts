@@ -7,7 +7,10 @@ export const en = {
     nav: {
       circuit: 'Task',
       waypoints: 'Waypoints',
-      mainAria: 'Main navigation'
+      dataSources: 'Data sources',
+      mainAria: 'Main navigation',
+      menuTitle: 'Menu',
+      openMenu: 'Open menu'
     },
     lang: {
       switch: 'Language',
@@ -154,8 +157,38 @@ export const en = {
     panelsAria: 'Panels',
     circuitPanelAria: 'Task and export'
   },
+  dataSources: {
+    title: 'Data sources',
+    intro:
+      'Load and manage the CUP database used by the task map, circuit, and export. Known sources and your recent URLs are listed below.',
+    statusAria: 'Database status',
+    statusTitle: 'Active database',
+    loadedAt: 'Loaded on {{date}}',
+    knownAria: 'Configured sources',
+    knownTitle: 'Configured sources',
+    knownHint: 'CUP files declared in public/config/cup-sources.json.',
+    noKnown: 'No sources in configuration.',
+    recentsAria: 'Recent URLs',
+    recentsTitle: 'Recent loads',
+    recentLabel: 'Recent URL',
+    noRecents: 'No recent URLs.',
+    removeRecent: 'Remove from recents',
+    clearRecents: 'Clear recents',
+    clearRecentsHeader: 'Clear recent URLs',
+    clearRecentsMessage: 'Remove the list of recently loaded URLs?',
+    clearDb: 'Clear database',
+    clearDbHeader: 'Clear CUP database',
+    clearDbMessage: 'Delete all waypoints and reset the task? This cannot be undone.',
+    clearDbAccept: 'Clear',
+    cleared: 'Database cleared.',
+    goCircuit: 'Edit task',
+    goWaypoints: 'Manage waypoints'
+  },
   cup: {
     panelAria: 'Waypoint database',
+    changeSource: 'Change database',
+    shortcutAria: 'Active CUP database',
+    shortcutPoints: '· {{count}} pts',
     changeBase: 'Change database',
     actionsAria: 'Database actions',
     sourcePlaceholder: 'Known source…',
@@ -249,10 +282,9 @@ export const en = {
     helpTitle: 'Map help',
     helpTooltip:
       'Task zones: cylinders/sectors/lines in real meters · POAFF/OpenAIP airspace · task always visible (leg numbers) · catalog: clusters below zoom 10 · names when a point is no longer clustered · double-click: waypoint · click: menu',
-    legendLabelsUnclustered: 'Names (unclustered)',
     legendAria: 'Map legend',
-    legendTask: 'Task (leg number)',
-    legendCatalog: 'CUP catalog',
+    legendTask: 'Task',
+    legendCatalog: 'Catalog',
     legendCluster: 'Catalog clusters (zoom < 10)',
     clearTaskHeader: 'Clear task',
     clearTaskMessage: 'Remove all waypoints from the task shown on the map?',

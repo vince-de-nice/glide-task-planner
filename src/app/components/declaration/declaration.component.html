@@ -1,22 +1,8 @@
 <div class="declaration">
-  <app-cup-toolbar (databaseLoaded)="onCupDatabaseLoaded()" />
-
-  <nav class="decl-workspace-tabs" [attr.aria-label]="'circuit.panelsAria' | translate">
-    <p-selectButton
-      class="decl-workspace-tabs__select"
-      [options]="workspaceTabOptionsUi()"
-      optionLabel="label"
-      optionValue="value"
-      [ngModel]="workspaceTab()"
-      (ngModelChange)="setWorkspaceTab($event)"
-      [allowEmpty]="false"
-      size="small"
-    />
-  </nav>
+  <app-cup-source-shortcut />
 
   <div
     class="decl-workspace"
-    [class.decl-workspace--tab-map]="workspaceTab() === 'map'"
     [class.decl-workspace--tab-circuit]="workspaceTab() === 'circuit'"
     [class.decl-workspace--tab-export]="workspaceTab() === 'export'"
   >
@@ -24,20 +10,22 @@
 
     <section
       class="decl-panel decl-panel--side gc-card"
-      [class.decl-panel--summary]="workspaceTab() === 'map'"
       [class.decl-panel--circuit]="workspaceTab() === 'circuit'"
       [class.decl-panel--export]="workspaceTab() === 'export'"
       [attr.aria-label]="sidePanelAria()"
     >
-      @if (workspaceTab() === 'map') {
-        <app-circuit-map-summary
-          [distanceResult]="distanceResult()"
-          [pointCount]="selectedWaypointIds().length"
-          [items]="circuitListItems()"
-          (itemClick)="onCircuitItemClick($event)"
-          (editCircuit)="setWorkspaceTab('circuit')"
+      <nav class="decl-side-tabs" [attr.aria-label]="'circuit.panelsAria' | translate">
+        <p-selectButton
+          class="decl-side-tabs__select"
+          [options]="workspaceTabOptionsUi()"
+          optionLabel="label"
+          optionValue="value"
+          [ngModel]="workspaceTab()"
+          (ngModelChange)="setWorkspaceTab($event)"
+          [allowEmpty]="false"
+          size="small"
         />
-      }
+      </nav>
 
       @if (workspaceTab() === 'circuit') {
         <header class="decl-circuit__head">

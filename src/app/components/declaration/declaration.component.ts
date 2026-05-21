@@ -25,9 +25,8 @@ import { TaskRuleEngineService } from '../../services/task-rule-engine.service';
 import { CircuitPointsPanelComponent } from './circuit-points-panel/circuit-points-panel.component';
 import { CircuitExportPanelComponent } from './circuit-export-panel/circuit-export-panel.component';
 import { CircuitMapShellComponent } from './circuit-map-shell/circuit-map-shell.component';
-import { CircuitMapSummaryComponent } from './circuit-map-summary/circuit-map-summary.component';
 import { MapFocusService } from '../../services/map-focus.service';
-import { CupToolbarComponent } from './cup-toolbar/cup-toolbar.component';
+import { CupSourceShortcutComponent } from './cup-source-shortcut/cup-source-shortcut.component';
 import { WaypointPickerDrawerComponent } from './waypoint-picker-drawer/waypoint-picker-drawer.component';
 import { PilotProfileDialogComponent } from './pilot-profile-dialog/pilot-profile-dialog.component';
 import { TaskExportPreviewDialogComponent } from './task-export-preview-dialog/task-export-preview-dialog.component';
@@ -47,7 +46,7 @@ import { CircuitLeg } from '../../models/circuit.model';
 import { TranslateService } from '../../i18n/translate.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 
-type WorkspaceTab = 'map' | 'circuit' | 'export';
+type WorkspaceTab = 'circuit' | 'export';
 type CircuitSection = 'points' | 'regulation';
 
 const WORKSPACE_TAB_STORAGE_KEY = 'gc_workspace_tab';
@@ -60,9 +59,8 @@ const LEGACY_CIRCUIT_TAB_KEY = 'gc_circuit_tab';
   imports: [
     CommonModule,
     FormsModule,
-    CupToolbarComponent,
+    CupSourceShortcutComponent,
     CircuitMapShellComponent,
-    CircuitMapSummaryComponent,
     CircuitPointsPanelComponent,
     CircuitExportPanelComponent,
     WaypointPickerDrawerComponent,
@@ -190,7 +188,6 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     const n = this.selectedWaypointIds().length;
     const blocked = this.exportBlocked();
     return [
-      { label: this.i18n.t('circuit.tabs.map'), value: 'map' as WorkspaceTab },
       {
         label:
           n > 0
@@ -224,10 +221,9 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
 
   sidePanelAria = computed(() => {
     this.i18n.locale();
-    const tab = this.workspaceTab();
-    if (tab === 'map') return this.i18n.t('circuit.mapSummary.title');
-    if (tab === 'export') return this.i18n.t('circuit.sections.export');
-    return this.i18n.t('circuit.circuitPanelAria');
+    return this.workspaceTab() === 'export'
+      ? this.i18n.t('circuit.sections.export')
+      : this.i18n.t('circuit.circuitPanelAria');
   });
 
   canSaveCircuit = computed(() => this.circuitLegs().length >= 2);
@@ -252,10 +248,8 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     }
 
     const storedWorkspace = sessionStorage.getItem(WORKSPACE_TAB_STORAGE_KEY);
-    if (storedWorkspace === 'map' || storedWorkspace === 'circuit' || storedWorkspace === 'export') {
+    if (storedWorkspace === 'circuit' || storedWorkspace === 'export') {
       this.workspaceTab.set(storedWorkspace);
-    } else if (this.selectedWaypointIds().length === 0) {
-      this.workspaceTab.set('map');
     }
 
     const storedSection = sessionStorage.getItem(CIRCUIT_SECTION_STORAGE_KEY);

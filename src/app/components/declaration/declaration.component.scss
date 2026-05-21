@@ -278,26 +278,26 @@
   flex-wrap: wrap;
 }
 
-.decl-workspace-tabs {
+.decl-side-tabs {
   flex-shrink: 0;
-  margin-bottom: 0.35rem;
-
-  &__select {
-    width: 100%;
-  }
+  padding: 0.4rem 0.65rem 0.45rem;
+  border-bottom: 1px solid var(--gc-border);
+  background: #f8fafc;
 }
 
-:host ::ng-deep .decl-workspace-tabs__select .p-selectbutton {
+:host ::ng-deep .decl-side-tabs__select.p-selectbutton {
   display: flex;
   width: 100%;
 
   .p-togglebutton {
     flex: 1 1 0;
+    min-width: 0;
     justify-content: center;
+    font-size: 0.8125rem;
   }
 }
 
-/* Desktop club : carte ~62 % | panneau ~38 % */
+/* Desktop : carte à gauche | Circuit / Export à droite */
 .decl-workspace {
   flex: 1 1 auto;
   min-height: 0;
@@ -322,9 +322,6 @@
     grid-template-columns: minmax(0, 1.62fr) minmax(320px, 1fr);
   }
 
-  .decl-workspace--tab-map {
-    grid-template-columns: minmax(0, 1.75fr) minmax(280px, 1fr);
-  }
 }
 
 .decl-panel {
@@ -1163,32 +1160,24 @@
 
 @media (max-width: 767px) {
   .decl-workspace {
-    display: block;
+    display: flex;
+    flex-direction: column;
     max-height: none;
   }
 
-  .decl-panel {
-    display: none;
-    height: calc(100dvh - var(--gc-header-h) - var(--gc-footer-h) - 8rem);
+  .decl-panel--map {
+    display: flex !important;
+    flex: 0 0 min(46dvh, 400px);
+    min-height: 220px;
+    height: auto;
+  }
+
+  .decl-panel--side {
+    display: flex !important;
+    flex: 1 1 auto;
     min-height: 280px;
-  }
-
-  .decl-workspace--tab-map .decl-panel--map {
-    display: flex;
-  }
-
-  .decl-workspace--tab-circuit .decl-panel--side.decl-panel--circuit {
-    display: flex;
-  }
-
-  .decl-workspace--tab-export .decl-panel--side.decl-panel--export {
-    display: flex;
-  }
-
-  .decl-workspace--tab-map .decl-panel--side,
-  .decl-workspace--tab-circuit .decl-panel--map,
-  .decl-workspace--tab-export .decl-panel--map {
-    display: none;
+    grid-column: unset;
+    height: auto;
   }
 
   .decl-circuit__export-options {

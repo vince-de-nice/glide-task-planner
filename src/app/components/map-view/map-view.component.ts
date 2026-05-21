@@ -164,7 +164,6 @@ export class MapViewComponent implements OnInit {
       task: this.i18n.t('map.legendTask'),
       catalog: this.i18n.t('map.legendCatalog'),
       cluster: this.i18n.t('map.legendCluster'),
-      labels: this.i18n.t('map.legendLabelsUnclustered'),
       types
     };
   });

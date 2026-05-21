@@ -11,6 +11,13 @@ export const routes: Routes = [
         m => m.WaypointManagerComponent
       )
   },
+  {
+    path: 'data-sources',
+    loadComponent: () =>
+      import('./components/data-sources/data-sources.component').then(
+        m => m.DataSourcesComponent
+      )
+  },
   { path: 'planner', redirectTo: 'declaration', pathMatch: 'full' },
   { path: 'map', redirectTo: 'declaration', pathMatch: 'full' },
   { path: '**', redirectTo: 'declaration' }

@@ -5,7 +5,7 @@
   max-height: 100dvh;
   overflow: hidden;
 
-  &--declaration {
+  &--workspace {
     --gc-footer-h: 0px;
 
     .app-footer {
@@ -56,34 +56,62 @@
   }
 }
 
-.main-nav {
+.app-menu-btn {
+  flex-shrink: 0;
+}
+
+.app-nav-list {
   display: flex;
+  flex-direction: column;
   gap: 0.35rem;
-  padding: 0.25rem;
-  background: var(--gc-bg);
-  border-radius: 999px;
-  border: 1px solid var(--gc-border);
+  padding: 0.25rem 0;
+}
 
-  .nav-link {
-    padding: 0.5rem 1rem;
-    text-decoration: none;
-    color: var(--gc-text-secondary);
-    border-radius: 999px;
-    font-weight: 600;
-    font-size: 0.875rem;
-    white-space: nowrap;
-    transition: background 0.15s, color 0.15s;
+.app-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: var(--gc-radius-sm);
+  background: transparent;
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--gc-text);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 
-    &:hover {
-      color: var(--gc-primary);
-      background: var(--gc-surface);
-    }
-
-    &.active {
-      background: var(--gc-primary);
-      color: #fff;
-    }
+  .pi {
+    font-size: 1.1rem;
+    color: var(--gc-primary);
   }
+
+  &:hover {
+    background: var(--gc-bg);
+    border-color: var(--gc-border);
+  }
+
+  &--active {
+    background: var(--gc-primary-soft);
+    border-color: color-mix(in srgb, var(--gc-primary) 35%, var(--gc-border));
+    color: var(--gc-primary);
+  }
+}
+
+.app-nav-item__label {
+  flex: 1 1 auto;
+}
+
+.app-nav-item__badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--gc-text-muted);
 }
 
 .app-main {
@@ -100,7 +128,8 @@
     overflow: hidden;
   }
 
-  > app-waypoint-manager {
+  > app-waypoint-manager,
+  > app-data-sources {
     flex: 1 1 auto;
     min-height: 0;
     overflow-x: hidden;
@@ -133,7 +162,6 @@
 
 @media (max-width: 640px) {
   .header-content {
-    flex-wrap: wrap;
     min-height: auto;
     padding-top: 0.65rem;
     padding-bottom: 0.65rem;
@@ -141,20 +169,12 @@
 
   .logo {
     flex: 1 1 auto;
+    min-width: 0;
 
     .tagline {
-      white-space: normal;
-    }
-  }
-
-  .main-nav {
-    flex: 1 1 100%;
-    justify-content: stretch;
-
-    .nav-link {
-      flex: 1;
-      text-align: center;
-      padding: 0.55rem 0.5rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
   }
 }

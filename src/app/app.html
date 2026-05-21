@@ -1,34 +1,53 @@
 <p-toast position="bottom-center" />
 <p-confirmDialog />
 
-<div class="app-container" [class.app-container--declaration]="hideFooter()">
+<div class="app-container" [class.app-container--workspace]="hideFooter()">
   <header class="app-header">
     <div class="header-content">
+      <p-button
+        class="app-menu-btn"
+        icon="pi pi-bars"
+        [rounded]="true"
+        [text]="true"
+        severity="secondary"
+        (onClick)="openNav()"
+        [attr.aria-label]="'app.nav.openMenu' | translate"
+        [attr.aria-expanded]="navDrawerVisible()"
+        aria-controls="app-nav-drawer"
+      />
       <div class="logo">
         <h1>{{ 'app.title' | translate }}</h1>
-        <p class="tagline">{{ 'app.tagline' | translate }}</p>
+        <p class="tagline">{{ currentPageTitle() }}</p>
       </div>
-      <nav class="main-nav" [attr.aria-label]="'app.nav.mainAria' | translate">
-        <app-language-switcher />
-        <p-button
-          [label]="'app.nav.circuit' | translate"
-          [rounded]="true"
-          size="small"
-          [text]="!isDeclaration()"
-          [severity]="isDeclaration() ? 'primary' : 'secondary'"
-          (onClick)="goDeclaration()"
-        />
-        <p-button
-          [label]="'app.nav.waypoints' | translate"
-          [rounded]="true"
-          size="small"
-          [text]="!isWaypoints()"
-          [severity]="isWaypoints() ? 'primary' : 'secondary'"
-          (onClick)="goWaypoints()"
-        />
-      </nav>
+      <app-language-switcher />
     </div>
   </header>
+
+  <p-drawer
+    id="app-nav-drawer"
+    [visible]="navDrawerVisible()"
+    (visibleChange)="navDrawerVisible.set($event)"
+    [header]="'app.nav.menuTitle' | translate"
+    position="left"
+    styleClass="app-nav-drawer"
+  >
+    <nav class="app-nav-list" [attr.aria-label]="'app.nav.mainAria' | translate">
+      @for (item of navItems(); track item.route) {
+        <button
+          type="button"
+          class="app-nav-item"
+          [class.app-nav-item--active]="isActiveRoute(item.route)"
+          (click)="navigate(item.route)"
+        >
+          <i [class]="item.icon" aria-hidden="true"></i>
+          <span class="app-nav-item__label">{{ item.label }}</span>
+          @if (item.badge; as badge) {
+            <span class="app-nav-item__badge">{{ badge }}</span>
+          }
+        </button>
+      }
+    </nav>
+  </p-drawer>
 
   <main class="app-main">
     <router-outlet />

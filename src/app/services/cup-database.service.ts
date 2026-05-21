@@ -84,6 +84,16 @@ export class CupDatabaseService {
     }
   }
 
+  removeRecentUrl(url: string): void {
+    const normalized = this.normalizeUrl(url);
+    const next = this.getRecentUrls().filter(u => this.normalizeUrl(u) !== normalized);
+    localStorage.setItem(RECENT_URLS_KEY, JSON.stringify(next));
+  }
+
+  clearRecentUrls(): void {
+    localStorage.removeItem(RECENT_URLS_KEY);
+  }
+
   async bootstrapFromQueryParam(router: Router): Promise<void> {
     const tree = router.parseUrl(router.url);
     const cupParam = tree.queryParams['cup'];

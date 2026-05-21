@@ -1,0 +1,162 @@
+:host {
+  display: block;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.data-sources-page {
+  max-width: var(--gc-container);
+  margin: 0 auto;
+  padding: clamp(0.75rem, 2vw, 1.25rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ds-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.ds-page-head__title {
+  margin: 0 0 0.25rem;
+  font-size: clamp(1.25rem, 2.5vw, 1.5rem);
+  font-weight: 800;
+  color: var(--gc-primary);
+}
+
+.ds-page-head__intro {
+  margin: 0;
+  max-width: 42rem;
+  font-size: 0.875rem;
+  color: var(--gc-text-muted);
+  line-height: 1.45;
+}
+
+.ds-page-head__shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.ds-section-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.ds-section-hint,
+.ds-empty,
+.ds-error {
+  margin: 0 0 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.ds-section-hint,
+.ds-empty {
+  color: var(--gc-text-muted);
+}
+
+.ds-error {
+  color: var(--gc-danger);
+}
+
+.ds-status__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.4rem;
+}
+
+.ds-status__url {
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
+  color: var(--gc-text-secondary);
+  word-break: break-all;
+}
+
+.ds-status__meta {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  color: var(--gc-text-muted);
+}
+
+.ds-status__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.ds-section {
+  padding: 0.65rem 0.75rem;
+}
+
+.ds-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.ds-source-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.ds-source-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.55rem;
+  border: 1px solid var(--gc-border);
+  border-radius: var(--gc-radius-sm);
+  background: var(--gc-surface);
+
+  &--active {
+    border-color: color-mix(in srgb, var(--gc-primary) 40%, var(--gc-border));
+    background: var(--gc-primary-soft);
+  }
+}
+
+.ds-source-row__body {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.ds-source-row__label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--gc-text);
+}
+
+.ds-source-row__url {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--gc-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ds-source-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+:host ::ng-deep .decl-db--full {
+  margin: 0;
+}

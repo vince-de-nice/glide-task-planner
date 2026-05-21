@@ -5,7 +5,10 @@ export const fr = {
     nav: {
       circuit: 'Circuit',
       waypoints: 'Waypoints',
-      mainAria: 'Navigation principale'
+      dataSources: 'Sources de données',
+      mainAria: 'Navigation principale',
+      menuTitle: 'Menu',
+      openMenu: 'Ouvrir le menu'
     },
     lang: {
       switch: 'Langue',
@@ -152,8 +155,39 @@ export const fr = {
     panelsAria: 'Panneaux',
     circuitPanelAria: 'Circuit et export'
   },
+  dataSources: {
+    title: 'Sources de données',
+    intro:
+      'Chargez et gérez la base CUP utilisée par le circuit, la carte et l’export. Les sources connues et vos URL récentes sont listées ci-dessous.',
+    statusAria: 'État de la base',
+    statusTitle: 'Base active',
+    loadedAt: 'Chargée le {{date}}',
+    knownAria: 'Sources configurées',
+    knownTitle: 'Sources configurées',
+    knownHint: 'Fichiers CUP déclarés dans public/config/cup-sources.json.',
+    noKnown: 'Aucune source dans la configuration.',
+    recentsAria: 'URL récentes',
+    recentsTitle: 'Chargements récents',
+    recentLabel: 'URL récente',
+    noRecents: 'Aucune URL récente.',
+    removeRecent: 'Retirer des récents',
+    clearRecents: 'Effacer les récents',
+    clearRecentsHeader: 'Effacer les URL récentes',
+    clearRecentsMessage: 'Supprimer la liste des URL chargées récemment ?',
+    clearDb: 'Vider la base',
+    clearDbHeader: 'Vider la base CUP',
+    clearDbMessage:
+      'Supprimer tous les points et réinitialiser la tâche ? Cette action est irréversible.',
+    clearDbAccept: 'Vider',
+    cleared: 'Base vidée.',
+    goCircuit: 'Composer le circuit',
+    goWaypoints: 'Gérer les waypoints'
+  },
   cup: {
     panelAria: 'Base de points',
+    changeSource: 'Changer la base',
+    shortcutAria: 'Base CUP active',
+    shortcutPoints: '· {{count}} pts',
     changeBase: 'Changer de base',
     actionsAria: 'Actions base',
     sourcePlaceholder: 'Source connue…',
@@ -247,10 +281,9 @@ export const fr = {
     helpTitle: 'Aide carte',
     helpTooltip:
       'Zones tâche : cylindres/secteurs/lignes en mètres réels · espaces aériens POAFF/OpenAIP · tâche toujours visible (numéros de leg) · catalogue : grappes sous zoom 10 · noms dès qu’un point n’est plus grappé · double-clic : point · clic : menu',
-    legendLabelsUnclustered: 'Noms (hors grappe)',
     legendAria: 'Légende carte',
-    legendTask: 'Tâche (numéro de leg)',
-    legendCatalog: 'Catalogue CUP',
+    legendTask: 'Tâche',
+    legendCatalog: 'Catalogue',
     legendCluster: 'Grappes catalogue (zoom < 10)',
     clearTaskHeader: 'Effacer la tâche',
     clearTaskMessage: 'Retirer tous les points du circuit affiché sur la carte ?',

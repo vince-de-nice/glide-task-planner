@@ -1,0 +1,54 @@
+.decl-cup-shortcut {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+  margin: 0 0 0.35rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  color: var(--gc-text-muted);
+  background: var(--gc-bg);
+  border: 1px solid var(--gc-border);
+  border-radius: var(--gc-radius-sm);
+}
+
+.decl-cup-shortcut__base {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.decl-cup-shortcut__icon {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  color: var(--gc-primary);
+}
+
+.decl-cup-shortcut__name {
+  font-weight: 600;
+  color: var(--gc-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: min(24rem, 55vw);
+}
+
+.decl-cup-shortcut__count {
+  flex-shrink: 0;
+  font-weight: 500;
+}
+
+.decl-cup-shortcut__link {
+  flex-shrink: 0;
+  font-weight: 600;
+  color: var(--gc-primary);
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}

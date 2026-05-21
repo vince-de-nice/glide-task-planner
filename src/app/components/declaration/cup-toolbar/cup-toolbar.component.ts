@@ -1,7 +1,6 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  computed,
   ElementRef,
   inject,
   OnInit,
@@ -11,13 +10,10 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MenuItem } from 'primeng/api';
 import { Button } from 'primeng/button';
 import { Select } from 'primeng/select';
 import { InputText } from 'primeng/inputtext';
-import { Tag } from 'primeng/tag';
 import { Message } from 'primeng/message';
-import { Menu } from 'primeng/menu';
 import {
   Accordion,
   AccordionPanel,
@@ -46,9 +42,7 @@ const DISCLAIMER_LEGACY_KEY = 'vav_disclaimer_seen';
     Button,
     Select,
     InputText,
-    Tag,
     Message,
-    Menu,
     Accordion,
     AccordionPanel,
     AccordionHeader,
@@ -63,7 +57,6 @@ export class CupToolbarComponent implements OnInit {
   private cupLoader = inject(CupLoaderService);
   private cupDatabase = inject(CupDatabaseService);
   private cupSourcesConfig = inject(CupSourcesConfigService);
-  private taskState = inject(TaskStateService);
   private waypointService = inject(WaypointService);
   private uiFeedback = inject(UiFeedbackService);
   private i18n = inject(TranslateService);
@@ -72,7 +65,6 @@ export class CupToolbarComponent implements OnInit {
   databaseLoaded = output<void>();
 
   waypoints = this.waypointService.waypoints;
-  selectedWaypointIds = this.taskState.selectedWaypointIds;
   cupMeta = this.cupDatabase.meta;
 
   cupSources = signal<CupSourceEntry[]>([]);
@@ -81,38 +73,15 @@ export class CupToolbarComponent implements OnInit {
   disclaimer = signal('');
   loadError = signal<string | null>(null);
   loading = signal(false);
-  panelExpanded = signal(false);
   disclaimerAccordionIndex = signal<number | number[] | string | string[] | null>(-1);
-
-  cupMenuItems = computed<MenuItem[]>(() => {
-    this.i18n.locale();
-    return [
-      {
-        label: this.i18n.t('cup.importCup'),
-        icon: 'pi pi-upload',
-        command: () => this.cupFileInput?.nativeElement.click()
-      },
-      {
-        label: this.i18n.t('cup.exportCup'),
-        icon: 'pi pi-file-export',
-        disabled: this.waypoints().length === 0,
-        command: () => this.exportCup()
-      }
-    ];
-  });
 
   @ViewChild('cupFileInput') cupFileInput?: ElementRef<HTMLInputElement>;
 
   ngOnInit(): void {
-    this.panelExpanded.set(this.waypoints().length === 0);
     if (!this.isDisclaimerSeen() && this.disclaimer()) {
       this.disclaimerAccordionIndex.set(0);
     }
     void this.initCupSources();
-  }
-
-  togglePanel(): void {
-    this.panelExpanded.update(v => !v);
   }
 
   onDisclaimerToggle(index: number | number[] | string | string[] | null | undefined): void {
@@ -171,7 +140,6 @@ export class CupToolbarComponent implements OnInit {
     }
 
     await this.runLoad(() => this.cupLoader.loadFromFile(file, true));
-    this.panelExpanded.set(false);
     input.value = '';
   }
 
@@ -199,7 +167,6 @@ export class CupToolbarComponent implements OnInit {
     }
     await this.runLoad(() => this.cupLoader.loadFromUrl(url, label, true));
     this.cupUrlInput.set(url);
-    this.panelExpanded.set(false);
     void this.initCupSources();
   }
 
