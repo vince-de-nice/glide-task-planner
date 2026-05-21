@@ -658,6 +658,14 @@ export const fr = {
     cones3d: 'Cônes 3D sur la carte',
     cones3dHint:
       'Affiche les volumes de demi-finesse depuis chaque terrain posable actif et l’enveloppe min. (rouge). Inclinez la carte pour mieux les voir.',
+    lookPadAria:
+      'Contrôle du regard : maintenir le clic gauche enfoncé et glisser',
+    lookPadHint:
+      'Clic gauche maintenu : gauche/droite = rotation, haut/bas = inclinaison, autour de la position de la caméra.',
+    altPadAria:
+      'Contrôle d’altitude : maintenir le clic gauche enfoncé et glisser',
+    altPadHint:
+      'Clic gauche maintenu : glisser vers le haut pour monter, vers le bas pour descendre (altitude de la caméra, regard inchangé).',
     mapHint:
       'Carte : cônes 3D (cube), points de la coupe (départ/arrivée bleus, terrains posables colorés), branche orange = sélectionnée. Survol de la coupe : point rouge.',
     mapAria: 'Carte du circuit et sélection des branches',

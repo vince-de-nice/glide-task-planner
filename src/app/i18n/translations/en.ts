@@ -658,6 +658,14 @@ export const en = {
     cones3d: '3D cones on map',
     cones3dHint:
       'Shows half-ratio glide volumes from each enabled landable and the combined min envelope (red). Tilt the map for a better view.',
+    lookPadAria:
+      'Look control: hold left mouse button and drag',
+    lookPadHint:
+      'Hold left button: left/right = bearing, up/down = tilt, around the camera position.',
+    altPadAria:
+      'Altitude control: hold left mouse button and drag',
+    altPadHint:
+      'Hold left button: drag up to climb, down to descend (camera altitude only, view direction unchanged).',
     mapHint:
       'Map: 3D cones (cube), profile points (blue leg ends, colored landables), orange leg = selected. Hover the profile for the red cursor.',
     mapAria: 'Task map and leg selection',

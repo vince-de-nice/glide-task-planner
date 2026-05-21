@@ -82,18 +82,17 @@
 
 .leg-chart__landable-cone {
   fill: none;
+  stroke: #dc2626;
   stroke-width: 1.15;
-  opacity: 0.55;
+  opacity: 0.2;
 
   &--binding {
     stroke-width: 1.75;
-    opacity: 0.8;
   }
 
   &--below-min {
     stroke-dasharray: 5 4;
     stroke-width: 1;
-    opacity: 0.4;
   }
 }
 

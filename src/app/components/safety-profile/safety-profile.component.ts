@@ -46,6 +46,7 @@ import {
   DEFAULT_BASEMAP_ID,
   isBasemapId,
   MAP_BASEMAP_STORAGE_KEY,
+  MAP_SOURCE,
   type BasemapId
 } from '../map-view/map-style.constants';
 import {
@@ -60,12 +61,18 @@ import {
 } from '../../utils/safety-profile-chart.util';
 import { buildProfileLegPointsGeoJson } from '../../utils/safety-cone-map-geojson.util';
 import {
+  buildSafetyMinAltitudePath,
+  createSafetyMinAltitudeCustomLayer,
+  SAFETY_MIN_ALTITUDE_LAYER_ID,
+  type SafetyMinAltitudeThreeCustomLayer
+} from '../../utils/safety-min-altitude-three-layer.util';
+import {
   buildSafetyConeMeshSpecs,
-  coneTopAltitudeM,
   createSafetyConeCustomLayer,
   SAFETY_CONES_CUSTOM_LAYER_ID,
   type SafetyConeThreeCustomLayer
 } from '../../utils/safety-cone-three-layer.util';
+import { computeProfileLegCameraFit } from '../../utils/safety-profile-map-fit.util';
 
 export interface LegLandableToggle {
   id: string;
@@ -109,6 +116,7 @@ const PROFILE_MAP_LAYER = {
 /** Ordre de superposition des calques métier (bas → haut). */
 const PROFILE_LAYER_STACK: readonly string[] = [
   SAFETY_CONES_CUSTOM_LAYER_ID,
+  SAFETY_MIN_ALTITUDE_LAYER_ID,
   PROFILE_MAP_LAYER.BRANCHES_HIT,
   PROFILE_MAP_LAYER.BRANCHES,
   PROFILE_MAP_LAYER.POINTS,
@@ -158,10 +166,10 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   basemapPanelExpanded = signal(false);
   /** Volumes 3D des cônes de demi-finesse sur la carte (branche active). */
   cones3dVisible = signal(true);
+  lookPadActive = signal(false);
+  altPadActive = signal(false);
   /** Style initial — les changements de fond passent par applyBasemapToMap. */
   mapStyle: StyleSpecification = buildBaseMapStyle(DEFAULT_BASEMAP_ID, true);
-  mapCenter = signal<[number, number]>([6.5, 46.5]);
-  mapZoom = signal<[number]>([6]);
   profilesLoading = signal(false);
   profilesVersion = signal(0);
   /** Branche affichée dans la coupe (index 0…n-1). */
@@ -173,12 +181,24 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   private map: MaplibreMap | null = null;
   /** Première couche métier (ancrage pour changement de fond). */
   private dataLayerAnchorId: string | null = null;
-  private idleHandler: (() => void) | null = null;
   private idleRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   private branchClickHandler: ((e: MapLayerMouseEvent) => void) | null = null;
   private branchEnterHandler: (() => void) | null = null;
   private branchLeaveHandler: (() => void) | null = null;
   private safetyConesLayer: SafetyConeThreeCustomLayer | null = null;
+  private safetyMinAltitudeLayer: SafetyMinAltitudeThreeCustomLayer | null = null;
+  private lookPadPointerId: number | null = null;
+  private lookPadLastX = 0;
+  private lookPadLastY = 0;
+  private altPadPointerId: number | null = null;
+  private altPadLastY = 0;
+
+  private static readonly LOOK_PAD_BEARING_PER_PX = 0.55;
+  private static readonly LOOK_PAD_PITCH_PER_PX = 0.45;
+  /** mètres MSL par pixel (glisser vers le haut = monter). */
+  private static readonly ALT_PAD_METERS_PER_PX = 4;
+  private static readonly MIN_CAMERA_ALTITUDE_ABOVE_GROUND_M = 30;
+  private static readonly MAX_CAMERA_ALTITUDE_M = 50_000;
   private lastProfileHash = '';
   readonly profileMapCursor = signal<{
     legIndex: number;
@@ -280,9 +300,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       this.circuitLegs();
       this.profilesVersion();
       this.landables();
-      if (this.mapReady()) {
-        this.refreshProfiles();
-      }
+      void this.refreshProfiles();
     });
 
     effect(() => {
@@ -299,6 +317,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       this.currentParams();
       if (this.mapReady()) {
         this.updateSafetyCones3d();
+        this.updateSafetyMinAltitude3d();
         this.updateProfileMapPoints();
       }
     });
@@ -311,21 +330,12 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       this.mapStyle = buildBaseMapStyle(storedBasemap, true);
     }
 
-    const pairs = this.legPairs();
-    if (pairs.length > 0) {
-      const lng = pairs[0].from.longitude;
-      const lat = pairs[0].from.latitude;
-      this.mapCenter.set([lng, lat]);
-      this.mapZoom.set([8]);
-    }
   }
 
   ngOnDestroy(): void {
     this.profileMapCursor.set(null);
-    this.terrainProfile.setMap(null);
     if (this.idleRefreshTimer) clearTimeout(this.idleRefreshTimer);
     if (this.map) {
-      if (this.idleHandler) this.map.off('idle', this.idleHandler);
       if (this.branchClickHandler) {
         this.map.off('click', PROFILE_MAP_LAYER.BRANCHES_HIT, this.branchClickHandler);
       }
@@ -338,8 +348,12 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       if (this.map.getLayer(SAFETY_CONES_CUSTOM_LAYER_ID)) {
         this.map.removeLayer(SAFETY_CONES_CUSTOM_LAYER_ID);
       }
+      if (this.map.getLayer(SAFETY_MIN_ALTITUDE_LAYER_ID)) {
+        this.map.removeLayer(SAFETY_MIN_ALTITUDE_LAYER_ID);
+      }
     }
     this.safetyConesLayer = null;
+    this.safetyMinAltitudeLayer = null;
     this.map = null;
   }
 
@@ -350,7 +364,178 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   toggleCones3d(): void {
     this.cones3dVisible.update(v => !v);
     this.updateSafetyCones3d();
+    this.updateSafetyMinAltitude3d();
     this.fitToActiveLeg();
+  }
+
+  onLookPadPointerDown(event: PointerEvent): void {
+    if (event.button !== 0) return;
+    const map = this.map;
+    if (!map) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const el = event.currentTarget as HTMLElement;
+    el.setPointerCapture(event.pointerId);
+
+    this.lookPadPointerId = event.pointerId;
+    this.lookPadLastX = event.clientX;
+    this.lookPadLastY = event.clientY;
+    this.lookPadActive.set(true);
+  }
+
+  onLookPadPointerMove(event: PointerEvent): void {
+    if (this.lookPadPointerId !== event.pointerId) return;
+
+    const map = this.map;
+    if (!map) return;
+
+    const dx = event.clientX - this.lookPadLastX;
+    const dy = event.clientY - this.lookPadLastY;
+    this.lookPadLastX = event.clientX;
+    this.lookPadLastY = event.clientY;
+
+    if (dx === 0 && dy === 0) return;
+
+    this.applyLookPadCameraDelta(map, dx, dy);
+  }
+
+  /**
+   * Rotation / inclinaison autour de la position 3D de la caméra (œil fixe), pas du centre géographique.
+   */
+  private applyLookPadCameraDelta(
+    map: MaplibreMap,
+    dx: number,
+    dy: number
+  ): void {
+    const bearing =
+      map.getBearing() + dx * SafetyProfileComponent.LOOK_PAD_BEARING_PER_PX;
+    const maxPitch = map.getMaxPitch();
+    const pitch = Math.min(
+      maxPitch,
+      Math.max(0, map.getPitch() - dy * SafetyProfileComponent.LOOK_PAD_PITCH_PER_PX)
+    );
+    this.jumpToCameraEye(map, { bearing, pitch });
+  }
+
+  onAltPadPointerDown(event: PointerEvent): void {
+    if (event.button !== 0) return;
+    const map = this.map;
+    if (!map) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const el = event.currentTarget as HTMLElement;
+    el.setPointerCapture(event.pointerId);
+
+    this.altPadPointerId = event.pointerId;
+    this.altPadLastY = event.clientY;
+    this.altPadActive.set(true);
+  }
+
+  onAltPadPointerMove(event: PointerEvent): void {
+    if (this.altPadPointerId !== event.pointerId) return;
+
+    const map = this.map;
+    if (!map) return;
+
+    const dy = event.clientY - this.altPadLastY;
+    this.altPadLastY = event.clientY;
+    if (dy === 0) return;
+
+    this.applyAltPadCameraDelta(map, dy);
+  }
+
+  /** Glisser vers le haut (dy négatif) augmente l'altitude de la caméra. */
+  private applyAltPadCameraDelta(map: MaplibreMap, dy: number): void {
+    const currentAlt = map.transform.getCameraAltitude();
+    const nextAlt =
+      currentAlt - dy * SafetyProfileComponent.ALT_PAD_METERS_PER_PX;
+    this.jumpToCameraEye(map, { altitudeM: nextAlt });
+  }
+
+  onAltPadPointerUp(event: PointerEvent): void {
+    if (this.altPadPointerId !== event.pointerId) return;
+    this.releaseAltPad(event.currentTarget as HTMLElement | null, event.pointerId);
+  }
+
+  onAltPadLostCapture(): void {
+    this.altPadPointerId = null;
+    this.altPadActive.set(false);
+  }
+
+  private releaseAltPad(el: HTMLElement | null, pointerId: number): void {
+    if (el) {
+      try {
+        el.releasePointerCapture(pointerId);
+      } catch {
+        /* déjà relâché */
+      }
+    }
+    this.altPadPointerId = null;
+    this.altPadActive.set(false);
+  }
+
+  /**
+   * Recalcule centre / zoom pour garder l'œil (lng, lat, alt) et ne changer que l'orientation ou l'altitude.
+   */
+  private jumpToCameraEye(
+    map: MaplibreMap,
+    options: { bearing?: number; pitch?: number; altitudeM?: number }
+  ): void {
+    const cameraLngLat = map.transform.getCameraLngLat();
+    const cameraAlt = this.clampCameraAltitudeM(
+      map,
+      options.altitudeM ?? map.transform.getCameraAltitude()
+    );
+    const bearing = options.bearing ?? map.getBearing();
+    const pitch = options.pitch ?? map.getPitch();
+    const roll = map.getRoll();
+
+    const camera = map.calculateCameraOptionsFromCameraLngLatAltRotation(
+      cameraLngLat,
+      cameraAlt,
+      bearing,
+      pitch,
+      roll
+    );
+
+    map.jumpTo(camera);
+  }
+
+  private clampCameraAltitudeM(map: MaplibreMap, altitudeM: number): number {
+    const lngLat = map.transform.getCameraLngLat();
+    const ground = map.queryTerrainElevation(lngLat);
+    const minAlt =
+      (ground ?? 0) + SafetyProfileComponent.MIN_CAMERA_ALTITUDE_ABOVE_GROUND_M;
+    return Math.min(
+      SafetyProfileComponent.MAX_CAMERA_ALTITUDE_M,
+      Math.max(minAlt, altitudeM)
+    );
+  }
+
+  onLookPadPointerUp(event: PointerEvent): void {
+    if (this.lookPadPointerId !== event.pointerId) return;
+    this.releaseLookPad(event.currentTarget as HTMLElement | null, event.pointerId);
+  }
+
+  onLookPadLostCapture(): void {
+    this.lookPadPointerId = null;
+    this.lookPadActive.set(false);
+  }
+
+  private releaseLookPad(el: HTMLElement | null, pointerId: number): void {
+    if (el) {
+      try {
+        el.releasePointerCapture(pointerId);
+      } catch {
+        /* déjà relâché */
+      }
+    }
+    this.lookPadPointerId = null;
+    this.lookPadActive.set(false);
   }
 
   selectBasemap(id: BasemapId): void {
@@ -366,6 +551,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       applyBasemapToMap(map, id, anchor);
       this.repositionProfileMapLayers();
       this.updateSafetyCones3d();
+      this.updateSafetyMinAltitude3d();
       this.updateProfileMapPoints();
     }
     this.basemapPanelExpanded.set(false);
@@ -373,11 +559,15 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
 
   onMapLoad(map: MaplibreMap): void {
     this.map = map;
-    this.terrainProfile.setMap(map);
+    if (!map.getTerrain()) {
+      map.setTerrain({ source: MAP_SOURCE.TERRAIN_DEM, exaggeration: 1 });
+    }
     this.dataLayerAnchorId = SAFETY_CONES_CUSTOM_LAYER_ID;
 
     this.safetyConesLayer = createSafetyConeCustomLayer();
     map.addLayer(this.safetyConesLayer);
+    this.safetyMinAltitudeLayer = createSafetyMinAltitudeCustomLayer();
+    map.addLayer(this.safetyMinAltitudeLayer);
 
     map.addSource(PROFILE_MAP_SOURCE.POINTS, { type: 'geojson', data: EMPTY_FC });
     map.addLayer({
@@ -504,17 +694,10 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     this.repositionProfileMapLayers();
     this.updateBranchLines();
     this.updateSafetyCones3d();
+    this.updateSafetyMinAltitude3d();
     this.updateProfileMapPoints();
     this.fitToActiveLeg();
 
-    this.idleHandler = () => {
-      if (this.idleRefreshTimer) return;
-      this.idleRefreshTimer = setTimeout(() => {
-        this.idleRefreshTimer = null;
-        this.profilesVersion.update(v => v + 1);
-      }, 600);
-    };
-    map.on('idle', this.idleHandler);
     map.setMinPitch(0);
     map.setMaxPitch(85);
 
@@ -525,11 +708,12 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
 
     map.once('idle', () => {
       this.updateSafetyCones3d();
+      this.updateSafetyMinAltitude3d();
       this.updateProfileMapPoints();
     });
 
     this.mapReady.set(true);
-    this.refreshProfiles();
+    void this.refreshProfiles();
   }
 
   onGlideRatioChange(value: number | null | undefined): void {
@@ -573,12 +757,14 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     if (!renders.some(l => l.index === index)) return;
     if (index === this.selectedLegIndex()) return;
     this.selectedLegIndex.set(index);
+    this.resetLegYMaxIfTooLowForLeg(index);
     const cursor = this.profileMapCursor();
     if (cursor && cursor.legIndex !== index) {
       this.profileMapCursor.set(null);
       this.syncProfileMapCursor();
     }
     this.updateSafetyCones3d();
+    this.updateSafetyMinAltitude3d();
     this.updateProfileMapPoints();
     this.fitToActiveLeg();
   }
@@ -617,6 +803,17 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       const { [legIndex]: _removed, ...rest } = m;
       return rest;
     });
+  }
+
+  /** Supprime un plafond d'échelle trop bas qui tronque la coupe. */
+  private resetLegYMaxIfTooLowForLeg(legIndex: number): void {
+    const leg = this.legRenders().find(l => l.index === legIndex);
+    const override = this.legYMaxOverrides()[legIndex];
+    if (!leg || override == null) return;
+    const needed = this.defaultYMaxForLeg(leg);
+    if (override < needed) {
+      this.resetLegYMax(legIndex);
+    }
   }
 
   onLandableToggle(
@@ -788,6 +985,24 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     this.repositionProfileMapLayers();
   }
 
+  private updateSafetyMinAltitude3d(): void {
+    const layer = this.safetyMinAltitudeLayer;
+    if (!layer) return;
+
+    const leg = this.activeLegRender();
+    if (!this.cones3dVisible() || !leg) {
+      layer.setPath([]);
+      layer.setVisible(false);
+      return;
+    }
+
+    const path = buildSafetyMinAltitudePath(leg.envelope.samples);
+    layer.setPath(path);
+    layer.setVisible(path.length >= 2);
+    this.repositionProfileMapLayers();
+    this.map?.triggerRepaint();
+  }
+
   private updateSafetyCones3d(): void {
     const layer = this.safetyConesLayer;
     if (!layer) return;
@@ -833,6 +1048,9 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     if (!map || !leg) return;
 
     const cones3d = this.cones3dVisible();
+    const enabledIds = new Set(
+      leg.landableToggles.filter(t => t.enabled).map(t => t.id)
+    );
     const enabledLandables = leg.landableToggles
       .filter(t => t.enabled)
       .flatMap(t => {
@@ -840,67 +1058,40 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
         return wp ? [wp] : [];
       });
 
-    const lngs: number[] = [];
-    const lats: number[] = [];
-
-    if (cones3d && enabledLandables.length > 0) {
-      /*
-       * En mode 3D : centrer sur les terrains posables actifs et inclure
-       * le rayon de la base du cône le plus grand pour montrer la forme conique.
-       * baseRadius (km) = (yMaxM - min(baseAltitudeM)) * halfRatio / 1000.
-       */
-      const halfRatio = Math.max(1, this.glideRatio() / 2);
-      let maxBaseRadiusKm = 2;
-
-      for (const cone of leg.envelope.landableCones.filter(c =>
-        leg.landableToggles.some(t => t.id === c.id && t.enabled)
-      )) {
-        /* Rayon de la base = (altitude max de la courbe - tip) * halfRatio / 1000
-           Pas de terrain dans ce calcul — c'est la géométrie pure du cône. */
-        const topAlt = coneTopAltitudeM(cone);
-        const r = ((topAlt - cone.baseAltitudeM) * halfRatio) / 1000;
-        if (r > maxBaseRadiusKm) maxBaseRadiusKm = r;
-      }
-
-      /* Rayon converti approximativement en degrés (1° ≈ 111 km). */
-      const degOffset = maxBaseRadiusKm / 90; // légèrement supérieur à /111 pour une marge
-
-      for (const wp of enabledLandables) {
-        lngs.push(wp.longitude - degOffset, wp.longitude + degOffset);
-        lats.push(wp.latitude - degOffset, wp.latitude + degOffset);
-      }
-    } else {
-      lngs.push(leg.fromWaypoint.longitude, leg.toWaypoint.longitude);
-      lats.push(leg.fromWaypoint.latitude, leg.toWaypoint.latitude);
-      for (const s of leg.envelope.samples) {
-        lngs.push(s.longitude);
-        lats.push(s.latitude);
-      }
+    const container = map.getContainer();
+    if (container.clientWidth < 40 || container.clientHeight < 40) {
+      requestAnimationFrame(() => this.fitToActiveLeg());
+      return;
     }
 
-    const bounds: LngLatBoundsLike = [
-      [Math.min(...lngs), Math.min(...lats)],
-      [Math.max(...lngs), Math.max(...lats)]
-    ];
+    const fit = computeProfileLegCameraFit({
+      from: leg.fromWaypoint,
+      to: leg.toWaypoint,
+      legLengthKm: leg.distanceKm,
+      fitPoints: {
+        from: leg.fromWaypoint,
+        to: leg.toWaypoint,
+        samples: leg.envelope.samples,
+        cones3d,
+        enabledLandables,
+        landableCones: leg.envelope.landableCones,
+        enabledLandableIds: enabledIds
+      },
+      viewportWidthPx: container.clientWidth,
+      viewportHeightPx: container.clientHeight,
+      paddingPx: { top: 56, bottom: 56, left: 40, right: 40 },
+      maxZoom: cones3d ? 12 : 14
+    });
 
-    try {
-      const cam = map.cameraForBounds(bounds, {
-        padding: 40,
-        maxZoom: cones3d ? 10 : 13
-      });
-      if (!cam) return;
+    if (!fit) return;
 
-      /* Ne pas imposer pitch/bearing : l'utilisateur règle l'inclinaison à la souris. */
-      map.easeTo({
-        center: cam.center,
-        zoom: cam.zoom,
-        bearing: map.getBearing(),
-        pitch: map.getPitch(),
-        duration: 700
-      });
-    } catch {
-      /* bounds invalides */
-    }
+    map.easeTo({
+      center: fit.center,
+      zoom: fit.zoom,
+      bearing: fit.bearing,
+      pitch: map.getPitch(),
+      duration: 700
+    });
   }
 
   private updateBranchLines(): void {
@@ -952,7 +1143,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     }
   }
 
-  private refreshProfiles(): void {
+  private async refreshProfiles(): Promise<void> {
     const pairs = this.legPairs();
     const params = this.currentParams();
     const landables = this.landables();
@@ -960,7 +1151,19 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       this.legRenders.set([]);
       return;
     }
-    const renders: LegRender[] = pairs.map((pair, idx) => {
+
+    this.profilesLoading.set(true);
+    try {
+      const demSegments = pairs.map(
+        p =>
+          ({
+            from: [p.from.longitude, p.from.latitude] as [number, number],
+            to: [p.to.longitude, p.to.latitude] as [number, number]
+          })
+      );
+      await this.terrainProfile.ensureDemForSegments(demSegments);
+
+      const renders: LegRender[] = pairs.map((pair, idx) => {
       const fromLngLat: [number, number] = [
         pair.from.longitude,
         pair.from.latitude
@@ -1001,7 +1204,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
         endpoints,
         initial.samples
       );
-      const profile =
+      let profile =
         extentActive.startKm < 0 ||
         extentActive.endKm > initial.totalDistanceKm
           ? this.terrainProfile.sampleLegRange(
@@ -1011,6 +1214,11 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
               extentActive.endKm
             )
           : initial;
+      profile = this.terrainProfile.applyEndpointTerrainFallback(
+        profile,
+        fromElev ?? null,
+        toElev ?? null
+      );
       const envelope = this.glideEnvelope.computeLegEnvelope(
         profile.samples,
         activeLandables,
@@ -1045,31 +1253,43 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
         envelope,
         landableToggles
       };
-    });
-    const hash = renders
-      .map(r => {
-        const terrain = r.envelope.samples
-          .map(s => (s.terrainM != null ? Math.round(s.terrainM) : 'x'))
-          .join(',');
-        const disabled = r.landableToggles
-          .filter(t => !t.enabled)
-          .map(t => t.id)
-          .join(',');
-        return `${terrain}|${disabled}`;
-      })
-      .join('||');
-    if (hash === this.lastProfileHash) return;
-    this.lastProfileHash = hash;
+      });
 
-    const selected = this.selectedLegIndex();
-    if (renders.length > 0 && !renders.some(r => r.index === selected)) {
-      this.selectedLegIndex.set(renders[0].index);
+      const hash = renders
+        .map(r => {
+          const terrain = r.envelope.samples
+            .map(s => (s.terrainM != null ? Math.round(s.terrainM) : 'x'))
+            .join(',');
+          const disabled = r.landableToggles
+            .filter(t => !t.enabled)
+            .map(t => t.id)
+            .join(',');
+          return `${terrain}|${disabled}`;
+        })
+        .join('||');
+      const hasTerrainGaps = renders.some(r =>
+        r.envelope.samples.some(s => s.terrainM == null)
+      );
+      if (hash === this.lastProfileHash && !hasTerrainGaps) return;
+      this.lastProfileHash = hash;
+
+      const selected = this.selectedLegIndex();
+      if (renders.length > 0 && !renders.some(r => r.index === selected)) {
+        this.selectedLegIndex.set(renders[0].index);
+      }
+
+      this.legRenders.set(renders);
+      this.updateBranchLines();
+      this.updateSafetyCones3d();
+      this.updateProfileMapPoints();
+      if (this.mapReady()) {
+        this.resetLegYMaxIfTooLowForLeg(this.selectedLegIndex());
+        requestAnimationFrame(() => this.fitToActiveLeg());
+      }
+    } catch {
+      /* DEM indisponible : les coupes utilisent le secours extrémités si besoin */
+    } finally {
+      this.profilesLoading.set(false);
     }
-
-    this.legRenders.set(renders);
-    this.profilesLoading.set(false);
-    this.updateBranchLines();
-    this.updateSafetyCones3d();
-    this.updateProfileMapPoints();
   }
 }

@@ -151,8 +151,6 @@
           <mgl-map
             class="safety-profile__map"
             [mapStyle]="mapStyle"
-            [center]="mapCenter()"
-            [zoom]="mapZoom()"
             [minPitch]="0"
             [maxPitch]="85"
             [dragRotate]="true"
@@ -207,6 +205,39 @@
             >
               <i class="pi pi-th-large" aria-hidden="true"></i>
             </button>
+            <div class="safety-profile__camera-pads">
+              <div
+                class="safety-profile__alt-pad"
+                [class.safety-profile__alt-pad--active]="altPadActive()"
+                role="application"
+                [attr.aria-label]="'safetyProfile.altPadAria' | translate"
+                [title]="'safetyProfile.altPadHint' | translate"
+                (pointerdown)="onAltPadPointerDown($event)"
+                (pointermove)="onAltPadPointerMove($event)"
+                (pointerup)="onAltPadPointerUp($event)"
+                (pointercancel)="onAltPadPointerUp($event)"
+                (lostpointercapture)="onAltPadLostCapture()"
+              >
+                <span class="safety-profile__alt-pad-track" aria-hidden="true"></span>
+                <i class="pi pi-arrows-v safety-profile__alt-pad-icon" aria-hidden="true"></i>
+              </div>
+              <div
+                class="safety-profile__look-pad"
+                [class.safety-profile__look-pad--active]="lookPadActive()"
+                role="application"
+                [attr.aria-label]="'safetyProfile.lookPadAria' | translate"
+                [title]="'safetyProfile.lookPadHint' | translate"
+                (pointerdown)="onLookPadPointerDown($event)"
+                (pointermove)="onLookPadPointerMove($event)"
+                (pointerup)="onLookPadPointerUp($event)"
+                (pointercancel)="onLookPadPointerUp($event)"
+                (lostpointercapture)="onLookPadLostCapture()"
+              >
+                <span class="safety-profile__look-pad-h" aria-hidden="true"></span>
+                <span class="safety-profile__look-pad-v" aria-hidden="true"></span>
+                <i class="pi pi-arrows-alt safety-profile__look-pad-icon" aria-hidden="true"></i>
+              </div>
+            </div>
           </div>
         </div>
 

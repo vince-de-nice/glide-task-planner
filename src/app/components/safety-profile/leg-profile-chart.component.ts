@@ -16,6 +16,7 @@ import type {
   LandableConeSample,
   LandableConeVisual
 } from '../../services/glide-envelope.service';
+import { findCurvePairCrossings } from '../../utils/landable-cone-intersection.util';
 import { landableColorFromId } from '../../utils/safety-profile-chart.util';
 
 export interface LegEndpointInfo {
@@ -362,18 +363,13 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
 
     for (let a = 0; a < cones.length; a++) {
       for (let b = a + 1; b < cones.length; b++) {
-        const hits = findCurvePairCrossings(
-          cones[a].curve,
-          cones[b].curve,
-          xKm,
-          yM
-        );
+        const hits = findCurvePairCrossings(cones[a].curve, cones[b].curve);
         for (let i = 0; i < hits.length; i++) {
           raw.push({
             key: `pair-${cones[a].id}-${cones[b].id}-${i}`,
-            x: hits[i].x,
-            y: hits[i].y,
-            text: `${Math.round(hits[i].altM)} m`,
+            x: xKm(hits[i].distanceKm),
+            y: yM(hits[i].altitudeM),
+            text: `${Math.round(hits[i].altitudeM)} m`,
             color: landableColorFromId(cones[a].id)
           });
         }
@@ -711,37 +707,6 @@ function findCurveLineCrossings(
       interpolateSafetyM(samples, distKm) ??
       lineA + t * (lineB - lineA);
     const altM = (coneAlt + lineAlt) / 2;
-    hits.push({
-      distKm,
-      altM,
-      x: xKm(distKm),
-      y: yM(altM)
-    });
-  }
-  return hits;
-}
-
-function findCurvePairCrossings(
-  curveA: LandableConeSample[],
-  curveB: LandableConeSample[],
-  xKm: (km: number) => number,
-  yM: (m: number) => number
-): CurveCrossHit[] {
-  const n = Math.min(curveA.length, curveB.length);
-  if (n < 2) return [];
-  const hits: CurveCrossHit[] = [];
-  for (let i = 1; i < n; i++) {
-    const aA = curveA[i - 1];
-    const aB = curveA[i];
-    const bA = curveB[i - 1];
-    const bB = curveB[i];
-    if (Math.abs(aA.distanceKm - bA.distanceKm) > 0.01) continue;
-    const fa = aA.altitudeM - bA.altitudeM;
-    const fb = aB.altitudeM - bB.altitudeM;
-    if (fa * fb >= 0) continue;
-    const t = fa / (fa - fb);
-    const distKm = aA.distanceKm + t * (aB.distanceKm - aA.distanceKm);
-    const altM = aA.altitudeM + t * (aB.altitudeM - aA.altitudeM);
     hits.push({
       distKm,
       altM,
