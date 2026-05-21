@@ -12,12 +12,21 @@ import {
   type Map as MaplibreMap
 } from 'maplibre-gl';
 import type { LandableConeVisual } from '../services/glide-envelope.service';
-import { landableConeColorFromId } from './safety-profile-chart.util';
+import {
+  SAFETY_CONE_COLOR,
+  SAFETY_CONE_OPACITY
+} from './safety-profile-chart.util';
 
 export const SAFETY_CONES_CUSTOM_LAYER_ID = 'safety-profile-cones-3d';
 
-/** Cercles de distance sur la surface du cône : diamètres 10, 20, 30… km. */
+/** Cercles de distance sur la surface du cône : diamètres 5, 10, 15… km. */
 export const CONE_SURFACE_RING_DIAMETER_STEP_KM = 10;
+
+/** Anneaux de distance (distincts du volume rouge du cône). */
+const CONE_SURFACE_RING_COLOR = '#64748b';
+const CONE_SURFACE_RING_OPACITY = 0.88;
+const CONE_SURFACE_RING_TUBE_RADIUS_MIN_M = 25;
+const CONE_SURFACE_RING_TUBE_RADIUS_MAX_M = 55;
 
 const RING_SEGMENTS = 64;
 
@@ -35,6 +44,8 @@ export interface SafetyConeMeshSpec {
   latitude: number;
   tipAltitudeM: number;
   topAltitudeM: number;
+  /** Rayon horizontal à la base du cône 3D (km). */
+  mapDisplayRadiusKm: number;
   halfRatio: number;
   color: string;
   opacity: number;
@@ -46,12 +57,9 @@ export interface SafetyConeMeshInput {
   landableApexLngLat: ReadonlyMap<string, [number, number]>;
 }
 
-/** Métriques géométriques d'un cône (indépendant du relief). */
+/** Altitude du bord supérieur du cône pour la carte 3D (tronçon de responsabilité sur la branche). */
 export function coneTopAltitudeM(cone: LandableConeVisual): number {
-  return cone.curve.reduce(
-    (mx, c) => Math.max(mx, c.altitudeM),
-    cone.baseAltitudeM + 200
-  );
+  return cone.mapTopAltitudeM;
 }
 
 export function buildSafetyConeMeshSpecs(
@@ -64,11 +72,12 @@ export function buildSafetyConeMeshSpecs(
     if (!apex) continue;
 
     const tipAltitudeM = cone.baseAltitudeM;
-    const topAltitudeM = coneTopAltitudeM(cone);
+    const topAltitudeM = cone.mapTopAltitudeM;
     const heightM = topAltitudeM - tipAltitudeM;
-    if (heightM < 50) continue;
+    const mapDisplayRadiusKm = cone.mapDisplayRadiusKm;
+    if (heightM < 50 || mapDisplayRadiusKm < 0.1) continue;
 
-    const radiusM = (heightM * input.halfRatio) / 1000 * 1000;
+    const radiusM = mapDisplayRadiusKm * 1000;
     if (radiusM < 50) continue;
 
     specs.push({
@@ -77,9 +86,10 @@ export function buildSafetyConeMeshSpecs(
       latitude: apex[1],
       tipAltitudeM,
       topAltitudeM,
+      mapDisplayRadiusKm,
       halfRatio: input.halfRatio,
-      color: landableConeColorFromId(cone.id),
-      opacity: cone.isBinding ? 0.42 : 0.32
+      color: SAFETY_CONE_COLOR,
+      opacity: SAFETY_CONE_OPACITY
     });
   }
 
@@ -122,16 +132,6 @@ export class SafetyConeThreeCustomLayer implements CustomLayerInterface {
       antialias: true
     });
     this.renderer.autoClear = false;
-
-    const lightA = new THREE.DirectionalLight(0xffffff, 0.85);
-    lightA.position.set(50, 80, 120).normalize();
-    this.scene.add(lightA);
-
-    const lightB = new THREE.DirectionalLight(0xffffff, 0.45);
-    lightB.position.set(-60, -40, 80).normalize();
-    this.scene.add(lightB);
-
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.35));
     this.rebuildMeshes();
   }
 
@@ -164,7 +164,7 @@ export class SafetyConeThreeCustomLayer implements CustomLayerInterface {
 
     for (const spec of this.specs) {
       const heightM = spec.topAltitudeM - spec.tipAltitudeM;
-      const radiusM = (heightM * spec.halfRatio) / 1000 * 1000;
+      const radiusM = spec.mapDisplayRadiusKm * 1000;
       if (heightM < 1 || radiusM < 1) continue;
 
       /*
@@ -175,12 +175,15 @@ export class SafetyConeThreeCustomLayer implements CustomLayerInterface {
       geometry.translate(0, -heightM / 2, 0);
       geometry.rotateX(Math.PI);
 
-      const material = new THREE.MeshLambertMaterial({
+      /* BasicMaterial : la couleur ne dépend pas de l'éclairage (incompatible avec la caméra custom). */
+      const material = new THREE.MeshBasicMaterial({
         color: new THREE.Color(spec.color),
         transparent: true,
         opacity: spec.opacity,
         depthWrite: false,
-        side: THREE.DoubleSide
+        depthTest: true,
+        side: THREE.DoubleSide,
+        toneMapped: false
       });
 
       const mesh = new THREE.Mesh(geometry, material);
@@ -188,23 +191,24 @@ export class SafetyConeThreeCustomLayer implements CustomLayerInterface {
       this.meshes.push(mesh);
       this.scene.add(mesh);
 
-      const ringMaterial = new THREE.LineBasicMaterial({
-        color: new THREE.Color(spec.color),
+      const ringMaterial = new THREE.MeshBasicMaterial({
+        color: new THREE.Color(CONE_SURFACE_RING_COLOR),
         transparent: true,
-        opacity: Math.min(0.92, spec.opacity + 0.45),
-        depthWrite: false
+        opacity: CONE_SURFACE_RING_OPACITY,
+        depthWrite: false,
+        depthTest: true,
+        toneMapped: false
       });
 
-      const maxRadiusKm = radiusM / 1000;
-      for (const diameterKm of coneSurfaceRingDiametersKm(maxRadiusKm)) {
-        const ringGeom = buildConeSurfaceRingGeometry(
+      for (const diameterKm of coneSurfaceRingDiametersKm(spec.mapDisplayRadiusKm)) {
+        const ringGeom = buildConeSurfaceRingTubeGeometry(
           diameterKm,
           spec.halfRatio,
           heightM
         );
         if (!ringGeom) continue;
 
-        const ring = new THREE.LineLoop(ringGeom, ringMaterial);
+        const ring = new THREE.Mesh(ringGeom, ringMaterial);
         ring.userData['spec'] = spec;
         this.meshes.push(ring);
         this.scene.add(ring);
@@ -263,7 +267,7 @@ export class SafetyConeThreeCustomLayer implements CustomLayerInterface {
   }
 }
 
-/** Diamètres 10, 20, 30… km tant que le cercle tient sur le cône (rayon ≤ base). */
+/** Diamètres 5, 10, 15… km tant que le cercle tient sur le cône (rayon ≤ base). */
 export function coneSurfaceRingDiametersKm(maxRadiusKm: number): number[] {
   if (maxRadiusKm < CONE_SURFACE_RING_DIAMETER_STEP_KM / 2) return [];
   const maxDiameterKm = maxRadiusKm * 2;
@@ -279,10 +283,10 @@ export function coneSurfaceRingDiametersKm(maxRadiusKm: number): number[] {
 }
 
 /**
- * Cercle à distance horizontale d = diamètre/2 du sommet, sur la surface du cône.
+ * Anneau épais (tube) à distance horizontale d = diamètre/2 du sommet, sur la surface du cône.
  * Altitude locale (axe Y) : d(km) × 1000 / halfRatio ; rayon du cercle : d(km).
  */
-function buildConeSurfaceRingGeometry(
+function buildConeSurfaceRingTubeGeometry(
   diameterKm: number,
   halfRatio: number,
   coneHeightM: number
@@ -292,10 +296,10 @@ function buildConeSurfaceRingGeometry(
   if (ySliceM <= 0 || ySliceM >= coneHeightM) return null;
 
   const circleRadiusM = radiusKm * 1000;
-  const points: THREE.Vector3[] = [];
-  for (let i = 0; i <= RING_SEGMENTS; i++) {
+  const path: THREE.Vector3[] = [];
+  for (let i = 0; i < RING_SEGMENTS; i++) {
     const t = (i / RING_SEGMENTS) * Math.PI * 2;
-    points.push(
+    path.push(
       new THREE.Vector3(
         circleRadiusM * Math.cos(t),
         ySliceM,
@@ -303,5 +307,15 @@ function buildConeSurfaceRingGeometry(
       )
     );
   }
-  return new THREE.BufferGeometry().setFromPoints(points);
+
+  const curve = new THREE.CatmullRomCurve3(path, true, 'centripetal');
+  const tubeRadiusM = Math.min(
+    CONE_SURFACE_RING_TUBE_RADIUS_MAX_M,
+    Math.max(
+      CONE_SURFACE_RING_TUBE_RADIUS_MIN_M,
+      circleRadiusM * 0.007
+    )
+  );
+
+  return new THREE.TubeGeometry(curve, RING_SEGMENTS, tubeRadiusM, 6, true);
 }
