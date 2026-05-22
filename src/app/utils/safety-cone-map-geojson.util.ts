@@ -3,8 +3,7 @@
  * Les cônes 3D sont rendus via le calque custom Three.js (safety-cone-three-layer.util.ts).
  */
 import type { Feature, FeatureCollection, Point } from 'geojson';
-
-const ENDPOINT_COLOR = '#2563eb';
+import { SAFETY_PROFILE_SEMANTIC } from './safety-profile-palette.util';
 
 export interface ProfileLegMapPoint {
   id: string;
@@ -29,12 +28,12 @@ export function buildProfileLegPointsGeoJson(
     pointFeature(input.from.longitude, input.from.latitude, {
       role: 'from',
       label: input.from.name,
-      color: ENDPOINT_COLOR
+      color: SAFETY_PROFILE_SEMANTIC.legEndpoint
     }),
     pointFeature(input.to.longitude, input.to.latitude, {
       role: 'to',
       label: input.to.name,
-      color: ENDPOINT_COLOR
+      color: SAFETY_PROFILE_SEMANTIC.legEndpoint
     })
   ];
   for (const la of input.landables) {

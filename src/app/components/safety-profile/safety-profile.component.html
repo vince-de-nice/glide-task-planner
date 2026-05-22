@@ -266,6 +266,7 @@
                 <app-leg-profile-chart
                   [samples]="leg.envelope.samples"
                   [landableCones]="leg.envelope.landableCones"
+                  [landableColors]="landableColorsRecordForLeg(leg)"
                   [fromEndpoint]="leg.fromEndpoint"
                   [toEndpoint]="leg.toEndpoint"
                   [arrivalMarginM]="arrivalMarginM()"
@@ -310,6 +311,7 @@
                     </div>
                   </div>
                   <div
+                    #landablesChipsScroll
                     class="leg__landables-chips"
                     role="group"
                     [attr.aria-label]="'safetyProfile.landablesToggleTitle' | translate"
@@ -318,12 +320,18 @@
                       <button
                         type="button"
                         class="leg__landable-chip"
+                        [id]="'safety-landable-chip-' + la.id"
                         [class.leg__landable-chip--off]="!la.enabled"
                         [class.leg__landable-chip--airfield]="la.type === 'airfield'"
+                        [class.leg__landable-chip--hovered]="isLandableChipHovered(leg.index, la.id)"
+                        [class.leg__landable-chip--selected]="isLandableChipSelected(leg.index, la.id)"
                         [style.--chip-color]="la.color"
                         [attr.aria-pressed]="la.enabled"
+                        [attr.aria-current]="isLandableChipSelected(leg.index, la.id) ? 'true' : null"
                         [attr.title]="la.name"
-                        (click)="onLandableToggle(leg.index, la.id, !la.enabled); $event.stopPropagation()"
+                        (mouseenter)="onLandableChipHover(leg.index, la.id)"
+                        (mouseleave)="onLandableChipHover(leg.index, null)"
+                        (click)="onLandableChipActivate(leg.index, la.id, !la.enabled, $event)"
                       >
                         <span class="leg__landable-chip-name">{{ la.shortName }}</span>
                         @if (la.type === 'airfield') {

@@ -14,7 +14,7 @@ import type { DemSamplingResult } from '../models/dem-sampling-result.model';
 import type { SafetyParams } from '../models/safety-params.model';
 import type { Waypoint } from '../models/waypoint.model';
 import { haversineKm } from '../utils/geo.util';
-import { landableColorFromId } from '../utils/safety-profile-chart.util';
+import { landableColorsForIds } from '../utils/safety-profile-palette.util';
 import { resolveLegElevationM } from '../utils/elevation.util';
 import { GlideEnvelopeService, type LegEnvelope } from './glide-envelope.service';
 import { TerrainProfileService } from './terrain-profile.service';
@@ -260,12 +260,15 @@ export class SafetyProfileTerrainFacade {
       }
     }
 
+    const landableColorById = landableColorsForIds(
+      intersecting.map(la => la.id)
+    );
     const landableToggles: LegLandableToggle[] = intersecting.map(la => ({
       id: la.id,
       name: la.name,
       shortName: la.code?.trim() || la.name,
       type: la.type === 'airfield' ? 'airfield' : 'landable',
-      color: landableColorFromId(la.id),
+      color: landableColorById.get(la.id)!,
       enabled: !disabledSet.has(la.id)
     }));
 

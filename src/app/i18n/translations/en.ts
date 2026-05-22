@@ -698,9 +698,9 @@ export const en = {
     chart: {
       terrain: 'Terrain (DEM)',
       groundClearance: 'Terrain + margin',
-      glideCone: 'Half-ratio cone envelope (min)',
-      safety: 'Combined min altitude (red)',
-      landableColors: 'Landable (unique color per field)',
+      glideCone: 'Glide cone (landable color)',
+      safety: 'Combined min altitude (all landables)',
+      landableColors: 'One color per landable (map, cone, rings, chart)',
       landableConeBelowMin: 'Dashed cone below min altitude',
       coneIntersectionAltitude: 'Altitude at cone intersections',
       distanceAxis: 'Distance (km)',
@@ -713,7 +713,7 @@ export const en = {
       tooltipLandablesTitle: 'Reachable fields at this position',
       tooltipLandableAt: 'min',
       conesTruncated:
-        'Display limited: only cones intersecting the leg are computed (max 64, sorted by relevance).',
+        'Display limited: cones whose glide volume reaches the leg segment (max 64, sorted by relevance). Bases may lie before or after the leg.',
       terrainMissing: 'DEM missing',
       terrainEstimated: 'Estimated terrain',
       legendTerrainMissing: 'No DEM elevation',

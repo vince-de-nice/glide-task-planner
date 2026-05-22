@@ -17,7 +17,7 @@ import type {
   LandableConeVisual
 } from '../../services/glide-envelope.service';
 import { findCurvePairCrossings } from '../../utils/landable-cone-intersection.util';
-import { landableColorFromId } from '../../utils/safety-profile-chart.util';
+import { landableColorFromId } from '../../utils/safety-profile-palette.util';
 import {
   buildQualityAreaPath,
   buildQualityBands,
@@ -188,8 +188,14 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
   legEndKm = input<number | null>(null);
   /** Sommet de l'échelle verticale (m MSL) — fixe l'altitude max affichée. */
   yMaxM = input.required<number>();
+  /** Couleurs par id (branche), alignées sur les puces / cônes carte. */
+  landableColors = input<Record<string, string>>({});
 
   hoveredSample = signal<EnvelopeSample | null>(null);
+
+  private landableColor(id: string): string {
+    return this.landableColors()[id] ?? landableColorFromId(id);
+  }
 
   /** Position le long de la branche (coordonnées échantillon DEM). */
   readonly sampleHover = output<EnvelopeSample | null>();
@@ -426,7 +432,7 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
         terrainAt != null ? yM(terrainAt) : plotBottom;
       const stemPath = `M ${markerX},${stemY} L ${markerX},${markerY}`;
 
-      const color = landableColorFromId(cone.id);
+      const color = this.landableColor(cone.id);
       return {
         id: cone.id,
         color,
@@ -457,7 +463,7 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
     const raw: Omit<ConeIntersectionMark, 'labelY'>[] = [];
 
     for (const cone of cones) {
-      const color = landableColorFromId(cone.id);
+      const color = this.landableColor(cone.id);
       const safetyHits = findCurveLineCrossings(
         cone.curve,
         data,
@@ -485,7 +491,7 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
             x: xKm(hits[i].distanceKm),
             y: yM(hits[i].altitudeM),
             text: `${Math.round(hits[i].altitudeM)} m`,
-            color: landableColorFromId(cones[a].id)
+            color: this.landableColor(cones[a].id)
           });
         }
       }
@@ -510,7 +516,7 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
       return {
         name: cone.name,
         shortName: cone.shortName,
-        color: landableColorFromId(cone.id),
+        color: this.landableColor(cone.id),
         altitudeM: pt.altitudeM,
         isBinding: cone.id === hover.closestLandableId
       };

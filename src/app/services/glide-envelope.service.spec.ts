@@ -28,7 +28,23 @@ function landable(
 }
 
 describe('GlideEnvelopeService.filterIntersectingLandables', () => {
-  it('excludes landables whose projection is before or after the leg segment', () => {
+  it('includes a landable whose base is before the leg when its cone still reaches the segment', () => {
+    const pastStart = landable('past', 4.85, 44.15);
+    const ids = service
+      .filterIntersectingLandables(
+        [pastStart],
+        params,
+        leg,
+        endpoints,
+        legLengthKm,
+        []
+      )
+      .map(l => l.id);
+
+    expect(ids).toContain('past');
+  });
+
+  it('excludes landables too far from the leg for their cone to reach the segment', () => {
     const before = landable('before', 4.2, 44);
     const after = landable('after', 7.1, 44);
     const onLeg = landable('on', 5.5, 44.02);
@@ -48,21 +64,20 @@ describe('GlideEnvelopeService.filterIntersectingLandables', () => {
     expect(ids).not.toContain('after');
     expect(ids).toContain('on');
   });
+});
 
-  it('excludes a landable only reachable via the extended line past an endpoint', () => {
+describe('GlideEnvelopeService.computeProfileExtent', () => {
+  it('extends the profile past leg ends when a cone base lies outside the segment', () => {
     const pastStart = landable('past', 4.85, 44.15);
-    const ids = service
-      .filterIntersectingLandables(
-        [pastStart],
-        params,
-        leg,
-        endpoints,
-        legLengthKm,
-        []
-      )
-      .map(l => l.id);
-
-    expect(ids).not.toContain('past');
+    const extent = service.computeProfileExtent(
+      legLengthKm,
+      [pastStart],
+      params,
+      leg,
+      endpoints,
+      []
+    );
+    expect(extent.startKm).toBeLessThan(0);
   });
 });
 

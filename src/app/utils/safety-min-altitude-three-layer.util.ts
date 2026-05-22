@@ -9,11 +9,15 @@ import {
   type Map as MaplibreMap
 } from 'maplibre-gl';
 import type { EnvelopeSample } from '../services/glide-envelope.service';
+import { SAFETY_PROFILE_SEMANTIC } from './safety-profile-palette.util';
 
 export const SAFETY_MIN_ALTITUDE_LAYER_ID = 'safety-profile-min-altitude-3d';
 
 /** Rouge aligné sur la coupe profil (.leg-chart__safety-line). */
-const SAFETY_RIBBON_COLOR = 0xdc2626;
+const SAFETY_RIBBON_COLOR = parseInt(
+  SAFETY_PROFILE_SEMANTIC.safetyMinAltitude.slice(1),
+  16
+);
 
 /** Demi-largeur du ruban (m) de chaque côté de l'axe de la branche. */
 const SAFETY_RIBBON_HALF_WIDTH_M = 150;

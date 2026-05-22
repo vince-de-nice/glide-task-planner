@@ -13,18 +13,19 @@ import {
 } from 'maplibre-gl';
 import type { LandableConeVisual } from '../services/glide-envelope.service';
 import {
-  SAFETY_CONE_COLOR,
-  SAFETY_CONE_OPACITY
-} from './safety-profile-chart.util';
+  landableColorFromId,
+  LANDABLE_GLIDE_CONE_FILL_OPACITY,
+  LANDABLE_GLIDE_CONE_RING_OPACITY
+} from './safety-profile-palette.util';
 
 export const SAFETY_CONES_CUSTOM_LAYER_ID = 'safety-profile-cones-3d';
 
-/** Cercles de distance sur la surface du cône : diamètres 5, 10, 15… km. */
+/** Pas des anneaux de distance sur le cône (km de diamètre). */
 export const CONE_SURFACE_RING_DIAMETER_STEP_KM = 10;
+const CONE_SURFACE_RING_DIAMETER_STEP_SMALL_KM = 5;
+/** Nombre max d'anneaux + libellés par cône (lisibilité carte). */
+const CONE_SURFACE_RING_MAX_COUNT = 4;
 
-/** Anneaux de distance (distincts du volume rouge du cône). */
-const CONE_SURFACE_RING_COLOR = '#64748b';
-const CONE_SURFACE_RING_OPACITY = 0.88;
 const CONE_SURFACE_RING_TUBE_RADIUS_MIN_M = 25;
 const CONE_SURFACE_RING_TUBE_RADIUS_MAX_M = 55;
 
@@ -55,6 +56,8 @@ export interface SafetyConeMeshInput {
   landableCones: LandableConeVisual[];
   halfRatio: number;
   landableApexLngLat: ReadonlyMap<string, [number, number]>;
+  /** Couleurs de la branche (puces) ; prioritaire sur le hash global. */
+  colorById?: ReadonlyMap<string, string>;
 }
 
 /** Altitude du bord supérieur du cône pour la carte 3D (tronçon de responsabilité sur la branche). */
@@ -88,8 +91,9 @@ export function buildSafetyConeMeshSpecs(
       topAltitudeM,
       mapDisplayRadiusKm,
       halfRatio: input.halfRatio,
-      color: SAFETY_CONE_COLOR,
-      opacity: SAFETY_CONE_OPACITY
+      color:
+        input.colorById?.get(cone.id) ?? landableColorFromId(cone.id),
+      opacity: LANDABLE_GLIDE_CONE_FILL_OPACITY
     });
   }
 
@@ -192,9 +196,9 @@ export class SafetyConeThreeCustomLayer implements CustomLayerInterface {
       this.scene.add(mesh);
 
       const ringMaterial = new THREE.MeshBasicMaterial({
-        color: new THREE.Color(CONE_SURFACE_RING_COLOR),
+        color: new THREE.Color(spec.color),
         transparent: true,
-        opacity: CONE_SURFACE_RING_OPACITY,
+        opacity: LANDABLE_GLIDE_CONE_RING_OPACITY,
         depthWrite: false,
         depthTest: true,
         toneMapped: false
@@ -267,15 +271,22 @@ export class SafetyConeThreeCustomLayer implements CustomLayerInterface {
   }
 }
 
-/** Diamètres 5, 10, 15… km tant que le cercle tient sur le cône (rayon ≤ base). */
+/**
+ * Diamètres des anneaux sur le cône (5 ou 10 km), au plus {@link CONE_SURFACE_RING_MAX_COUNT}.
+ */
 export function coneSurfaceRingDiametersKm(maxRadiusKm: number): number[] {
-  if (maxRadiusKm < CONE_SURFACE_RING_DIAMETER_STEP_KM / 2) return [];
+  const stepKm =
+    maxRadiusKm <= 6
+      ? CONE_SURFACE_RING_DIAMETER_STEP_SMALL_KM
+      : CONE_SURFACE_RING_DIAMETER_STEP_KM;
+  if (maxRadiusKm < stepKm / 2) return [];
+
   const maxDiameterKm = maxRadiusKm * 2;
   const diameters: number[] = [];
   for (
-    let d = CONE_SURFACE_RING_DIAMETER_STEP_KM;
-    d <= maxDiameterKm + 1e-6;
-    d += CONE_SURFACE_RING_DIAMETER_STEP_KM
+    let d = stepKm;
+    d <= maxDiameterKm + 1e-6 && diameters.length < CONE_SURFACE_RING_MAX_COUNT;
+    d += stepKm
   ) {
     diameters.push(d);
   }

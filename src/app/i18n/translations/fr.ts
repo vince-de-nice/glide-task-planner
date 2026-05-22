@@ -698,9 +698,9 @@ export const fr = {
     chart: {
       terrain: 'Relief (DEM)',
       groundClearance: 'Marge sol',
-      glideCone: 'Enveloppe cônes demi-finesse (min)',
-      safety: 'Altitude min combinée (rouge)',
-      landableColors: 'Terrain posable (couleur unique par point)',
+      glideCone: 'Cône demi-finesse (couleur du terrain)',
+      safety: 'Altitude min combinée (tous terrains)',
+      landableColors: 'Une couleur par terrain (carte, cône, anneaux, coupe)',
       landableConeBelowMin: 'Cône en pointillé sous l’altitude min.',
       coneIntersectionAltitude: 'Altitude aux intersections des cônes',
       distanceAxis: 'Distance (km)',
@@ -713,7 +713,7 @@ export const fr = {
       tooltipLandablesTitle: 'Terrains atteignables à cette position',
       tooltipLandableAt: 'min',
       conesTruncated:
-        'Affichage limité : seuls les cônes qui interceptent la branche sont calculés (max. 64, tri par pertinence).',
+        'Affichage limité : cônes dont le volume atteint le segment de branche (max. 64, tri par pertinence). La base peut être avant ou après la branche.',
       terrainMissing: 'DEM manquant',
       terrainEstimated: 'Relief estimé',
       legendTerrainMissing: 'Zone sans altitude DEM',

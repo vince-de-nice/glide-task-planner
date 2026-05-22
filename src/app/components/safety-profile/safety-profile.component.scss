@@ -994,6 +994,23 @@
   &--airfield .leg__landable-chip-badge {
     font-weight: 700;
   }
+
+  &--hovered {
+    background: color-mix(in srgb, var(--chip-color) 28%, var(--gc-surface));
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--chip-color) 45%, transparent);
+  }
+
+  &--selected {
+    background: color-mix(in srgb, var(--chip-color) 32%, var(--gc-surface));
+    box-shadow:
+      0 0 0 2px var(--chip-color),
+      0 2px 8px color-mix(in srgb, var(--chip-color) 35%, transparent);
+  }
+
+  &--off.leg__landable-chip--hovered,
+  &--off.leg__landable-chip--selected {
+    opacity: 1;
+  }
 }
 
 .leg__landable-chip-name {

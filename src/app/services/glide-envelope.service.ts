@@ -99,7 +99,7 @@ const MAX_CONES_DISPLAYED = 64;
 export class GlideEnvelopeService {
   /**
    * Détermine l'étendue horizontale de la coupe : [0, longueur branche] élargie
-   * jusqu'aux bases des cônes qui interceptent la branche.
+   * jusqu'aux bases des cônes qui interceptent la branche (y compris bases hors segment).
    */
   computeProfileExtent(
     legLengthKm: number,
@@ -143,9 +143,8 @@ export class GlideEnvelopeService {
         continue;
       }
       const proj = projectOntoLeg(from, to, la.longitude, la.latitude, legLengthKm);
-      const along = clamp(proj.alongKm, 0, legLengthKm);
-      startKm = Math.min(startKm, along);
-      endKm = Math.max(endKm, along);
+      startKm = Math.min(startKm, proj.alongKm);
+      endKm = Math.max(endKm, proj.alongKm);
     }
 
     return {
@@ -154,7 +153,7 @@ export class GlideEnvelopeService {
     };
   }
 
-  /** Terrains posables dont le cône intercepte la branche (pour la liste de bascules). */
+  /** Terrains posables dont le cône intercepte le segment de branche (base pouvant être hors segment). */
   filterIntersectingLandables(
     landables: Waypoint[],
     params: SafetyParams,
@@ -481,8 +480,43 @@ function isProjectedOnLegSegment(alongKm: number, legLengthKm: number): boolean 
 }
 
 /**
- * Le cône intercepte la branche si le terrain est projeté sur le segment [départ, arrivée]
- * et si la distance latérale au segment est inférieure à la portée horizontale du cône.
+ * Distance minimale (km) du terrain au segment [départ, arrivée].
+ * Si la projection tombe hors segment, on mesure jusqu’aux extrémités.
+ */
+function distanceToLegSegmentKm(
+  from: [number, number],
+  to: [number, number],
+  legLengthKm: number,
+  landable: Waypoint
+): number {
+  const proj = projectOntoLeg(
+    from,
+    to,
+    landable.longitude,
+    landable.latitude,
+    legLengthKm
+  );
+  if (isProjectedOnLegSegment(proj.alongKm, legLengthKm)) {
+    return proj.crossTrackKm;
+  }
+  const dFrom = haversineKmCoords(
+    from[0],
+    from[1],
+    landable.longitude,
+    landable.latitude
+  );
+  const dTo = haversineKmCoords(
+    to[0],
+    to[1],
+    landable.longitude,
+    landable.latitude
+  );
+  return Math.min(dFrom, dTo);
+}
+
+/**
+ * Le cône intercepte la branche si la distance au segment [départ, arrivée]
+ * est inférieure à la portée horizontale du cône (base hors segment autorisée).
  */
 function coneIntersectsLegSegment(
   from: [number, number],
@@ -496,22 +530,13 @@ function coneIntersectsLegSegment(
   const elev = landable.elevation;
   if (elev == null || !Number.isFinite(elev)) return false;
 
-  const proj = projectOntoLeg(
-    from,
-    to,
-    landable.longitude,
-    landable.latitude,
-    legLengthKm
-  );
-  if (!isProjectedOnLegSegment(proj.alongKm, legLengthKm)) {
-    return false;
-  }
-
   const base = elev + params.arrivalMarginM;
   if (refAltM <= base) return false;
 
   const reachKm = ((refAltM - base) * halfRatio) / 1000;
-  return proj.crossTrackKm <= reachKm;
+  return (
+    distanceToLegSegmentKm(from, to, legLengthKm, landable) <= reachKm
+  );
 }
 
 function maxReferenceAltitudeM(
@@ -565,6 +590,3 @@ function projectOntoLeg(
   };
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}

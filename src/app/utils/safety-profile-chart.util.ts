@@ -1,4 +1,20 @@
 import type { EnvelopeSample } from '../services/glide-envelope.service';
+import {
+  landableColorFromId,
+  LANDABLE_GLIDE_CONE_FILL_OPACITY,
+  SAFETY_PROFILE_SEMANTIC
+} from './safety-profile-palette.util';
+
+export {
+  landableColorFromId,
+  landableColorsForIds,
+  landableMapLabelColorFromHex,
+  landableMapLabelColorFromId,
+  LANDABLE_GLIDE_CONE_FILL_OPACITY,
+  LANDABLE_GLIDE_CONE_RING_OPACITY,
+  LANDABLE_DISTINCT_HEX_PALETTE,
+  SAFETY_PROFILE_SEMANTIC
+} from './safety-profile-palette.util';
 
 /** Plus haute altitude terrain (DEM) sur une coupe, en m MSL. */
 export function maxTerrainElevationM(
@@ -47,40 +63,15 @@ export function defaultLegYMaxM(
 }
 
 /** Rouge réservé à la courbe d'altitude min combinée sur les coupes. */
-export const SAFETY_MIN_ALTITUDE_COLOR = '#dc2626';
+export const SAFETY_MIN_ALTITUDE_COLOR = SAFETY_PROFILE_SEMANTIC.safetyMinAltitude;
 
-/** Cônes de demi-finesse (carte 3D et coupe). */
-export const SAFETY_CONE_COLOR = '#dc2626';
-export const SAFETY_CONE_OPACITY = 0.2;
+/** @deprecated Utiliser {@link landableColorFromId} par terrain. */
+export const SAFETY_CONE_COLOR = SAFETY_MIN_ALTITUDE_COLOR;
 
-/** Angle d'or (°) pour espacer les teintes le plus possible. */
-const GOLDEN_ANGLE_DEG = 137.508;
+/** @deprecated Utiliser {@link LANDABLE_GLIDE_CONE_FILL_OPACITY}. */
+export const SAFETY_CONE_OPACITY = LANDABLE_GLIDE_CONE_FILL_OPACITY;
 
-/** Teintes exclues (proche du rouge altitude min). */
-const RED_HUE_EXCLUDE_MIN = 350;
-const RED_HUE_EXCLUDE_MAX = 28;
-
-/**
- * Couleur stable par terrain posable — grande variété via HSL + angle d'or,
- * sans teinte rouge (réservée à l'altitude min).
- */
-export function landableColorFromId(id: string): string {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
-  }
-
-  let hue = (hash * GOLDEN_ANGLE_DEG) % 360;
-  if (hue >= RED_HUE_EXCLUDE_MIN || hue <= RED_HUE_EXCLUDE_MAX) {
-    hue = 30 + ((hue + 40) % 300);
-  }
-
-  const sat = 62 + (hash % 6) * 5;
-  const light = 36 + ((hash >> 3) % 14);
-  return `hsl(${hue.toFixed(1)} ${sat}% ${light}%)`;
-}
-
-/** @deprecated Utiliser {@link SAFETY_CONE_COLOR} — teinte unique pour tous les cônes. */
-export function landableConeColorFromId(_id: string): string {
-  return SAFETY_CONE_COLOR;
+/** @deprecated Utiliser {@link landableColorFromId}. */
+export function landableConeColorFromId(id: string): string {
+  return landableColorFromId(id);
 }
