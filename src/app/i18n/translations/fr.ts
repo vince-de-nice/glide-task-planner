@@ -312,7 +312,8 @@ export const fr = {
       osm: 'OpenStreetMap',
       cartoVoyager: 'Carto Voyager',
       cartoLight: 'Carto Clair',
-      opentopo: 'OpenTopoMap (relief)'
+      opentopo: 'OpenTopoMap (relief)',
+      mapterhornDemGray: 'DEM Mapterhorn (niveaux de gris)'
     },
     mapLayersMenu: 'Calques carte',
     showFullCatalog: 'Afficher tout le CUP',
@@ -712,7 +713,18 @@ export const fr = {
       tooltipLandablesTitle: 'Terrains atteignables à cette position',
       tooltipLandableAt: 'min',
       conesTruncated:
-        'Affichage limité : seuls les cônes qui interceptent la branche sont calculés (max. 64, tri par pertinence).'
+        'Affichage limité : seuls les cônes qui interceptent la branche sont calculés (max. 64, tri par pertinence).',
+      terrainMissing: 'DEM manquant',
+      terrainEstimated: 'Relief estimé',
+      legendTerrainMissing: 'Zone sans altitude DEM',
+      legendTerrainEstimated: 'Altitude interpolée entre les extrémités',
+      terrainLowFidelity: 'DEM basse fidélité',
+      legendTerrainLowFidelity:
+        'Tuile absente au zoom 15 — relief relu depuis une tuile de zoom inférieur',
+      tooltipTerrainMissing: 'Altitude terrain : DEM non disponible',
+      tooltipTerrainEstimated: 'Altitude terrain : estimée (extrémités)',
+      tooltipTerrainLowFidelity:
+        'Altitude terrain : DEM basse fidélité (tuile de zoom inférieur)'
     },
     demProgress: {
       title: 'Chargement du relief (DEM)',

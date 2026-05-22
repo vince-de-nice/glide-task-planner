@@ -66,6 +66,7 @@ import {
   legProfileFromTerrainCache,
   mergeTerrainCaches,
   terrainCacheCoversExtent,
+  shouldPersistTerrainCache,
   terrainCacheFromLegProfile,
   type LegTerrainCacheContext
 } from '../../models/leg-terrain-cache.model';
@@ -94,6 +95,7 @@ import {
   type SafetyConeThreeCustomLayer
 } from '../../utils/safety-cone-three-layer.util';
 import { computeProfileLegCameraFit } from '../../utils/safety-profile-map-fit.util';
+import { registerMapterhornGrayTileProtocol } from '../../utils/mapterhorn-gray-tile-protocol.util';
 
 export interface LegLandableToggle {
   id: string;
@@ -300,7 +302,26 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       coneIntersectionAltitude: this.i18n.t('safetyProfile.chart.coneIntersectionAltitude'),
       tooltipLandablesTitle: this.i18n.t('safetyProfile.chart.tooltipLandablesTitle'),
       tooltipLandableAt: this.i18n.t('safetyProfile.chart.tooltipLandableAt'),
-      conesTruncated: this.i18n.t('safetyProfile.chart.conesTruncated')
+      conesTruncated: this.i18n.t('safetyProfile.chart.conesTruncated'),
+      terrainMissing: this.i18n.t('safetyProfile.chart.terrainMissing'),
+      terrainEstimated: this.i18n.t('safetyProfile.chart.terrainEstimated'),
+      legendTerrainMissing: this.i18n.t('safetyProfile.chart.legendTerrainMissing'),
+      legendTerrainEstimated: this.i18n.t(
+        'safetyProfile.chart.legendTerrainEstimated'
+      ),
+      tooltipTerrainMissing: this.i18n.t(
+        'safetyProfile.chart.tooltipTerrainMissing'
+      ),
+      tooltipTerrainEstimated: this.i18n.t(
+        'safetyProfile.chart.tooltipTerrainEstimated'
+      ),
+      terrainLowFidelity: this.i18n.t('safetyProfile.chart.terrainLowFidelity'),
+      legendTerrainLowFidelity: this.i18n.t(
+        'safetyProfile.chart.legendTerrainLowFidelity'
+      ),
+      tooltipTerrainLowFidelity: this.i18n.t(
+        'safetyProfile.chart.tooltipTerrainLowFidelity'
+      )
     };
   });
 
@@ -383,6 +404,8 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    registerMapterhornGrayTileProtocol();
+
     const storedBasemap = localStorage.getItem(MAP_BASEMAP_STORAGE_KEY);
     if (storedBasemap && isBasemapId(storedBasemap)) {
       this.basemapId.set(storedBasemap);
@@ -1440,7 +1463,6 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
         progressCtx
       );
       storedCache = terrainCacheFromLegProfile(initial, cacheCtx);
-      terrainCacheUpdates.set(idx, storedCache);
     }
 
     const isFirstProfileLoad = !pair.fromLeg.safetyOutgoing?.landablesAutoPruned;
@@ -1493,7 +1515,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
           progressCtx
         );
         const merged = mergeTerrainCaches(storedCache, profile, cacheCtx);
-        terrainCacheUpdates.set(idx, merged);
+        storedCache = merged;
         profile = legProfileFromTerrainCache(merged, fromLngLat, toLngLat);
       }
     }
@@ -1503,6 +1525,9 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       fromElev ?? null,
       toElev ?? null
     );
+    if (shouldPersistTerrainCache(profile)) {
+      terrainCacheUpdates.set(idx, terrainCacheFromLegProfile(profile, cacheCtx));
+    }
     let envelope = this.glideEnvelope.computeLegEnvelope(
       profile.samples,
       activeLandables,

@@ -1,14 +1,20 @@
 import { DEM_SAMPLE_ZOOM } from '../utils/terrain-dem-chunk.util';
-import type { LegProfile, TerrainSample } from '../services/terrain-profile.service';
+import type {
+  LegProfile,
+  TerrainElevationQuality,
+  TerrainSample
+} from '../services/terrain-profile.service';
 
 /** Incrémenter si le format ou le zoom DEM change. */
-export const LEG_TERRAIN_CACHE_VERSION = 1;
+export const LEG_TERRAIN_CACHE_VERSION = 2;
 
 export interface LegTerrainCacheSample {
   distanceKm: number;
   longitude: number;
   latitude: number;
   elevationM: number | null;
+  /** d=dem, l=dem basse fidélité (z−1…), e=estimé (extrémités), m=manquant */
+  q?: 'd' | 'l' | 'e' | 'm';
 }
 
 /** Profil terrain DEM persisté sur la branche sortante (localStorage via circuit). */
@@ -68,7 +74,47 @@ export function isLegTerrainCacheValid(
   if (cache.samples.some(s => s.elevationM == null || !Number.isFinite(s.elevationM))) {
     return false;
   }
+  if (cache.samples.some(s => !s.q)) {
+    return false;
+  }
   return true;
+}
+
+export function profileTerrainQuality(
+  sample: Pick<TerrainSample, 'elevationQuality' | 'elevationM'>
+): TerrainElevationQuality {
+  return (
+    sample.elevationQuality ??
+    (sample.elevationM == null ? 'missing' : 'dem')
+  );
+}
+
+/** Ne persiste que les profils entièrement issus du DEM (tuiles OK). */
+export function shouldPersistTerrainCache(profile: LegProfile): boolean {
+  return (
+    !profile.hasGaps &&
+    profile.samples.length > 0 &&
+    profile.samples.every(s => {
+      const q = profileTerrainQuality(s);
+      return q === 'dem';
+    })
+  );
+}
+
+function qualityToCache(q: TerrainElevationQuality): 'd' | 'l' | 'e' | 'm' {
+  if (q === 'estimated') return 'e';
+  if (q === 'missing') return 'm';
+  if (q === 'dem-low') return 'l';
+  return 'd';
+}
+
+function qualityFromCache(
+  q: 'd' | 'l' | 'e' | 'm' | undefined
+): TerrainElevationQuality {
+  if (q === 'e') return 'estimated';
+  if (q === 'm') return 'missing';
+  if (q === 'l') return 'dem-low';
+  return 'dem';
 }
 
 export function terrainCacheCoversExtent(
@@ -88,7 +134,8 @@ export function legProfileFromTerrainCache(
     distanceKm: s.distanceKm,
     longitude: s.longitude,
     latitude: s.latitude,
-    elevationM: s.elevationM
+    elevationM: s.elevationM,
+    elevationQuality: qualityFromCache(s.q)
   }));
   return {
     fromLngLat,
@@ -96,7 +143,7 @@ export function legProfileFromTerrainCache(
     samples,
     totalDistanceKm: cache.totalDistanceKm,
     sampleCount: cache.sampleCount,
-    hasGaps: false
+    hasGaps: samples.some(s => profileTerrainQuality(s) !== 'dem')
   };
 }
 
@@ -125,7 +172,8 @@ export function terrainCacheFromLegProfile(
       distanceKm: s.distanceKm,
       longitude: s.longitude,
       latitude: s.latitude,
-      elevationM: s.elevationM
+      elevationM: s.elevationM,
+      q: qualityToCache(profileTerrainQuality(s))
     }))
   };
 }

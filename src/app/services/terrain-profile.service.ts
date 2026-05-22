@@ -12,6 +12,9 @@ import { interpolateGreatCircle } from '../utils/terrain-dem-chunk.util';
 
 export type { TerrainSamplingProgressContext } from './terrain-sampling-progress.service';
 
+/** Origine de l'altitude terrain affichée sur la coupe. */
+export type TerrainElevationQuality = 'dem' | 'dem-low' | 'estimated' | 'missing';
+
 /** Point d'échantillonnage le long d'une branche, altitudes en m MSL. */
 export interface TerrainSample {
   /** Distance cumulée depuis le départ de la branche (km). */
@@ -20,6 +23,10 @@ export interface TerrainSample {
   latitude: number;
   /** Altitude terrain (DEM Mapterhorn) — null si la tuile n'a pas pu être lue. */
   elevationM: number | null;
+  /** Qualité de l'altitude (DEM, secours extrémités, ou trou). */
+  elevationQuality?: TerrainElevationQuality;
+  /** Transitoire après fetch tuile (avant {@link annotateTerrainQuality}). */
+  demSampleQuality?: 'dem' | 'dem-low';
 }
 
 export interface LegProfile {
@@ -141,16 +148,17 @@ export class TerrainProfileService {
       await this.demMap.fillSampleElevations(chunkSamples);
     });
 
+    const annotated = annotateTerrainQuality(samples);
     const profile: LegProfile = {
       fromLngLat: from,
       toLngLat: to,
-      samples,
+      samples: annotated,
       totalDistanceKm,
       sampleCount,
-      hasGaps: samples.some(s => s.elevationM === null)
+      hasGaps: annotated.some(s => s.elevationM === null)
     };
 
-    if (!profile.hasGaps) {
+    if (shouldCacheProfile(profile)) {
       this.profileCache.set(key, profile);
     }
     return profile;
@@ -209,7 +217,7 @@ export class TerrainProfileService {
       hasGaps: samples.some(s => s.elevationM === null)
     };
 
-    if (!profile.hasGaps) {
+    if (shouldCacheProfile(profile)) {
       this.profileCache.set(key, profile);
     }
     return profile;
@@ -238,16 +246,39 @@ export class TerrainProfileService {
       const t = clamp(s.distanceKm / total, 0, 1);
       return {
         ...s,
-        elevationM: fromElevationM + (toElevationM - fromElevationM) * t
+        elevationM: fromElevationM + (toElevationM - fromElevationM) * t,
+        elevationQuality: 'estimated' as const
       };
     });
 
     return {
       ...profile,
-      samples,
+      samples: annotateTerrainQuality(samples),
       hasGaps: samples.some(s => s.elevationM == null)
     };
   }
+}
+
+function shouldCacheProfile(profile: LegProfile): boolean {
+  return (
+    !profile.hasGaps &&
+    profile.samples.every(s => (s.elevationQuality ?? 'dem') === 'dem')
+  );
+}
+
+function annotateTerrainQuality(samples: TerrainSample[]): TerrainSample[] {
+  return samples.map(s => {
+    if (s.elevationM == null) {
+      return { ...s, elevationQuality: 'missing' as const };
+    }
+    if (s.elevationQuality === 'estimated') {
+      return s;
+    }
+    if (s.demSampleQuality === 'dem-low') {
+      return { ...s, elevationQuality: 'dem-low' as const };
+    }
+    return { ...s, elevationQuality: 'dem' as const };
+  });
 }
 
 function cacheKeyRange(

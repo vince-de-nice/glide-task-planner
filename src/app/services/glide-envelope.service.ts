@@ -2,7 +2,10 @@ import { Injectable } from '@angular/core';
 import type { SafetyParams } from '../models/safety-params.model';
 import type { Waypoint } from '../models/waypoint.model';
 import { assignMapDisplayRadii } from '../utils/landable-cone-intersection.util';
-import type { TerrainSample } from './terrain-profile.service';
+import type {
+  TerrainElevationQuality,
+  TerrainSample
+} from './terrain-profile.service';
 
 /** Point d'une courbe de cône (altitude requise à une distance le long de la branche). */
 export interface LandableConeSample {
@@ -42,6 +45,8 @@ export interface EnvelopeSample {
   longitude: number;
   latitude: number;
   terrainM: number | null;
+  /** DEM direct, interpolation extrémités, ou altitude terrain absente. */
+  terrainQuality: TerrainElevationQuality;
   groundClearanceM: number | null;
   glideConeM: number | null;
   safetyM: number | null;
@@ -296,11 +301,16 @@ export class GlideEnvelopeService {
         safetyM = null;
       }
 
+      const terrainQuality: TerrainElevationQuality =
+        sample.elevationQuality ??
+        (terrainM == null ? 'missing' : 'dem');
+
       return {
         distanceKm: sample.distanceKm,
         longitude: sample.longitude,
         latitude: sample.latitude,
         terrainM,
+        terrainQuality,
         groundClearanceM,
         glideConeM,
         safetyM,
@@ -315,7 +325,11 @@ export class GlideEnvelopeService {
       samples: result,
       landableCones,
       noLandables: noLandables && intersecting.length === 0,
-      hasTerrainGaps: samples.some(s => s.elevationM === null),
+      hasTerrainGaps: samples.some(s => {
+        const q =
+          s.elevationQuality ?? (s.elevationM == null ? 'missing' : 'dem');
+        return q === 'missing' || q === 'estimated';
+      }),
       profileStartKm,
       profileEndKm,
       legStartKm: 0,

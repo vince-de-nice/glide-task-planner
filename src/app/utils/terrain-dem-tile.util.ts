@@ -9,7 +9,12 @@ export interface TerrainElevationSample {
   longitude: number;
   latitude: number;
   elevationM: number | null;
+  /** Renseigné après chargement : DEM nominal ou repli tuile z−1. */
+  demSampleQuality?: 'dem' | 'dem-low';
 }
+
+/** Zoom minimal pour le repli tuile (z−1, z−2…). */
+export const DEM_MIN_FALLBACK_ZOOM = 8;
 
 const tileImageCache = new Map<string, Promise<ImageData | null>>();
 const TILE_FETCH_CONCURRENCY = 8;
@@ -48,15 +53,20 @@ export async function fillTerrariumElevations(
     const z = Number(zStr);
     const x = Number(xStr);
     const y = Number(yStr);
-    const imageData = await loadTerrariumTileImage(z, x, y);
-    if (!imageData) {
+    const loaded = await loadTerrariumTileWithFallback(z, x, y);
+    if (!loaded) {
       for (const sample of pts) {
         sample.elevationM = null;
+        sample.demSampleQuality = undefined;
       }
       return;
     }
 
-    const bbox = tileBbox(x, y, z);
+    const { imageData, usedZoom } = loaded;
+    const quality: 'dem' | 'dem-low' = usedZoom < z ? 'dem-low' : 'dem';
+    const coords = tileCoordsAtTargetZoom(x, y, z, usedZoom);
+    const bbox = tileBbox(coords.x, coords.y, usedZoom);
+
     for (const sample of pts) {
       sample.elevationM = elevationFromImageData(
         imageData,
@@ -64,8 +74,39 @@ export async function fillTerrariumElevations(
         sample.latitude,
         bbox
       );
+      sample.demSampleQuality = quality;
     }
   });
+}
+
+/** Coordonnées tuile à `atZoom` couvrant la cellule `x,y` au zoom `targetZoom`. */
+export function tileCoordsAtTargetZoom(
+  x: number,
+  y: number,
+  targetZoom: number,
+  atZoom: number
+): { x: number; y: number } {
+  const scale = 2 ** (targetZoom - atZoom);
+  return {
+    x: Math.floor(x / scale),
+    y: Math.floor(y / scale)
+  };
+}
+
+/** Charge la tuile au zoom demandé, puis z−1, z−2… jusqu’à {@link DEM_MIN_FALLBACK_ZOOM}. */
+export async function loadTerrariumTileWithFallback(
+  z: number,
+  x: number,
+  y: number
+): Promise<{ imageData: ImageData; usedZoom: number } | null> {
+  for (let cz = z; cz >= DEM_MIN_FALLBACK_ZOOM; cz--) {
+    const { x: cx, y: cy } = tileCoordsAtTargetZoom(x, y, z, cz);
+    const imageData = await loadTerrariumTileImage(cz, cx, cy);
+    if (imageData) {
+      return { imageData, usedZoom: cz };
+    }
+  }
+  return null;
 }
 
 function elevationFromImageData(
@@ -134,7 +175,8 @@ function pixelPosition(
   return [px, py];
 }
 
-function loadTerrariumTileImage(
+/** ImageData Terrarium décodée (partagé profil sécurité + fond carte DEM gris). */
+export function loadTerrariumTileImage(
   z: number,
   x: number,
   y: number
@@ -142,7 +184,12 @@ function loadTerrariumTileImage(
   const key = tileCacheKey(z, x, y);
   let pending = tileImageCache.get(key);
   if (!pending) {
-    pending = fetchTerrariumTileImage(z, x, y);
+    pending = fetchTerrariumTileImage(z, x, y).then(data => {
+      if (data === null) {
+        tileImageCache.delete(key);
+      }
+      return data;
+    });
     tileImageCache.set(key, pending);
   }
   return pending;

@@ -23,9 +23,27 @@ describe('leg-terrain-cache', () => {
     sampleCount: 3,
     hasGaps: false,
     samples: [
-      { distanceKm: 0, longitude: 6.8, latitude: 46.2, elevationM: 400 },
-      { distanceKm: 12.5, longitude: 6.95, latitude: 46.35, elevationM: 600 },
-      { distanceKm: 25, longitude: 7.1, latitude: 46.5, elevationM: 800 }
+      {
+        distanceKm: 0,
+        longitude: 6.8,
+        latitude: 46.2,
+        elevationM: 400,
+        elevationQuality: 'dem'
+      },
+      {
+        distanceKm: 12.5,
+        longitude: 6.95,
+        latitude: 46.35,
+        elevationM: 600,
+        elevationQuality: 'dem'
+      },
+      {
+        distanceKm: 25,
+        longitude: 7.1,
+        latitude: 46.5,
+        elevationM: 800,
+        elevationQuality: 'dem'
+      }
     ]
   };
 
@@ -35,6 +53,37 @@ describe('leg-terrain-cache', () => {
     const restored = legProfileFromTerrainCache(cache, ctx.fromLngLat, ctx.toLngLat);
     expect(restored.samples.length).toBe(3);
     expect(restored.samples[1].elevationM).toBe(600);
+    expect(restored.samples[1].elevationQuality).toBe('dem');
+    expect(cache.samples[1].q).toBe('d');
+  });
+
+  it('restores estimated quality from cache', () => {
+    const cache = terrainCacheFromLegProfile(
+      {
+        ...profile,
+        samples: [
+          {
+            distanceKm: 0,
+            longitude: 6.8,
+            latitude: 46.2,
+            elevationM: 400,
+            elevationQuality: 'estimated'
+          },
+          {
+            distanceKm: 25,
+            longitude: 7.1,
+            latitude: 46.5,
+            elevationM: 800,
+            elevationQuality: 'dem'
+          }
+        ],
+        hasGaps: true
+      },
+      ctx
+    );
+    const restored = legProfileFromTerrainCache(cache, ctx.fromLngLat, ctx.toLngLat);
+    expect(restored.samples[0].elevationQuality).toBe('estimated');
+    expect(restored.hasGaps).toBe(true);
   });
 
   it('invalidates when coordinates change', () => {

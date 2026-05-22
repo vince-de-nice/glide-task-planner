@@ -43,6 +43,15 @@ export interface LegChartLabels {
   tooltipLandableAt: string;
   conesTruncated: string;
   coneIntersectionAltitude: string;
+  terrainMissing: string;
+  terrainEstimated: string;
+  legendTerrainMissing: string;
+  legendTerrainEstimated: string;
+  tooltipTerrainMissing: string;
+  tooltipTerrainEstimated: string;
+  terrainLowFidelity: string;
+  legendTerrainLowFidelity: string;
+  tooltipTerrainLowFidelity: string;
 }
 
 interface ChartGeometry {
@@ -58,9 +67,37 @@ interface ChartGeometry {
 interface ChartSeries {
   terrainPath: string;
   terrainAreaPath: string;
+  terrainEstimatedPath: string;
+  terrainEstimatedAreaPath: string;
+  terrainLowFidelityPath: string;
+  terrainLowFidelityAreaPath: string;
   groundLinePath: string;
   conePath: string;
   safetyPath: string;
+}
+
+interface TerrainMissingBand {
+  key: string;
+  x: number;
+  width: number;
+  centerX: number;
+  yTop: number;
+  yBottom: number;
+}
+
+interface TerrainEstimatedBand {
+  key: string;
+  x: number;
+  width: number;
+  yTop: number;
+  yBottom: number;
+}
+
+interface TerrainEstimatedMark {
+  key: string;
+  x: number;
+  y: number;
+  altitudeM: number;
 }
 
 interface ConePathSegment {
@@ -252,6 +289,10 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
       return {
         terrainPath: '',
         terrainAreaPath: '',
+        terrainEstimatedPath: '',
+        terrainEstimatedAreaPath: '',
+        terrainLowFidelityPath: '',
+        terrainLowFidelityAreaPath: '',
         groundLinePath: '',
         conePath: '',
         safetyPath: ''
@@ -259,12 +300,18 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
     }
 
     const terrainPoints: string[] = [];
+    const lowFidelityPoints: string[] = [];
+    const estimatedPoints: string[] = [];
     const groundPoints: string[] = [];
     const conePoints: string[] = [];
     const safetyPoints: string[] = [];
     for (const s of data) {
-      if (s.terrainM != null) {
+      if (s.terrainM != null && s.terrainQuality === 'dem') {
         terrainPoints.push(`${x(s.distanceKm)},${y(s.terrainM)}`);
+      } else if (s.terrainM != null && s.terrainQuality === 'dem-low') {
+        lowFidelityPoints.push(`${x(s.distanceKm)},${y(s.terrainM)}`);
+      } else if (s.terrainM != null && s.terrainQuality === 'estimated') {
+        estimatedPoints.push(`${x(s.distanceKm)},${y(s.terrainM)}`);
       }
       if (s.groundClearanceM != null) {
         groundPoints.push(`${x(s.distanceKm)},${y(s.groundClearanceM)}`);
@@ -282,14 +329,74 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
       ? `M ${terrainPoints[0]} L ${terrainPoints.join(' L ')} L ${x(data[data.length - 1].distanceKm)},${baseY} L ${x(data[0].distanceKm)},${baseY} Z`
       : '';
 
+    const estimatedAreaPath = buildQualityAreaPath(data, x, y, baseY, 'estimated');
+    const lowFidelityAreaPath = buildQualityAreaPath(data, x, y, baseY, 'dem-low');
+
     return {
       terrainPath: terrainPoints.length ? `M ${terrainPoints.join(' L ')}` : '',
       terrainAreaPath,
+      terrainLowFidelityPath: lowFidelityPoints.length
+        ? `M ${lowFidelityPoints.join(' L ')}`
+        : '',
+      terrainLowFidelityAreaPath: lowFidelityAreaPath,
+      terrainEstimatedPath: estimatedPoints.length
+        ? `M ${estimatedPoints.join(' L ')}`
+        : '',
+      terrainEstimatedAreaPath: estimatedAreaPath,
       groundLinePath: groundPoints.length ? `M ${groundPoints.join(' L ')}` : '',
       conePath: conePoints.length ? `M ${conePoints.join(' L ')}` : '',
       safetyPath: safetyPoints.length ? `M ${safetyPoints.join(' L ')}` : ''
     };
   });
+
+  readonly hasTerrainQualityIssues = computed(() =>
+    this.samples().some(s => s.terrainQuality !== 'dem')
+  );
+
+  readonly terrainLowFidelityBands = computed<TerrainEstimatedBand[]>(() =>
+    buildQualityBands(this.samples(), this.geometry(), 'dem-low')
+  );
+
+  readonly terrainEstimatedBands = computed<TerrainEstimatedBand[]>(() =>
+    buildQualityBands(this.samples(), this.geometry(), 'estimated')
+  );
+
+  readonly terrainMissingBands = computed<TerrainMissingBand[]>(() =>
+    buildQualityBands(this.samples(), this.geometry(), 'missing').map(b => ({
+      ...b,
+      centerX: b.x + b.width / 2
+    }))
+  );
+
+  readonly terrainLowFidelityMarks = computed<TerrainEstimatedMark[]>(() =>
+    this.qualityMarksFor('dem-low')
+  );
+
+  readonly terrainEstimatedMarks = computed<TerrainEstimatedMark[]>(() =>
+    this.qualityMarksFor('estimated')
+  );
+
+  private qualityMarksFor(
+    quality: 'dem-low' | 'estimated'
+  ): TerrainEstimatedMark[] {
+    const g = this.geometry();
+    const data = this.samples();
+    const plotW = g.width - g.padding.left - g.padding.right;
+    const plotH = g.height - g.padding.top - g.padding.bottom;
+    const xKm = (km: number): number =>
+      g.padding.left + ((km - g.xMin) / (g.xMax - g.xMin)) * plotW;
+    const yM = (m: number): number =>
+      g.padding.top + plotH - ((m - g.yMin) / (g.yMax - g.yMin)) * plotH;
+
+    return data
+      .filter(s => s.terrainQuality === quality && s.terrainM != null)
+      .map(s => ({
+        key: `${quality}-${s.distanceKm}`,
+        x: xKm(s.distanceKm),
+        y: yM(s.terrainM!),
+        altitudeM: s.terrainM!
+      }));
+  }
 
   readonly landableLayers = computed<LandableLayerDraw[]>(() => {
     const g = this.geometry();
@@ -536,6 +643,20 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
   formatAltitude(value: number | null): string {
     if (value == null || !Number.isFinite(value)) return '—';
     return `${Math.round(value)} m`;
+  }
+
+  formatTerrainAltitude(sample: EnvelopeSample): string {
+    const lbl = this.labels();
+    if (sample.terrainQuality === 'missing') {
+      return lbl.tooltipTerrainMissing;
+    }
+    if (sample.terrainQuality === 'dem-low') {
+      return `${this.formatAltitude(sample.terrainM)} (${lbl.terrainLowFidelity})`;
+    }
+    if (sample.terrainQuality === 'estimated') {
+      return `${this.formatAltitude(sample.terrainM)} (${lbl.terrainEstimated})`;
+    }
+    return this.formatAltitude(sample.terrainM);
   }
 
   formatDistance(km: number): string {
@@ -794,6 +915,78 @@ function clamp(value: number, min: number, max: number): number {
 function formatDistanceTick(km: number): string {
   if (km < 10) return km.toFixed(1);
   return Number.isInteger(km) ? `${km}` : km.toFixed(1);
+}
+
+interface QualityBandBase {
+  key: string;
+  x: number;
+  width: number;
+  yTop: number;
+  yBottom: number;
+}
+
+type TerrainBandQuality = 'missing' | 'estimated' | 'dem-low';
+
+function buildQualityBands(
+  data: EnvelopeSample[],
+  g: ChartGeometry,
+  quality: TerrainBandQuality
+): QualityBandBase[] {
+  const plotW = g.width - g.padding.left - g.padding.right;
+  const plotH = g.height - g.padding.top - g.padding.bottom;
+  const xKm = (km: number): number =>
+    g.padding.left + ((km - g.xMin) / (g.xMax - g.xMin)) * plotW;
+  const yTop = g.padding.top;
+  const yBottom = g.padding.top + plotH;
+  const minBandPx = 4;
+  const bands: QualityBandBase[] = [];
+  let runStart: number | null = null;
+  let runEndKm = 0;
+
+  const flush = (): void => {
+    if (runStart == null) return;
+    const x0 = xKm(runStart);
+    const x1 = xKm(runEndKm);
+    const left = Math.min(x0, x1) - minBandPx * 0.5;
+    const right = Math.max(x0, x1) + minBandPx * 0.5;
+    const width = Math.max(minBandPx, right - left);
+    bands.push({
+      key: `${quality}-${runStart}-${runEndKm}`,
+      x: left,
+      width,
+      yTop,
+      yBottom
+    });
+    runStart = null;
+  };
+
+  for (const s of data) {
+    if (s.terrainQuality === quality) {
+      if (runStart == null) runStart = s.distanceKm;
+      runEndKm = s.distanceKm;
+    } else {
+      flush();
+    }
+  }
+  flush();
+  return bands;
+}
+
+function buildQualityAreaPath(
+  data: EnvelopeSample[],
+  x: (km: number) => number,
+  y: (m: number) => number,
+  baseY: number,
+  quality: 'estimated' | 'dem-low'
+): string {
+  const pts = data.filter(
+    s => s.terrainQuality === quality && s.terrainM != null
+  );
+  if (pts.length === 0) return '';
+  const top = pts.map(s => `${x(s.distanceKm)},${y(s.terrainM!)}`);
+  const first = pts[0];
+  const last = pts[pts.length - 1];
+  return `M ${top[0]} L ${top.slice(1).join(' L ')} L ${x(last.distanceKm)},${baseY} L ${x(first.distanceKm)},${baseY} Z`;
 }
 
 function niceTicks(min: number, max: number, target: number): number[] {

@@ -1,4 +1,5 @@
 import type { Map as MaplibreMap, StyleSpecification } from 'maplibre-gl';
+import { MAPTERHORN_GRAY_TILE_URL_TEMPLATE } from '../../utils/mapterhorn-gray-tile-protocol.util';
 
 export type BasemapId =
   | 'esri-satellite'
@@ -6,7 +7,8 @@ export type BasemapId =
   | 'osm'
   | 'carto-voyager'
   | 'carto-light'
-  | 'opentopo';
+  | 'opentopo'
+  | 'mapterhorn-dem-gray';
 
 export interface BasemapRasterConfig {
   tiles: string[];
@@ -40,6 +42,15 @@ export const MAP_TEXT_FONT_BOLD = [
   'Arial Unicode MS Bold',
   'sans-serif'
 ] as const;
+
+/** Tuiles DEM Mapterhorn (Terrarium, 512 px) — voir https://mapterhorn.com/ */
+export const MAPTERHORN_DEM_TILEJSON_URL = 'https://tiles.mapterhorn.com/tilejson.json';
+
+/** Modèle z/x/y pour fetch direct (échantillonnage profil). */
+export const MAPTERHORN_DEM_TILE_URL =
+  'https://tiles.mapterhorn.com/{z}/{x}/{y}.webp';
+
+export const MAPTERHORN_DEM_TILE_SIZE = 512;
 
 export const BASEMAP_PRESETS: readonly BasemapPreset[] = [
   {
@@ -118,6 +129,18 @@ export const BASEMAP_PRESETS: readonly BasemapPreset[] = [
         'Carte: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, SRTM | Style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
       maxzoom: 17
     }
+  },
+  {
+    id: 'mapterhorn-dem-gray',
+    icon: 'pi pi-sliders-h',
+    labelKey: 'map.basemap.mapterhornDemGray',
+    imagery: {
+      tiles: [MAPTERHORN_GRAY_TILE_URL_TEMPLATE],
+      attribution:
+        'Relief DEM &copy; <a href="https://mapterhorn.com/attribution" target="_blank" rel="noopener">Mapterhorn</a> (Terrarium)',
+      maxzoom: 15,
+      tileSize: MAPTERHORN_DEM_TILE_SIZE
+    }
   }
 ] as const;
 
@@ -126,15 +149,6 @@ export const CATALOG_CLUSTER_MAX_ZOOM = 10;
 
 /** Pastilles catalogue visibles à partir de ce zoom (sous le seuil cluster). */
 export const CATALOG_DOT_MIN_ZOOM = 8;
-
-/** Tuiles DEM Mapterhorn (Terrarium, 512 px) — voir https://mapterhorn.com/ */
-export const MAPTERHORN_DEM_TILEJSON_URL = 'https://tiles.mapterhorn.com/tilejson.json';
-
-/** Modèle z/x/y pour fetch direct (@watergis/terrain-rgb, échantillonnage profil). */
-export const MAPTERHORN_DEM_TILE_URL =
-  'https://tiles.mapterhorn.com/{z}/{x}/{y}.webp';
-
-export const MAPTERHORN_DEM_TILE_SIZE = 512;
 
 export const MAP_TERRAIN_HILLSHADE_KEY = 'gc-map-terrain-hillshade';
 

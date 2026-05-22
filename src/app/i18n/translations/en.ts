@@ -313,7 +313,8 @@ export const en = {
       osm: 'OpenStreetMap',
       cartoVoyager: 'Carto Voyager',
       cartoLight: 'Carto Light',
-      opentopo: 'OpenTopoMap (terrain)'
+      opentopo: 'OpenTopoMap (terrain)',
+      mapterhornDemGray: 'Mapterhorn DEM (grayscale)'
     },
     mapLayersMenu: 'Map layers',
     showFullCatalog: 'Show full CUP',
@@ -712,7 +713,18 @@ export const en = {
       tooltipLandablesTitle: 'Reachable fields at this position',
       tooltipLandableAt: 'min',
       conesTruncated:
-        'Display limited: only cones intersecting the leg are computed (max 64, sorted by relevance).'
+        'Display limited: only cones intersecting the leg are computed (max 64, sorted by relevance).',
+      terrainMissing: 'DEM missing',
+      terrainEstimated: 'Estimated terrain',
+      legendTerrainMissing: 'No DEM elevation',
+      legendTerrainEstimated: 'Altitude interpolated from endpoints',
+      terrainLowFidelity: 'Low-fidelity DEM',
+      legendTerrainLowFidelity:
+        'Missing tile at z15 — terrain read from a lower-zoom tile',
+      tooltipTerrainMissing: 'Terrain altitude: DEM unavailable',
+      tooltipTerrainEstimated: 'Terrain altitude: estimated (endpoints)',
+      tooltipTerrainLowFidelity:
+        'Terrain altitude: low-fidelity DEM (lower-zoom tile)'
     },
     demProgress: {
       title: 'Loading terrain (DEM)',

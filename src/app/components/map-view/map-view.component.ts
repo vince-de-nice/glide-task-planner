@@ -80,6 +80,7 @@ import {
   southWestNorthEastToLngLatBounds,
   type BasemapId
 } from './map-style.constants';
+import { registerMapterhornGrayTileProtocol } from '../../utils/mapterhorn-gray-tile-protocol.util';
 import { buildTaskLinesGeoJson } from './map-task-lines-geojson.util';
 import { WaypointContextMenuComponent } from './waypoint-context-menu.component';
 const EMPTY_FC: FeatureCollection = { type: 'FeatureCollection', features: [] };
@@ -432,6 +433,8 @@ export class MapViewComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    registerMapterhornGrayTileProtocol();
+
     const storedBasemap = localStorage.getItem(MAP_BASEMAP_STORAGE_KEY);
     if (storedBasemap && isBasemapId(storedBasemap)) {
       this.basemapId.set(storedBasemap);

@@ -7,6 +7,11 @@
 @let layers = landableLayers();
 @let bounds = legBounds();
 @let intersections = coneIntersections();
+@let gaps = terrainMissingBands();
+@let lowBands = terrainLowFidelityBands();
+@let lowMarks = terrainLowFidelityMarks();
+@let estBands = terrainEstimatedBands();
+@let estMarks = terrainEstimatedMarks();
 
 <div class="leg-chart" #chartHost>
   <svg
@@ -36,11 +41,104 @@
       >{{ tick.label }}</text>
     }
 
+    @for (band of lowBands; track band.key) {
+      <rect
+        class="leg-chart__terrain-lowfidelity-band"
+        [attr.x]="band.x"
+        [attr.y]="band.yTop"
+        [attr.width]="band.width"
+        [attr.height]="band.yBottom - band.yTop"
+      />
+    }
+    @for (band of estBands; track band.key) {
+      <rect
+        class="leg-chart__terrain-estimated-band"
+        [attr.x]="band.x"
+        [attr.y]="band.yTop"
+        [attr.width]="band.width"
+        [attr.height]="band.yBottom - band.yTop"
+      />
+    }
+    @for (band of gaps; track band.key) {
+      <rect
+        class="leg-chart__terrain-gap-band"
+        [attr.x]="band.x"
+        [attr.y]="band.yTop"
+        [attr.width]="band.width"
+        [attr.height]="band.yBottom - band.yTop"
+      />
+    }
+
     @if (s.terrainAreaPath) {
       <path class="leg-chart__terrain-area" [attr.d]="s.terrainAreaPath" />
     }
+    @if (s.terrainLowFidelityAreaPath) {
+      <path
+        class="leg-chart__terrain-area leg-chart__terrain-area--lowfidelity"
+        [attr.d]="s.terrainLowFidelityAreaPath"
+      />
+    }
+    @if (s.terrainEstimatedAreaPath) {
+      <path
+        class="leg-chart__terrain-area leg-chart__terrain-area--estimated"
+        [attr.d]="s.terrainEstimatedAreaPath"
+      />
+    }
     @if (s.terrainPath) {
       <path class="leg-chart__terrain-line" [attr.d]="s.terrainPath" />
+    }
+    @if (s.terrainLowFidelityPath) {
+      <path
+        class="leg-chart__terrain-line leg-chart__terrain-line--lowfidelity"
+        [attr.d]="s.terrainLowFidelityPath"
+      />
+    }
+    @if (s.terrainEstimatedPath) {
+      <path
+        class="leg-chart__terrain-line leg-chart__terrain-line--estimated"
+        [attr.d]="s.terrainEstimatedPath"
+      />
+    }
+
+    @for (mark of lowMarks; track mark.key) {
+      <line
+        class="leg-chart__lowfidelity-stem"
+        [attr.x1]="mark.x"
+        [attr.x2]="mark.x"
+        [attr.y1]="mark.y"
+        [attr.y2]="g.height - g.padding.bottom"
+      />
+      <circle
+        class="leg-chart__lowfidelity-dot"
+        [attr.cx]="mark.x"
+        [attr.cy]="mark.y"
+        r="3"
+      />
+    }
+
+    @for (mark of estMarks; track mark.key) {
+      <line
+        class="leg-chart__estimated-stem"
+        [attr.x1]="mark.x"
+        [attr.x2]="mark.x"
+        [attr.y1]="mark.y"
+        [attr.y2]="g.height - g.padding.bottom"
+      />
+      <circle
+        class="leg-chart__estimated-dot"
+        [attr.cx]="mark.x"
+        [attr.cy]="mark.y"
+        r="3.5"
+      />
+    }
+
+    @for (band of gaps; track band.key) {
+      <text
+        class="leg-chart__gap-label"
+        [attr.x]="band.centerX"
+        [attr.y]="(band.yTop + band.yBottom) / 2 + 4"
+        text-anchor="middle"
+      >?</text>
     }
 
     @if (s.groundLinePath) {
@@ -215,6 +313,23 @@
     <p class="leg-chart__truncated">{{ lbl.conesTruncated }}</p>
   }
 
+  @if (hasTerrainQualityIssues()) {
+    <p class="leg-chart__terrain-legend" role="note">
+      <span class="leg-chart__terrain-legend-item leg-chart__terrain-legend-item--missing">
+        <span class="leg-chart__terrain-legend-swatch" aria-hidden="true"></span>
+        {{ lbl.legendTerrainMissing }}
+      </span>
+      <span class="leg-chart__terrain-legend-item leg-chart__terrain-legend-item--lowfidelity">
+        <span class="leg-chart__terrain-legend-swatch" aria-hidden="true"></span>
+        {{ lbl.legendTerrainLowFidelity }}
+      </span>
+      <span class="leg-chart__terrain-legend-item leg-chart__terrain-legend-item--estimated">
+        <span class="leg-chart__terrain-legend-swatch" aria-hidden="true"></span>
+        {{ lbl.legendTerrainEstimated }}
+      </span>
+    </p>
+  }
+
   @if (hover) {
     @let pos = tooltipPosition(hover);
     @let landables = landablesAtHover();
@@ -225,7 +340,7 @@
       [style.transform]="pos.x > g.width / 2 ? 'translateX(-100%) translateX(-8px)' : 'translateX(8px)'"
     >
       <p>{{ lbl.tooltipDistance }} : {{ formatDistance(hover.distanceKm) }}</p>
-      <p>{{ lbl.tooltipTerrain }} : {{ formatAltitude(hover.terrainM) }}</p>
+      <p>{{ lbl.tooltipTerrain }} : {{ formatTerrainAltitude(hover) }}</p>
       <p>{{ lbl.tooltipGround }} : {{ formatAltitude(hover.groundClearanceM) }}</p>
       @if (!noLandables()) {
         <p>{{ lbl.tooltipCone }} : {{ formatAltitude(hover.glideConeM) }}</p>
