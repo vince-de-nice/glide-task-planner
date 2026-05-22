@@ -237,6 +237,24 @@ export class TaskStateService {
     this.setLegs(legs);
   }
 
+  /** Désactive plusieurs terrains posables sur une branche en une seule mise à jour. */
+  disableSafetyLandables(branchIndex: number, landableIds: string[]): void {
+    if (landableIds.length === 0) return;
+    const legs = [...this.circuitLegs()];
+    if (branchIndex < 0 || branchIndex >= legs.length - 1) return;
+    const leg = legs[branchIndex];
+    const disabled = new Set(leg.safetyOutgoing?.disabledLandableIds ?? []);
+    for (const id of landableIds) {
+      disabled.add(id);
+    }
+    const disabledLandableIds = [...disabled];
+    legs[branchIndex] = {
+      ...leg,
+      safetyOutgoing: { disabledLandableIds }
+    };
+    this.setLegs(legs);
+  }
+
   setAllSafetyLandablesEnabled(
     branchIndex: number,
     landableIds: string[],

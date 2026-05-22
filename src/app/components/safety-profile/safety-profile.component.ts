@@ -25,6 +25,7 @@ import type { FeatureCollection, LineString, Point } from 'geojson';
 import { TaskStateService } from '../../services/task-state.service';
 import { WaypointService } from '../../services/waypoint.service';
 import { TerrainProfileService } from '../../services/terrain-profile.service';
+import { TerrainSamplingProgressService } from '../../services/terrain-sampling-progress.service';
 import {
   GlideEnvelopeService,
   LegEnvelope,
@@ -146,6 +147,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   private taskState = inject(TaskStateService);
   private waypointService = inject(WaypointService);
   private terrainProfile = inject(TerrainProfileService);
+  readonly samplingProgress = inject(TerrainSamplingProgressService);
   private glideEnvelope = inject(GlideEnvelopeService);
   private i18n = inject(TranslateService);
   private router = inject(Router);
@@ -850,6 +852,34 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     );
   }
 
+  /** Terrains activés dont le cône ne contraint pas l'enveloppe min. sur cette branche. */
+  uselessEnabledLandableCount(leg: LegRender): number {
+    const nonBinding = new Set(this.nonBindingLandableIdsForLeg(leg));
+    return leg.landableToggles.filter(t => t.enabled && nonBinding.has(t.id)).length;
+  }
+
+  disableUselessLandablesOnLeg(leg: LegRender, event?: Event): void {
+    event?.stopPropagation();
+    const nonBinding = new Set(this.nonBindingLandableIdsForLeg(leg));
+    const toDisable = leg.landableToggles
+      .filter(t => t.enabled && nonBinding.has(t.id))
+      .map(t => t.id);
+    if (toDisable.length === 0) return;
+    this.lastProfileHash = '';
+    this.taskState.disableSafetyLandables(leg.index, toDisable);
+  }
+
+  private nonBindingLandableIdsForLeg(leg: LegRender): string[] {
+    const landables = leg.landableToggles
+      .map(t => this.waypointService.getWaypoint(t.id))
+      .filter((wp): wp is Waypoint => wp != null);
+    return this.glideEnvelope.findNonBindingLandableIds(
+      leg.envelope.samples,
+      landables,
+      this.currentParams()
+    );
+  }
+
   enabledLandableCount(leg: LegRender): number {
     return leg.landableToggles.filter(t => t.enabled).length;
   }
@@ -1158,12 +1188,19 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     }
 
     this.profilesLoading.set(true);
+    this.samplingProgress.begin(pairs.length);
     try {
       this.terrainProfile.clearCache();
 
       const renders: LegRender[] = [];
+      const legCount = pairs.length;
       for (let idx = 0; idx < pairs.length; idx++) {
       const pair = pairs[idx];
+      const progressCtx = {
+        legIndex: idx,
+        legCount,
+        legLabel: `${pair.from.name} → ${pair.to.name}`
+      };
       const fromLngLat: [number, number] = [
         pair.from.longitude,
         pair.from.latitude
@@ -1184,8 +1221,11 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
 
       const initial = await this.terrainProfile.sampleLegProfileAtDemZoom(
         fromLngLat,
-        toLngLat
+        toLngLat,
+        undefined,
+        progressCtx
       );
+      this.samplingProgress.setComputeLeg(idx, legCount, progressCtx.legLabel);
       const disabledSet = new Set(
         pair.fromLeg.safetyOutgoing?.disabledLandableIds ?? []
       );
@@ -1216,8 +1256,11 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
           fromLngLat,
           toLngLat,
           extentActive.startKm,
-          extentActive.endKm
+          extentActive.endKm,
+          undefined,
+          progressCtx
         );
+        this.samplingProgress.setComputeLeg(idx, legCount, progressCtx.legLabel);
       }
       profile = this.terrainProfile.applyEndpointTerrainFallback(
         profile,
@@ -1295,6 +1338,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       /* DEM indisponible : les coupes utilisent le secours extrémités si besoin */
     } finally {
       this.profilesLoading.set(false);
+      this.samplingProgress.end();
     }
   }
 }

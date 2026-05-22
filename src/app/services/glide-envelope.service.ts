@@ -178,6 +178,31 @@ export class GlideEnvelopeService {
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
   }
 
+  /**
+   * Terrains posables dont le cône de demi-finesse ne limite jamais l'enveloppe min.
+   * (jamais le plus contraignant à un échantillon du profil).
+   */
+  findNonBindingLandableIds(
+    profileSamples: Pick<EnvelopeSample, 'longitude' | 'latitude'>[],
+    landables: Waypoint[],
+    params: SafetyParams
+  ): string[] {
+    const withElevation = landables.filter(
+      la => la.elevation != null && Number.isFinite(la.elevation)
+    );
+    if (profileSamples.length === 0 || withElevation.length === 0) {
+      return withElevation.map(la => la.id);
+    }
+
+    const bindingIds = computeBindingLandableIds(
+      profileSamples,
+      withElevation,
+      params,
+      halfGlideRatio(params)
+    );
+    return withElevation.filter(la => !bindingIds.has(la.id)).map(la => la.id);
+  }
+
   computeLegEnvelope(
     samples: TerrainSample[],
     landables: Waypoint[],
@@ -310,30 +335,12 @@ export class GlideEnvelopeService {
     const from: [number, number] = [leg.fromLng, leg.fromLat];
     const to: [number, number] = [leg.toLng, leg.toLat];
 
-    const bindingIds = new Set<string>();
-    for (const sample of samples) {
-      let bestId: string | null = null;
-      let bestAlt = Number.POSITIVE_INFINITY;
-      for (const la of landables) {
-        const d = haversineKm(
-          sample.longitude,
-          sample.latitude,
-          la.longitude,
-          la.latitude
-        );
-        const alt = coneAltitudeAtDistanceM(
-          la.elevation!,
-          params.arrivalMarginM,
-          d,
-          halfRatio
-        );
-        if (alt < bestAlt) {
-          bestAlt = alt;
-          bestId = la.id;
-        }
-      }
-      if (bestId) bindingIds.add(bestId);
-    }
+    const bindingIds = computeBindingLandableIds(
+      samples,
+      landables,
+      params,
+      halfRatio
+    );
 
     const candidates: LandableConeVisual[] = [];
 
@@ -394,6 +401,41 @@ export class GlideEnvelopeService {
 /** Demi-finesse utilisée pour la pente du cône (L/D ÷ 2). */
 function halfGlideRatio(params: SafetyParams): number {
   return Math.max(1, params.glideRatio / 2);
+}
+
+function computeBindingLandableIds(
+  samples: Pick<EnvelopeSample, 'longitude' | 'latitude'>[],
+  landables: Waypoint[],
+  params: SafetyParams,
+  halfRatio: number
+): Set<string> {
+  const bindingIds = new Set<string>();
+  for (const sample of samples) {
+    let bestId: string | null = null;
+    let bestAlt = Number.POSITIVE_INFINITY;
+    for (const la of landables) {
+      const elev = la.elevation;
+      if (elev == null || !Number.isFinite(elev)) continue;
+      const d = haversineKm(
+        sample.longitude,
+        sample.latitude,
+        la.longitude,
+        la.latitude
+      );
+      const alt = coneAltitudeAtDistanceM(
+        elev,
+        params.arrivalMarginM,
+        d,
+        halfRatio
+      );
+      if (alt < bestAlt) {
+        bestAlt = alt;
+        bestId = la.id;
+      }
+    }
+    if (bestId) bindingIds.add(bestId);
+  }
+  return bindingIds;
 }
 
 /**

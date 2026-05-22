@@ -679,6 +679,9 @@ export const en = {
     verticalScaleReset: 'Reset scale',
     landablesToggleTitle: 'Landables on this leg',
     landablesEnableAll: 'Enable all',
+    landablesDisableUseless: 'Disable non-binding',
+    landablesDisableUselessHint:
+      'Disables landables whose half-ratio cone never limits the minimum altitude (red line).',
     landablesDisableAll: 'Disable all',
     landableTypeAirfield: 'AD',
     legHeader: 'Leg {{index}}',
@@ -710,6 +713,13 @@ export const en = {
       tooltipLandableAt: 'min',
       conesTruncated:
         'Display limited: only cones intersecting the leg are computed (max 64, sorted by relevance).'
+    },
+    demProgress: {
+      title: 'Loading terrain (DEM)',
+      computeTitle: 'Computing safety envelopes',
+      leg: 'Leg {{current}} / {{total}}',
+      chunk: 'DEM window {{current}} / {{total}}',
+      percent: '{{value}} %'
     },
     warnings: {
       noLandables:

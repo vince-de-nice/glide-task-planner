@@ -679,6 +679,9 @@ export const fr = {
     verticalScaleReset: 'Réinitialiser l’échelle',
     landablesToggleTitle: 'Terrains posables sur cette branche',
     landablesEnableAll: 'Tout activer',
+    landablesDisableUseless: 'Désactiver les inutiles',
+    landablesDisableUselessHint:
+      'Désactive les terrains posables dont le cône de demi-finesse ne limite jamais l’altitude minimale (ligne rouge).',
     landablesDisableAll: 'Tout désactiver',
     landableTypeAirfield: 'AD',
     legHeader: 'Branche {{index}}',
@@ -710,6 +713,13 @@ export const fr = {
       tooltipLandableAt: 'min',
       conesTruncated:
         'Affichage limité : seuls les cônes qui interceptent la branche sont calculés (max. 64, tri par pertinence).'
+    },
+    demProgress: {
+      title: 'Chargement du relief (DEM)',
+      computeTitle: 'Calcul des enveloppes de sécurité',
+      leg: 'Branche {{current}} / {{total}}',
+      chunk: 'Zone DEM {{current}} / {{total}}',
+      percent: '{{value}} %'
     },
     warnings: {
       noLandables:

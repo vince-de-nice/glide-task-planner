@@ -2,10 +2,15 @@ import { Injectable } from '@angular/core';
 import {
   DEM_SAMPLE_ZOOM,
   TerrainDemMapService,
-  demChunkMaxSpanKm,
-  splitSegmentIntoChunks,
   type DemSegmentBounds
 } from './terrain-dem-map.service';
+import {
+  TerrainSamplingProgressService,
+  type TerrainSamplingProgressContext
+} from './terrain-sampling-progress.service';
+import { interpolateGreatCircle } from '../utils/terrain-dem-chunk.util';
+
+export type { TerrainSamplingProgressContext } from './terrain-sampling-progress.service';
 
 /** Point d'échantillonnage le long d'une branche, altitudes en m MSL. */
 export interface TerrainSample {
@@ -36,13 +41,16 @@ const SAMPLE_PER_KM = 10;
 
 /**
  * Échantillonnage du DEM le long des branches via une carte MapLibre dédiée
- * ({@link TerrainDemMapService}), avec cache des profils et des altitudes par point.
+ * via la carte offscreen unique ({@link TerrainDemMapService}) qui défile à z15.
  */
 @Injectable({ providedIn: 'root' })
 export class TerrainProfileService {
   private readonly profileCache = new Map<string, LegProfile>();
 
-  constructor(private readonly demMap: TerrainDemMapService) {}
+  constructor(
+    private readonly demMap: TerrainDemMapService,
+    private readonly samplingProgress: TerrainSamplingProgressService
+  ) {}
 
   /**
    * @deprecated La carte visible n'est plus utilisée pour le DEM ; conservé pour compatibilité.
@@ -62,10 +70,11 @@ export class TerrainProfileService {
   async sampleLegProfileAtDemZoom(
     from: [number, number],
     to: [number, number],
-    nbPoints?: number
+    nbPoints?: number,
+    progress?: TerrainSamplingProgressContext
   ): Promise<LegProfile> {
     const totalDistanceKm = haversineKm(from, to);
-    return this.sampleLegRangeAtDemZoom(from, to, 0, totalDistanceKm, nbPoints);
+    return this.sampleLegRangeAtDemZoom(from, to, 0, totalDistanceKm, nbPoints, progress);
   }
 
   /**
@@ -76,7 +85,8 @@ export class TerrainProfileService {
     to: [number, number],
     startDistanceKm: number,
     endDistanceKm: number,
-    nbPoints?: number
+    nbPoints?: number,
+    progress?: TerrainSamplingProgressContext
   ): Promise<LegProfile> {
     const totalDistanceKm = haversineKm(from, to);
     const spanKm = Math.max(0.01, endDistanceKm - startDistanceKm);
@@ -110,15 +120,19 @@ export class TerrainProfileService {
       from: interpolateGreatCircle(from, to, tStart),
       to: interpolateGreatCircle(from, to, tEnd)
     };
-    const midLat =
-      samples.reduce((sum, s) => sum + s.latitude, 0) / Math.max(1, samples.length);
-    const chunkMaxKm = demChunkMaxSpanKm(midLat);
-    const chunks = splitSegmentIntoChunks(rangeSegment, chunkMaxKm);
-
-    for (let ci = 0; ci < chunks.length; ci++) {
-      await this.demMap.ensureChunkCoverage(chunks[ci]);
-      const frac0 = ci / chunks.length;
-      const frac1 = (ci + 1) / chunks.length;
+    const legLabel = progress?.legLabel ?? null;
+    await this.demMap.forEachChunk(rangeSegment, async (ci, chunkCount) => {
+      if (progress) {
+        this.samplingProgress.setDemChunk(
+          progress.legIndex,
+          progress.legCount,
+          ci,
+          chunkCount,
+          legLabel
+        );
+      }
+      const frac0 = ci / chunkCount;
+      const frac1 = (ci + 1) / chunkCount;
       const dMin = startDistanceKm + spanKm * frac0 - 0.03;
       const dMax = startDistanceKm + spanKm * frac1 + 0.03;
       for (const s of samples) {
@@ -127,7 +141,7 @@ export class TerrainProfileService {
         }
         s.elevationM = this.demMap.queryElevation(s.longitude, s.latitude);
       }
-    }
+    });
 
     const profile: LegProfile = {
       fromLngLat: from,
@@ -276,42 +290,4 @@ function haversineKm(a: [number, number], b: [number, number]): number {
     Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * sinDLon * sinDLon;
   const c = 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
   return EARTH_RADIUS_KM * c;
-}
-
-function interpolateGreatCircle(
-  from: [number, number],
-  to: [number, number],
-  t: number
-): [number, number] {
-  const [lon1, lat1] = from.map(toRad) as [number, number];
-  const [lon2, lat2] = to.map(toRad) as [number, number];
-
-  const x1 = Math.cos(lat1) * Math.cos(lon1);
-  const y1 = Math.cos(lat1) * Math.sin(lon1);
-  const z1 = Math.sin(lat1);
-  const x2 = Math.cos(lat2) * Math.cos(lon2);
-  const y2 = Math.cos(lat2) * Math.sin(lon2);
-  const z2 = Math.sin(lat2);
-
-  const dot = clamp(x1 * x2 + y1 * y2 + z1 * z2, -1, 1);
-  const omega = Math.acos(dot);
-  const sinOmega = Math.sin(omega);
-
-  let xi: number;
-  let yi: number;
-  let zi: number;
-  if (sinOmega < 1e-9) {
-    xi = x1 + (x2 - x1) * t;
-    yi = y1 + (y2 - y1) * t;
-    zi = z1 + (z2 - z1) * t;
-  } else {
-    const a = Math.sin((1 - t) * omega) / sinOmega;
-    const b = Math.sin(t * omega) / sinOmega;
-    xi = a * x1 + b * x2;
-    yi = a * y1 + b * y2;
-    zi = a * z1 + b * z2;
-  }
-  const lat = Math.atan2(zi, Math.sqrt(xi * xi + yi * yi));
-  const lon = Math.atan2(yi, xi);
-  return [toDeg(lon), toDeg(lat)];
 }

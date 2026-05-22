@@ -146,6 +146,68 @@
     }
 
     <div class="safety-profile__workspace">
+      @if (samplingProgress.active()) {
+        <div
+          class="safety-profile__progress-overlay"
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          @if (samplingProgress.state(); as prog) {
+            <div class="safety-profile__progress-card">
+              <p class="safety-profile__progress-title">
+                @if (prog.phase === 'dem') {
+                  {{ 'safetyProfile.demProgress.title' | translate }}
+                } @else {
+                  {{ 'safetyProfile.demProgress.computeTitle' | translate }}
+                }
+              </p>
+              <div
+                class="safety-profile__progress-bar"
+                role="progressbar"
+                [attr.aria-valuenow]="prog.percent"
+                aria-valuemin="0"
+                aria-valuemax="100"
+              >
+                <span
+                  class="safety-profile__progress-fill"
+                  [style.width.%]="prog.percent"
+                ></span>
+              </div>
+              <p class="safety-profile__progress-percent">
+                {{
+                  'safetyProfile.demProgress.percent'
+                    | translate: { value: prog.percent }
+                }}
+              </p>
+              <p class="safety-profile__progress-detail">
+                {{
+                  'safetyProfile.demProgress.leg'
+                    | translate: {
+                      current: prog.legIndex + 1,
+                      total: prog.legCount
+                    }
+                }}
+                @if (prog.legLabel) {
+                  <span class="safety-profile__progress-leg"> — {{ prog.legLabel }}</span>
+                }
+              </p>
+              @if (prog.phase === 'dem' && prog.chunkCount > 1) {
+                <p class="safety-profile__progress-chunk">
+                  {{
+                    'safetyProfile.demProgress.chunk'
+                      | translate: {
+                        current: prog.chunkIndex + 1,
+                        total: prog.chunkCount
+                      }
+                  }}
+                </p>
+              }
+            </div>
+          }
+        </div>
+      }
+
       <section class="safety-profile__map-panel" [attr.aria-label]="'safetyProfile.mapAria' | translate">
         <div class="safety-profile__map-frame">
           <mgl-map
@@ -341,6 +403,15 @@
                     <div class="leg__landables-actions">
                       <button type="button" class="legs-toolbar__btn" (click)="enableAllLandablesOnLeg(leg, $event)">
                         {{ 'safetyProfile.landablesEnableAll' | translate }}
+                      </button>
+                      <button
+                        type="button"
+                        class="legs-toolbar__btn legs-toolbar__btn--accent"
+                        [disabled]="uselessEnabledLandableCount(leg) === 0"
+                        [attr.title]="'safetyProfile.landablesDisableUselessHint' | translate"
+                        (click)="disableUselessLandablesOnLeg(leg, $event)"
+                      >
+                        {{ 'safetyProfile.landablesDisableUseless' | translate }}
                       </button>
                       <button type="button" class="legs-toolbar__btn" (click)="disableAllLandablesOnLeg(leg, $event)">
                         {{ 'safetyProfile.landablesDisableAll' | translate }}
