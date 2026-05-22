@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   isLegTerrainCacheValid,
   legProfileFromTerrainCache,
+  mergeTerrainCaches,
   terrainCacheCoversExtent,
   terrainCacheFromLegProfile,
   type LegTerrainCacheContext
 } from './leg-terrain-cache.model';
-import type { LegProfile } from '../services/terrain-profile.service';
+import type { LegProfile } from './terrain-profile.types';
 
 describe('leg-terrain-cache', () => {
   const ctx: LegTerrainCacheContext = {
@@ -100,5 +101,27 @@ describe('leg-terrain-cache', () => {
     const cache = terrainCacheFromLegProfile(profile, ctx);
     expect(terrainCacheCoversExtent(cache, 0, 25)).toBe(true);
     expect(terrainCacheCoversExtent(cache, -1, 25)).toBe(false);
+  });
+
+  it('mergeTerrainCaches combines samples by distance', () => {
+    const prev = terrainCacheFromLegProfile(profile, ctx);
+    const extended: LegProfile = {
+      ...profile,
+      samples: [
+        ...profile.samples,
+        {
+          distanceKm: 30,
+          longitude: 7.2,
+          latitude: 46.55,
+          elevationM: 900,
+          elevationQuality: 'dem-low'
+        }
+      ],
+      sampleCount: 4
+    };
+    const merged = mergeTerrainCaches(prev, extended, ctx);
+    expect(merged.samples.length).toBe(4);
+    expect(merged.samples.find(s => s.distanceKm === 30)?.q).toBe('l');
+    expect(merged.endKm).toBeGreaterThanOrEqual(30);
   });
 });

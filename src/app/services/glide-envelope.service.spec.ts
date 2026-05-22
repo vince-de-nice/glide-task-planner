@@ -65,3 +65,59 @@ describe('GlideEnvelopeService.filterIntersectingLandables', () => {
     expect(ids).not.toContain('past');
   });
 });
+
+describe('GlideEnvelopeService.computeLegEnvelope', () => {
+  it('sets hasTerrainGaps for missing or estimated, not dem-low alone', () => {
+    const samples = [
+      {
+        distanceKm: 0,
+        longitude: 5,
+        latitude: 44,
+        elevationM: 1000,
+        elevationQuality: 'dem' as const
+      },
+      {
+        distanceKm: 40,
+        longitude: 5.5,
+        latitude: 44,
+        elevationM: 1100,
+        elevationQuality: 'dem-low' as const
+      },
+      {
+        distanceKm: 78,
+        longitude: 6,
+        latitude: 44,
+        elevationM: 1200,
+        elevationQuality: 'dem' as const
+      }
+    ];
+    const envelope = service.computeLegEnvelope(
+      samples,
+      [],
+      params,
+      leg,
+      endpoints,
+      legLengthKm
+    );
+    expect(envelope.hasTerrainGaps).toBe(false);
+
+    const withMissing = service.computeLegEnvelope(
+      [
+        ...samples.slice(0, 2),
+        {
+          distanceKm: 78,
+          longitude: 6,
+          latitude: 44,
+          elevationM: null,
+          elevationQuality: 'missing' as const
+        }
+      ],
+      [],
+      params,
+      leg,
+      endpoints,
+      legLengthKm
+    );
+    expect(withMissing.hasTerrainGaps).toBe(true);
+  });
+});

@@ -1,5 +1,9 @@
 import type { Map as MaplibreMap, StyleSpecification } from 'maplibre-gl';
 import { MAPTERHORN_GRAY_TILE_URL_TEMPLATE } from '../../utils/mapterhorn-gray-tile-protocol.util';
+import {
+  MAPTERHORN_DEM_TILE_SIZE,
+  MAPTERHORN_DEM_TILEJSON_URL
+} from '../../utils/terrain-dem.constants';
 
 export type BasemapId =
   | 'esri-satellite'
@@ -43,14 +47,11 @@ export const MAP_TEXT_FONT_BOLD = [
   'sans-serif'
 ] as const;
 
-/** Tuiles DEM Mapterhorn (Terrarium, 512 px) — voir https://mapterhorn.com/ */
-export const MAPTERHORN_DEM_TILEJSON_URL = 'https://tiles.mapterhorn.com/tilejson.json';
-
-/** Modèle z/x/y pour fetch direct (échantillonnage profil). */
-export const MAPTERHORN_DEM_TILE_URL =
-  'https://tiles.mapterhorn.com/{z}/{x}/{y}.webp';
-
-export const MAPTERHORN_DEM_TILE_SIZE = 512;
+export {
+  MAPTERHORN_DEM_TILE_SIZE,
+  MAPTERHORN_DEM_TILE_URL,
+  MAPTERHORN_DEM_TILEJSON_URL
+} from '../../utils/terrain-dem.constants';
 
 export const BASEMAP_PRESETS: readonly BasemapPreset[] = [
   {

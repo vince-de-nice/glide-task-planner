@@ -9,7 +9,8 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "lint": "ng lint"
+    "lint": "ng lint",
+    "verify": "npm run lint && npm run test && npm run build"
   },
   "private": true,
   "packageManager": "npm@11.6.0",

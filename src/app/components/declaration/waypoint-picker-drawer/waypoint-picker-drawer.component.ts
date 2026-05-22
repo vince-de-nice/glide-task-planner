@@ -24,6 +24,7 @@ import {
 import { TranslateService } from '../../../i18n/translate.service';
 import { TranslatePipe } from '../../../i18n/translate.pipe';
 import { waypointTypeDisplayI18n } from '../../../i18n/display-i18n.util';
+import { paginateItems } from '../../../utils/waypoint-list-pagination.util';
 
 @Component({
   selector: 'app-waypoint-picker-drawer',
@@ -84,10 +85,12 @@ export class WaypointPickerDrawerComponent {
   );
 
   paginatedWaypoints = computed(() => {
-    const all = this.filteredWaypoints();
-    const page = Math.min(this.currentPage(), this.totalPages());
-    const start = (page - 1) * this.pageSize();
-    return all.slice(start, start + this.pageSize());
+    const { items } = paginateItems(
+      this.filteredWaypoints(),
+      this.currentPage(),
+      this.pageSize()
+    );
+    return items;
   });
 
   pageRangeStart = computed(() => {

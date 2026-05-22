@@ -3,7 +3,13 @@ import type {
   LegProfile,
   TerrainElevationQuality,
   TerrainSample
-} from '../services/terrain-profile.service';
+} from './terrain-profile.types';
+import {
+  isFullyDemProfile,
+  profileTerrainQuality
+} from '../utils/terrain-profile-quality.util';
+
+export { profileTerrainQuality } from '../utils/terrain-profile-quality.util';
 
 /** Incrémenter si le format ou le zoom DEM change. */
 export const LEG_TERRAIN_CACHE_VERSION = 2;
@@ -80,25 +86,9 @@ export function isLegTerrainCacheValid(
   return true;
 }
 
-export function profileTerrainQuality(
-  sample: Pick<TerrainSample, 'elevationQuality' | 'elevationM'>
-): TerrainElevationQuality {
-  return (
-    sample.elevationQuality ??
-    (sample.elevationM == null ? 'missing' : 'dem')
-  );
-}
-
 /** Ne persiste que les profils entièrement issus du DEM (tuiles OK). */
 export function shouldPersistTerrainCache(profile: LegProfile): boolean {
-  return (
-    !profile.hasGaps &&
-    profile.samples.length > 0 &&
-    profile.samples.every(s => {
-      const q = profileTerrainQuality(s);
-      return q === 'dem';
-    })
-  );
+  return isFullyDemProfile(profile);
 }
 
 function qualityToCache(q: TerrainElevationQuality): 'd' | 'l' | 'e' | 'm' {

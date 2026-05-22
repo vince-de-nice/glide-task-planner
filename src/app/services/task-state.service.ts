@@ -302,6 +302,11 @@ export class TaskStateService {
     this.applyLegTerrainCaches(new Map([[branchIndex, terrainCache]]));
   }
 
+  /** Alias explicite pour les mises à jour terrain depuis le profil sécurité. */
+  patchLegTerrainCache(branchIndex: number, terrainCache: LegTerrainCache): void {
+    this.setLegTerrainCache(branchIndex, terrainCache);
+  }
+
   clearLegTerrainCache(branchIndex: number): void {
     const legs = [...this.circuitLegs()];
     if (branchIndex < 0 || branchIndex >= legs.length - 1) return;

@@ -1,7 +1,7 @@
 import {
   MAPTERHORN_DEM_TILE_SIZE,
   MAPTERHORN_DEM_TILE_URL
-} from '../components/map-view/map-style.constants';
+} from './terrain-dem.constants';
 import { DEM_SAMPLE_ZOOM } from './terrain-dem-chunk.util';
 
 /** Échantillons à remplir (altitude null = à charger). */

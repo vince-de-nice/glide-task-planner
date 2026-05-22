@@ -26,6 +26,12 @@ module.exports = tseslint.config(
     }
   },
   {
+    files: ['**/*.component.ts'],
+    rules: {
+      'max-lines': ['warn', { max: 500, skipBlankLines: true, skipComments: true }]
+    }
+  },
+  {
     files: ['**/*.html'],
     extends: [...angular.configs.templateRecommended],
     rules: {}

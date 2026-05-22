@@ -1,5 +1,6 @@
 import { Waypoint } from '../../models/waypoint.model';
 import { WAYPOINT_TYPE_DISPLAY } from '../../utils/waypoint-type-display.util';
+import { paginateItems } from '../../utils/waypoint-list-pagination.util';
 
 export type WaypointSortField = 'name' | 'type' | 'latitude' | 'longitude' | 'elevation';
 
@@ -76,8 +77,5 @@ export function paginateWaypoints(
   page: number,
   pageSize: number
 ): Waypoint[] {
-  const totalPages = Math.max(1, Math.ceil(waypoints.length / pageSize));
-  const safePage = Math.max(1, Math.min(page, totalPages));
-  const start = (safePage - 1) * pageSize;
-  return waypoints.slice(start, start + pageSize);
+  return paginateItems(waypoints, page, pageSize).items;
 }

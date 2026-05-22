@@ -5,7 +5,11 @@ import { assignMapDisplayRadii } from '../utils/landable-cone-intersection.util'
 import type {
   TerrainElevationQuality,
   TerrainSample
-} from './terrain-profile.service';
+} from '../models/terrain-profile.types';
+import {
+  haversineKmCoords,
+  interpolateGreatCircle
+} from '../utils/geo.util';
 
 /** Point d'une courbe de cône (altitude requise à une distance le long de la branche). */
 export interface LandableConeSample {
@@ -264,7 +268,7 @@ export class GlideEnvelopeService {
         let bestDist = Number.POSITIVE_INFINITY;
 
         for (const la of intersecting) {
-          const distKm = haversineKm(
+          const distKm = haversineKmCoords(
             sample.longitude,
             sample.latitude,
             la.longitude,
@@ -371,7 +375,7 @@ export class GlideEnvelopeService {
       const baseAltitudeM = elev + params.arrivalMarginM;
 
       const curve: LandableConeSample[] = samples.map(sample => {
-        const distKm = haversineKm(
+        const distKm = haversineKmCoords(
           sample.longitude,
           sample.latitude,
           la.longitude,
@@ -431,7 +435,7 @@ function computeBindingLandableIds(
     for (const la of landables) {
       const elev = la.elevation;
       if (elev == null || !Number.isFinite(elev)) continue;
-      const d = haversineKm(
+      const d = haversineKmCoords(
         sample.longitude,
         sample.latitude,
         la.longitude,
@@ -549,7 +553,7 @@ function projectOntoLeg(
   for (let i = 0; i <= steps; i++) {
     const t = (i / steps) * 2 - 0.5;
     const [pLng, pLat] = interpolateGreatCircle(from, to, t);
-    const d = haversineKm(pLng, pLat, lng, lat);
+    const d = haversineKmCoords(pLng, pLat, lng, lat);
     if (d < bestDist) {
       bestDist = d;
       bestT = t;
@@ -561,69 +565,6 @@ function projectOntoLeg(
   };
 }
 
-function interpolateGreatCircle(
-  from: [number, number],
-  to: [number, number],
-  t: number
-): [number, number] {
-  const [lon1, lat1] = from.map(toRad) as [number, number];
-  const [lon2, lat2] = to.map(toRad) as [number, number];
-
-  const x1 = Math.cos(lat1) * Math.cos(lon1);
-  const y1 = Math.cos(lat1) * Math.sin(lon1);
-  const z1 = Math.sin(lat1);
-  const x2 = Math.cos(lat2) * Math.cos(lon2);
-  const y2 = Math.cos(lat2) * Math.sin(lon2);
-  const z2 = Math.sin(lat2);
-
-  const dot = clamp(x1 * x2 + y1 * y2 + z1 * z2, -1, 1);
-  const omega = Math.acos(dot);
-  const sinOmega = Math.sin(omega);
-
-  let xi: number;
-  let yi: number;
-  let zi: number;
-  if (sinOmega < 1e-9) {
-    xi = x1 + (x2 - x1) * t;
-    yi = y1 + (y2 - y1) * t;
-    zi = z1 + (z2 - z1) * t;
-  } else {
-    const a = Math.sin((1 - t) * omega) / sinOmega;
-    const b = Math.sin(t * omega) / sinOmega;
-    xi = a * x1 + b * x2;
-    yi = a * y1 + b * y2;
-    zi = a * z1 + b * z2;
-  }
-  const lat = Math.atan2(zi, Math.sqrt(xi * xi + yi * yi));
-  const lon = Math.atan2(yi, xi);
-  return [toDeg(lon), toDeg(lat)];
-}
-
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
-}
-
-function toRad(deg: number): number {
-  return (deg * Math.PI) / 180;
-}
-
-function toDeg(rad: number): number {
-  return (rad * 180) / Math.PI;
-}
-
-function haversineKm(
-  lng1: number,
-  lat1: number,
-  lng2: number,
-  lat2: number
-): number {
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lng2 - lng1);
-  const sinDLat = Math.sin(dLat / 2);
-  const sinDLon = Math.sin(dLon / 2);
-  const h =
-    sinDLat * sinDLat +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * sinDLon * sinDLon;
-  const c = 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
-  return EARTH_RADIUS_KM * c;
 }

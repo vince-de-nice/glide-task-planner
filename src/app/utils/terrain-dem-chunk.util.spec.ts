@@ -1,8 +1,9 @@
+import { describe, expect, it } from 'vitest';
 import {
   DEM_SAMPLE_ZOOM,
   demChunkMaxSpanKm,
   splitSegmentIntoChunks
-} from '../utils/terrain-dem-chunk.util';
+} from './terrain-dem-chunk.util';
 
 describe('terrain DEM chunks', () => {
   it('uses zoom 15 everywhere', () => {

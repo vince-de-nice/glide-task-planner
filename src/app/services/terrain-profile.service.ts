@@ -1,79 +1,45 @@
 import { Injectable } from '@angular/core';
+import type { LegProfile, TerrainSample } from '../models/terrain-profile.types';
 import {
-  DEM_SAMPLE_ZOOM,
-  TerrainDemMapService,
+  annotateTerrainQuality,
+  isFullyDemProfile
+} from '../utils/terrain-profile-quality.util';
+import { haversineKm, interpolateGreatCircle } from '../utils/geo.util';
+import {
+  TerrainElevationSamplerService,
   type DemSegmentBounds
-} from './terrain-dem-map.service';
+} from './terrain-elevation-sampler.service';
 import {
   TerrainSamplingProgressService,
   type TerrainSamplingProgressContext
 } from './terrain-sampling-progress.service';
-import { interpolateGreatCircle } from '../utils/terrain-dem-chunk.util';
+import { DEM_SAMPLE_ZOOM } from '../utils/terrain-dem-chunk.util';
 
 export type { TerrainSamplingProgressContext } from './terrain-sampling-progress.service';
+export type {
+  LegProfile,
+  TerrainElevationQuality,
+  TerrainSample
+} from '../models/terrain-profile.types';
 
-/** Origine de l'altitude terrain affichée sur la coupe. */
-export type TerrainElevationQuality = 'dem' | 'dem-low' | 'estimated' | 'missing';
-
-/** Point d'échantillonnage le long d'une branche, altitudes en m MSL. */
-export interface TerrainSample {
-  /** Distance cumulée depuis le départ de la branche (km). */
-  distanceKm: number;
-  longitude: number;
-  latitude: number;
-  /** Altitude terrain (DEM Mapterhorn) — null si la tuile n'a pas pu être lue. */
-  elevationM: number | null;
-  /** Qualité de l'altitude (DEM, secours extrémités, ou trou). */
-  elevationQuality?: TerrainElevationQuality;
-  /** Transitoire après fetch tuile (avant {@link annotateTerrainQuality}). */
-  demSampleQuality?: 'dem' | 'dem-low';
-}
-
-export interface LegProfile {
-  fromLngLat: [number, number];
-  toLngLat: [number, number];
-  samples: TerrainSample[];
-  /** Distance totale de la branche (km). */
-  totalDistanceKm: number;
-  /** Nombre d'échantillons retournés. */
-  sampleCount: number;
-  /** Vrai si au moins un échantillon est resté null (tuile manquante). */
-  hasGaps: boolean;
-}
-
-const EARTH_RADIUS_KM = 6371;
 const MIN_SAMPLES = 80;
 const MAX_SAMPLES = 600;
 const SAMPLE_PER_KM = 10;
 
-/**
- * Échantillonnage du DEM le long des branches via fetch direct de tuiles Mapterhorn
- * ({@link TerrainDemMapService}, Terrarium z15, cache tuile).
- */
 @Injectable({ providedIn: 'root' })
 export class TerrainProfileService {
   private readonly profileCache = new Map<string, LegProfile>();
 
   constructor(
-    private readonly demMap: TerrainDemMapService,
+    private readonly demSampler: TerrainElevationSamplerService,
     private readonly samplingProgress: TerrainSamplingProgressService
   ) {}
 
-  /**
-   * @deprecated La carte visible n'est plus utilisée pour le DEM ; conservé pour compatibilité.
-   */
-  setMap(_map: unknown | null): void {
-    /* no-op */
-  }
-
   clearCache(): void {
     this.profileCache.clear();
-    this.demMap.clearElevationCache();
+    this.demSampler.clearElevationCache();
   }
 
-  /**
-   * Échantillonne le DEM à z15 sur toute la branche (fenêtres successives + requête par fenêtre).
-   */
   async sampleLegProfileAtDemZoom(
     from: [number, number],
     to: [number, number],
@@ -84,9 +50,6 @@ export class TerrainProfileService {
     return this.sampleLegRangeAtDemZoom(from, to, 0, totalDistanceKm, nbPoints, progress);
   }
 
-  /**
-   * Échantillonne le DEM à z15 entre `startDistanceKm` et `endDistanceKm` le long de A→B.
-   */
   async sampleLegRangeAtDemZoom(
     from: [number, number],
     to: [number, number],
@@ -128,7 +91,7 @@ export class TerrainProfileService {
       to: interpolateGreatCircle(from, to, tEnd)
     };
     const legLabel = progress?.legLabel ?? null;
-    await this.demMap.forEachChunk(rangeSegment, async (ci, chunkCount) => {
+    await this.demSampler.forEachChunk(rangeSegment, async (ci, chunkCount) => {
       if (progress) {
         this.samplingProgress.setDemChunk(
           progress.legIndex,
@@ -145,7 +108,7 @@ export class TerrainProfileService {
       const chunkSamples = samples.filter(
         s => s.distanceKm >= dMin && s.distanceKm <= dMax && s.elevationM == null
       );
-      await this.demMap.fillSampleElevations(chunkSamples);
+      await this.demSampler.fillSampleElevations(chunkSamples);
     });
 
     const annotated = annotateTerrainQuality(samples);
@@ -158,66 +121,7 @@ export class TerrainProfileService {
       hasGaps: annotated.some(s => s.elevationM === null)
     };
 
-    if (shouldCacheProfile(profile)) {
-      this.profileCache.set(key, profile);
-    }
-    return profile;
-  }
-
-  /**
-   * @deprecated Utiliser {@link sampleLegProfileAtDemZoom} (requiert tuiles z15 déjà chargées).
-   */
-  sampleLegProfile(
-    from: [number, number],
-    to: [number, number],
-    nbPoints?: number
-  ): LegProfile {
-    const totalDistanceKm = haversineKm(from, to);
-    return this.sampleLegRange(from, to, 0, totalDistanceKm, nbPoints);
-  }
-
-  sampleLegRange(
-    from: [number, number],
-    to: [number, number],
-    startDistanceKm: number,
-    endDistanceKm: number,
-    nbPoints?: number
-  ): LegProfile {
-    const totalDistanceKm = haversineKm(from, to);
-    const spanKm = Math.max(0.01, endDistanceKm - startDistanceKm);
-    const sampleCount =
-      nbPoints ??
-      clamp(Math.round(spanKm * SAMPLE_PER_KM), MIN_SAMPLES, MAX_SAMPLES);
-
-    const key = cacheKeyRange(from, to, startDistanceKm, endDistanceKm, sampleCount);
-    const cached = this.profileCache.get(key);
-    if (cached) return cached;
-
-    const samples: TerrainSample[] = [];
-    for (let i = 0; i < sampleCount; i++) {
-      const frac = sampleCount === 1 ? 0 : i / (sampleCount - 1);
-      const distanceKm = startDistanceKm + spanKm * frac;
-      const t = totalDistanceKm > 0 ? distanceKm / totalDistanceKm : 0;
-      const point = interpolateGreatCircle(from, to, t);
-      const elevation = this.demMap.queryElevation(point[0], point[1]);
-      samples.push({
-        distanceKm,
-        longitude: point[0],
-        latitude: point[1],
-        elevationM: elevation
-      });
-    }
-
-    const profile: LegProfile = {
-      fromLngLat: from,
-      toLngLat: to,
-      samples,
-      totalDistanceKm,
-      sampleCount,
-      hasGaps: samples.some(s => s.elevationM === null)
-    };
-
-    if (shouldCacheProfile(profile)) {
+    if (isFullyDemProfile(profile)) {
       this.profileCache.set(key, profile);
     }
     return profile;
@@ -259,28 +163,6 @@ export class TerrainProfileService {
   }
 }
 
-function shouldCacheProfile(profile: LegProfile): boolean {
-  return (
-    !profile.hasGaps &&
-    profile.samples.every(s => (s.elevationQuality ?? 'dem') === 'dem')
-  );
-}
-
-function annotateTerrainQuality(samples: TerrainSample[]): TerrainSample[] {
-  return samples.map(s => {
-    if (s.elevationM == null) {
-      return { ...s, elevationQuality: 'missing' as const };
-    }
-    if (s.elevationQuality === 'estimated') {
-      return s;
-    }
-    if (s.demSampleQuality === 'dem-low') {
-      return { ...s, elevationQuality: 'dem-low' as const };
-    }
-    return { ...s, elevationQuality: 'dem' as const };
-  });
-}
-
 function cacheKeyRange(
   from: [number, number],
   to: [number, number],
@@ -297,22 +179,4 @@ function cacheKeyRange(
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
-}
-
-function toRad(deg: number): number {
-  return (deg * Math.PI) / 180;
-}
-
-function haversineKm(a: [number, number], b: [number, number]): number {
-  const [lon1, lat1] = a;
-  const [lon2, lat2] = b;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const sinDLat = Math.sin(dLat / 2);
-  const sinDLon = Math.sin(dLon / 2);
-  const h =
-    sinDLat * sinDLat +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * sinDLon * sinDLon;
-  const c = 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
-  return EARTH_RADIUS_KM * c;
 }
