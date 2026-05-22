@@ -124,6 +124,19 @@
         >
           <i class="pi pi-box" aria-hidden="true"></i>
         </button>
+        <button
+          type="button"
+          class="map-fab"
+          [class.map-fab--on]="airspaceFiltersDialogOpen()"
+          [disabled]="airspaceLoading()"
+          (click)="openAirspaceFiltersDialog()"
+          [pTooltip]="'map.airspaceFiltersFab' | translate"
+          tooltipPosition="left"
+          [attr.aria-label]="'map.airspaceFiltersFabAria' | translate"
+          [attr.aria-haspopup]="'dialog'"
+        >
+          <i class="pi pi-filter" aria-hidden="true"></i>
+        </button>
       }
 
     </div>
@@ -254,6 +267,14 @@
     }
   </div>
 </div>
+
+<app-airspace-zone-filters
+  [visible]="airspaceFiltersDialogOpen()"
+  (visibleChange)="airspaceFiltersDialogOpen.set($event)"
+  [options]="airspaceFilterOptions()"
+  [filters]="airspaceZoneFilters()"
+  (filtersChange)="onAirspaceZoneFiltersChange($event)"
+/>
 
 <app-waypoint-edit-dialog
   [open]="editDialogOpen()"

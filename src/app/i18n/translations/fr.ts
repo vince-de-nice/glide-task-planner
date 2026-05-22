@@ -8,6 +8,7 @@ export const fr = {
       dataSources: 'Sources de données',
       library: 'Bibliothèque',
       safetyProfile: 'Profil sécurité',
+      airspaceDebug: 'Labo espaces aériens',
       mainAria: 'Navigation principale',
       menuTitle: 'Menu',
       openMenu: 'Ouvrir le menu'
@@ -332,7 +333,10 @@ export const fr = {
     airspaceVolume3d: 'Volumes 3D (échelle)',
     airspaceVolume3dHint: 'Prismes entre plancher et plafond (FL en pression standard, AGL + relief DEM)',
     airspaceLoading: 'Chargement des espaces aériens…',
-    airspacePoaffVolumes: 'POAFF — {{label}} · {{count}} volumes 3D',
+    airspacePoaffVolumes:
+      'POAFF — {{label}} · {{count}} volumes 3D · {{shown}}/{{total}} zones',
+    airspaceFiltersFab: 'Filtres espaces aériens',
+    airspaceFiltersFabAria: 'Ouvrir les filtres des espaces aériens',
     mapNotReady: 'Carte non initialisée — attendez un instant puis réessayez.',
     airspaceOpenAip: 'OpenAIP (monde)',
     airspacePoaff: 'POAFF/SIA — {{label}} (clé OpenAIP optionnelle dans public/config/airspace.json)',
@@ -648,6 +652,93 @@ export const fr = {
     removeAll: 'Toutes les occurrences de « {{name}} » retirées',
     waypointDeleted: 'Point « {{name}} » supprimé'
   },
+  airspaceDebug: {
+    title: 'Laboratoire espaces aériens',
+    intro:
+      'Zones fictives autour des Aravis pour valider le rendu 2D, le fil de fer 3D et les plafonds MSL/AGL. Caméra libre (pitch jusqu’à 85°).',
+    placement: 'Emplacement des tests',
+    relocateToMapCenter: 'Déplacer les zones ici (centre carte)',
+    relocateHint:
+      'Naviguez vers le relief souhaité, puis cliquez : toute la grille de test est recalée sur le centre actuel et le DEM est rééchantillonné.',
+    gridAnchor: 'Ancre grille',
+    display: 'Affichage',
+    volume3d: 'Volumes 3D (fil de fer)',
+    useDem: 'Relief DEM (sinon sol fictif 1800 m)',
+    hillshade: 'Ombrage relief',
+    basemap: 'Fond de carte',
+    camera: 'Caméra',
+    cameraOblique: 'Oblique',
+    cameraSide: 'Profil',
+    cameraTop: 'Dessus',
+    cameraLow: 'Ras relief',
+    pitch: 'Inclinaison',
+    bearing: 'Azimut',
+    zoom: 'Zoom',
+    scenariosTitle: 'Typologies de test',
+    showAll: 'Tout afficher',
+    status: '{{volumes}} volume(s), {{wireframes}} fil(s) de fer — {{total}} zone(s)',
+    category: {
+      msl: 'MSL',
+      fl: 'Niveau de vol',
+      agl: 'AGL / sol',
+      terrain: 'Relief',
+      flat: '2D',
+      excluded: 'Exclu 3D',
+      edge: 'Cas limite'
+    },
+    scenarios: {
+      mslFlBox: {
+        title: 'CTR FL100 → FL200',
+        desc: 'Plancher et plafond MSL constants (pas de suivi terrain).',
+        expected: 'Prisme violet : base ~FL100, plafond ~FL200, toit horizontal visible.'
+      },
+      sfcFl999: {
+        title: 'SFC → FL999',
+        desc: 'Plafond quasi illimité POAFF (~30,5 km MSL).',
+        expected: 'Volume orange très haut ; plancher au relief si DEM actif.'
+      },
+      fl999BadUpperM: {
+        title: 'FL999 + upperM erroné (999)',
+        desc: 'Vérifie que le texte FL999 prime sur upperM=999 m.',
+        expected: 'Même hauteur que SFC→FL999, pas un cube à 999 m.'
+      },
+      aglGndTop: {
+        title: 'GND → 2500FT AGL',
+        desc: 'Plafond AGL : suit le relief par sommet.',
+        expected: 'Plafond incliné avec le terrain ; plancher au sol DEM.'
+      },
+      ftAmsl: {
+        title: '3000FT AMSL → 4500FT AMSL',
+        desc: 'Pieds AMSL (pas de niveau de vol).',
+        expected: 'Prisme bleu entre ~914 m et ~1372 m MSL.'
+      },
+      mslMeters: {
+        title: '2000M → 3500M',
+        desc: 'Limites en mètres MSL explicites.',
+        expected: 'Prisme rouge entre 2000 et 3500 m MSL.'
+      },
+      unlimited: {
+        title: 'SFC → UNLIMITED',
+        desc: 'Plafond d’affichage capé (~20 km).',
+        expected: 'Volume violet haut ; plafond interne ~20 000 m.'
+      },
+      geoLocal: {
+        title: 'GEO (petite emprise)',
+        desc: 'Type GEO / classe AREA — exclu du fil de fer.',
+        expected: 'Pas de volume 3D ; zone cliquable (hit) seulement en mode volumes.'
+      },
+      flatOutline: {
+        title: 'Contour 2D seul',
+        desc: 'Sans limites verticales exploitables.',
+        expected: 'Lignes de contour uniquement (pas de prisme).'
+      },
+      largeArea: {
+        title: 'Grande AREA (> 350 km)',
+        desc: 'Emprise nationale simulée — hors fil de fer 3D.',
+        expected: 'Aucun fil de fer ; centrage sur la France entière.'
+      }
+    }
+  },
   safetyProfile: {
     title: 'Profil de sécurité du circuit',
     paramsTitle: 'Paramètres de sécurité',
@@ -662,8 +753,11 @@ export const fr = {
     cones3d: 'Cônes 3D sur la carte',
     cones3dHint:
       'Affiche les volumes de demi-finesse depuis chaque terrain posable actif et l’enveloppe min. (rouge). Inclinez la carte pour mieux les voir.',
-    airspace: 'Espaces aériens',
-    airspaceHint: 'Tous les types POAFF de la région sélectionnée',
+    airspaceZonesTitle: 'Zones dans le périmètre',
+    airspaceZonesHint:
+      'Liste filtrée par les cônes de local activés (horizontal et vertical). Survol = aperçu sur la carte.',
+    airspaceZonesEnableAll: 'Tout afficher',
+    airspaceZonesDisableAll: 'Tout masquer',
     airspaceVolume3d: 'Volumes 3D (échelle)',
     airspaceVolume3dHint:
       'Prismes entre plancher et plafond ; AGL/GND avec relief DEM sous le polygone',
@@ -750,6 +844,56 @@ export const fr = {
       terrainGaps:
         'Relief incomplet sur cette branche : certaines tuiles DEM n’ont pas pu être chargées.',
       terrainGapsRetry: 'Réessayer le relief'
+    }
+  },
+  airspaceFilters: {
+    aria: 'Filtrer les zones d’espaces aériens affichées',
+    title: 'Filtres des espaces aériens',
+    intro:
+      'Types et noms : cliquez les pastilles. Plancher / plafond : réglez les curseurs (altitudes MSL des zones chargées).',
+    reset: 'Tout effacer',
+    noData: 'Chargez les espaces aériens pour voir les critères.',
+    tabZones: 'Types de zone',
+    tabVertical: 'Altitudes',
+    altitudeIntro:
+      'Seules les zones dont le plancher et le plafond (m MSL, après calcul AGL/DEM) tombent dans les intervalles ci-dessous restent visibles.',
+    floorTitle: 'Plancher de la zone',
+    ceilingTitle: 'Plafond de la zone',
+    altitudeReset: 'Tout l’intervalle',
+    floorIdle: 'Tout plancher — curseurs au maximum de la région.',
+    floorActive: 'Filtre actif : plancher compris entre les deux valeurs.',
+    ceilingIdle: 'Tout plafond — curseurs au maximum de la région.',
+    ceilingActive: 'Filtre actif : plafond compris entre les deux valeurs.',
+    noAltitude: 'Aucune altitude MSL n’a pu être déduite des zones chargées.',
+    altitudeUnknown:
+      '{{count}} zone(s) sans altitude résolue — masquées si un filtre d’altitude est actif.',
+    tabName: 'Nom',
+    selectAll: 'Tout sélectionner',
+    clear: 'Tout désélectionner',
+    searchPlaceholder: 'Rechercher…',
+    noMatch: 'Aucun libellé ne correspond.',
+    sectionIdle: 'Aucune sélection — toutes les zones de ce critère sont affichées.',
+    sectionInclude: '{{count}} sélection(s) — la carte n’affiche que celles-ci.',
+    sectionExclude: '{{count}} sélection(s) — la carte masque celles-ci.',
+    activeCount: '{{count}} filtre(s) actif(s)',
+    modeInclude: 'Garder la sélection',
+    modeExclude: 'Masquer la sélection',
+    volume: 'Géométrie',
+    volumeAll: 'Toutes',
+    volumeVolumetric: 'Volumes 3D seulement',
+    volumeFlat: 'Contours 2D seulement',
+    class: 'Classe',
+    type: 'Type',
+    name: 'Nom',
+    namePlaceholder: 'Sous-chaîne…',
+    nameAdd: 'Ajouter',
+    nameRemove: 'Retirer {{term}}',
+    limitKind: {
+      msl: 'MSL / FL',
+      agl: 'AGL',
+      ground: 'Sol / GND',
+      unlimited: 'Illimité',
+      unknown: 'Autre'
     }
   }
 } as const;

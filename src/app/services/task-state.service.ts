@@ -37,20 +37,46 @@ import { readMigratedLocalStorage } from '../utils/local-storage-migrate.util';
 const STORAGE_KEY = 'gc_task_state';
 const LEGACY_STORAGE_KEYS = ['vav_task_state'];
 
+export interface SafetyOutgoingMergeExtras {
+  terrainCache?: LegTerrainCache;
+  markLandablesAutoPruned?: boolean;
+  airspaceZoneCatalog?: SafetyOutgoingBranch['airspaceZoneCatalog'];
+  disabledAirspaceZoneKeys?: string[];
+}
+
 function mergeSafetyOutgoing(
   disabledLandableIds: string[],
   prev?: SafetyOutgoingBranch,
-  terrainCache?: LegTerrainCache,
-  markLandablesAutoPruned = false
+  extras?: SafetyOutgoingMergeExtras
 ): SafetyOutgoingBranch | undefined {
-  const cache = terrainCache ?? prev?.terrainCache;
-  const autoPruned = markLandablesAutoPruned || prev?.landablesAutoPruned;
-  if (disabledLandableIds.length === 0 && !cache && !autoPruned) {
+  const cache = extras?.terrainCache ?? prev?.terrainCache;
+  const autoPruned = extras?.markLandablesAutoPruned || prev?.landablesAutoPruned;
+  const airspaceZoneCatalog =
+    extras?.airspaceZoneCatalog ?? prev?.airspaceZoneCatalog;
+  const disabledAirspaceZoneKeys =
+    extras?.disabledAirspaceZoneKeys ?? prev?.disabledAirspaceZoneKeys;
+
+  const hasAirspace =
+    (airspaceZoneCatalog?.length ?? 0) > 0 ||
+    (disabledAirspaceZoneKeys?.length ?? 0) > 0;
+
+  if (
+    disabledLandableIds.length === 0 &&
+    !cache &&
+    !autoPruned &&
+    !hasAirspace
+  ) {
     return undefined;
   }
   const branch: SafetyOutgoingBranch = { disabledLandableIds };
   if (cache) branch.terrainCache = cache;
   if (autoPruned) branch.landablesAutoPruned = true;
+  if (airspaceZoneCatalog?.length) {
+    branch.airspaceZoneCatalog = airspaceZoneCatalog;
+  }
+  if (disabledAirspaceZoneKeys?.length) {
+    branch.disabledAirspaceZoneKeys = disabledAirspaceZoneKeys;
+  }
   return branch;
 }
 
@@ -58,6 +84,8 @@ export interface LegSafetyOutgoingPatch {
   terrainCache?: LegTerrainCache;
   addDisabledLandableIds?: readonly string[];
   markLandablesAutoPruned?: boolean;
+  airspaceZoneCatalog?: SafetyOutgoingBranch['airspaceZoneCatalog'];
+  disabledAirspaceZoneKeys?: string[];
 }
 
 interface PersistedTaskState {
@@ -254,12 +282,12 @@ export class TaskStateService {
       }
       const disabledLandableIds = [...disabled];
       const markAutoPruned = patch.markLandablesAutoPruned ?? false;
-      const next = mergeSafetyOutgoing(
-        disabledLandableIds,
-        prev,
-        patch.terrainCache,
-        markAutoPruned
-      );
+      const next = mergeSafetyOutgoing(disabledLandableIds, prev, {
+        terrainCache: patch.terrainCache,
+        markLandablesAutoPruned: markAutoPruned,
+        airspaceZoneCatalog: patch.airspaceZoneCatalog,
+        disabledAirspaceZoneKeys: patch.disabledAirspaceZoneKeys
+      });
       const prevDisabled = prev?.disabledLandableIds ?? [];
       if (
         next === undefined &&
@@ -392,6 +420,76 @@ export class TaskStateService {
         disabledLandableIds,
         leg.safetyOutgoing
       )
+    };
+    this.setLegs(legs);
+  }
+
+  setLegAirspaceZoneCatalog(
+    branchIndex: number,
+    catalog: NonNullable<SafetyOutgoingBranch['airspaceZoneCatalog']>,
+    disabledAirspaceZoneKeys: string[]
+  ): void {
+    const legs = [...this.circuitLegs()];
+    if (branchIndex < 0 || branchIndex >= legs.length - 1) return;
+    const leg = legs[branchIndex];
+    const disabledLandableIds = leg.safetyOutgoing?.disabledLandableIds ?? [];
+    legs[branchIndex] = {
+      ...leg,
+      safetyOutgoing: mergeSafetyOutgoing(disabledLandableIds, leg.safetyOutgoing, {
+        airspaceZoneCatalog: catalog,
+        disabledAirspaceZoneKeys
+      })
+    };
+    this.setLegs(legs);
+  }
+
+  isSafetyAirspaceZoneEnabled(branchIndex: number, zoneKey: string): boolean {
+    const legs = this.circuitLegs();
+    if (branchIndex < 0 || branchIndex >= legs.length - 1) return true;
+    const disabled = legs[branchIndex].safetyOutgoing?.disabledAirspaceZoneKeys;
+    return !disabled?.includes(zoneKey);
+  }
+
+  setSafetyAirspaceZoneEnabled(
+    branchIndex: number,
+    zoneKey: string,
+    enabled: boolean
+  ): void {
+    const legs = [...this.circuitLegs()];
+    if (branchIndex < 0 || branchIndex >= legs.length - 1) return;
+    const leg = legs[branchIndex];
+    const disabled = new Set(leg.safetyOutgoing?.disabledAirspaceZoneKeys ?? []);
+    if (enabled) disabled.delete(zoneKey);
+    else disabled.add(zoneKey);
+    const disabledLandableIds = leg.safetyOutgoing?.disabledLandableIds ?? [];
+    legs[branchIndex] = {
+      ...leg,
+      safetyOutgoing: mergeSafetyOutgoing(disabledLandableIds, leg.safetyOutgoing, {
+        disabledAirspaceZoneKeys: [...disabled]
+      })
+    };
+    this.setLegs(legs);
+  }
+
+  setAllSafetyAirspaceZonesEnabled(
+    branchIndex: number,
+    zoneKeys: string[],
+    enabled: boolean
+  ): void {
+    const legs = [...this.circuitLegs()];
+    if (branchIndex < 0 || branchIndex >= legs.length - 1) return;
+    const leg = legs[branchIndex];
+    const disabled = new Set(leg.safetyOutgoing?.disabledAirspaceZoneKeys ?? []);
+    for (const key of zoneKeys) {
+      if (enabled) disabled.delete(key);
+      else disabled.add(key);
+    }
+    const disabledLandableIds = leg.safetyOutgoing?.disabledLandableIds ?? [];
+    legs[branchIndex] = {
+      ...leg,
+      safetyOutgoing: mergeSafetyOutgoing(disabledLandableIds, leg.safetyOutgoing, {
+        disabledAirspaceZoneKeys: [...disabled]
+      })
     };
     this.setLegs(legs);
   }

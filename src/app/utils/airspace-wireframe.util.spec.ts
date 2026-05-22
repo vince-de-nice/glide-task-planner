@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildAirspaceCeilingMeshBuffers,
   buildAirspaceWallMeshBuffers,
   buildAirspaceWireframePositions,
   buildAirspaceWireframeSpecs,
@@ -8,6 +9,7 @@ import {
   wireframeVertexBaseM,
   wireframeVertexTopM
 } from './airspace-wireframe.util';
+import { FL999_CEILING_M } from './airspace-altitude.util';
 
 describe('airspace-wireframe.util', () => {
   it('génère plancher + plafond + verticales pour un carré MSL', () => {
@@ -50,6 +52,59 @@ describe('airspace-wireframe.util', () => {
     const walls = buildAirspaceWallMeshBuffers(specs, null);
     expect(walls.indices.length).toBe(4 * 6);
     expect(walls.positions.length).toBe(4 * 4 * 3);
+
+    const ceiling = buildAirspaceCeilingMeshBuffers(specs, null);
+    expect(ceiling.indices.length).toBe(2 * 3);
+    expect(ceiling.positions.length).toBe(4 * 3);
+  });
+
+  it('utilise FL999 pour le plafond MSL du volume', () => {
+    const model = buildWireframeVerticalModel({
+      hasVolume: true,
+      extrusionBaseM: 0,
+      extrusionTopM: 999,
+      lower: 'SFC',
+      upper: 'FL999',
+      upperM: 999
+    });
+    expect(model?.topM).toBeCloseTo(FL999_CEILING_M, 0);
+    expect(model?.useTerrainTop).toBe(false);
+  });
+
+  it('exclut GEO et très grandes emprises du fil de fer 3D', () => {
+    const franceRing = [
+      { lng: -5, lat: 42 },
+      { lng: 9, lat: 42 },
+      { lng: 9, lat: 51 },
+      { lng: -5, lat: 51 }
+    ];
+    const specs = buildAirspaceWireframeSpecs({
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: {
+            hasVolume: true,
+            type: 'GEO',
+            class: 'AREA',
+            extrusionBaseM: 0,
+            extrusionTopM: FL999_CEILING_M,
+            lower: 'SFC',
+            upper: 'FL999'
+          },
+          geometry: {
+            type: 'Polygon',
+            coordinates: [
+              [
+                ...franceRing.map((p) => [p.lng, p.lat]),
+                [franceRing[0].lng, franceRing[0].lat]
+              ]
+            ]
+          }
+        }
+      ]
+    });
+    expect(specs).toHaveLength(0);
   });
 
   it('active le suivi relief pour limites AGL / GND', () => {

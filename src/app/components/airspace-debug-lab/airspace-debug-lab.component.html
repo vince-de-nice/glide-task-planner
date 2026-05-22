@@ -1,0 +1,172 @@
+<div class="debug-lab">
+  <aside class="debug-lab__panel">
+    <header class="debug-lab__header">
+      <h2>{{ 'airspaceDebug.title' | translate }}</h2>
+      <p class="debug-lab__intro">{{ 'airspaceDebug.intro' | translate }}</p>
+    </header>
+
+    <section class="debug-lab__section">
+      <h3>{{ 'airspaceDebug.placement' | translate }}</h3>
+      <p class="debug-lab__hint">{{ 'airspaceDebug.relocateHint' | translate }}</p>
+      <p-button
+        styleClass="debug-lab__relocate-btn"
+        icon="pi pi-map-marker"
+        [label]="'airspaceDebug.relocateToMapCenter' | translate"
+        (onClick)="relocateToMapCenter()"
+        [disabled]="!mapReady() || applying()"
+      />
+      <p class="debug-lab__anchor">
+        {{ 'airspaceDebug.gridAnchor' | translate }} :
+        <strong>{{ anchorLabel() }}</strong>
+      </p>
+    </section>
+
+    <section class="debug-lab__section">
+      <h3>{{ 'airspaceDebug.display' | translate }}</h3>
+      <label class="debug-lab__row">
+        <span>{{ 'airspaceDebug.volume3d' | translate }}</span>
+        <p-toggleswitch
+          [ngModel]="volume3d()"
+          (ngModelChange)="volume3d.set($event); onDisplayOptionChange()"
+        />
+      </label>
+      <label class="debug-lab__row">
+        <span>{{ 'airspaceDebug.useDem' | translate }}</span>
+        <p-toggleswitch
+          [ngModel]="useDemGround()"
+          (ngModelChange)="useDemGround.set($event); onDisplayOptionChange()"
+        />
+      </label>
+      <label class="debug-lab__row">
+        <span>{{ 'airspaceDebug.hillshade' | translate }}</span>
+        <p-toggleswitch
+          [ngModel]="hillshadeVisible()"
+          (ngModelChange)="onHillshadeChange($event)"
+        />
+      </label>
+      <label class="debug-lab__field">
+        <span>{{ 'airspaceDebug.basemap' | translate }}</span>
+        <p-select
+          [options]="basemapOptions()"
+          optionLabel="label"
+          optionValue="id"
+          [ngModel]="basemapId()"
+          (ngModelChange)="onBasemapChange($event)"
+          styleClass="debug-lab__select"
+        />
+      </label>
+      @if (statusLine()) {
+        <p class="debug-lab__status">{{ statusLine() }}</p>
+      }
+      @if (applying()) {
+        <p class="debug-lab__status debug-lab__status--busy">{{ 'common.loading' | translate }}</p>
+      }
+    </section>
+
+    <section class="debug-lab__section">
+      <h3>{{ 'airspaceDebug.camera' | translate }}</h3>
+      <div class="debug-lab__presets">
+        <p-button
+          size="small"
+          [label]="'airspaceDebug.cameraOblique' | translate"
+          (onClick)="cameraPreset('oblique')"
+        />
+        <p-button
+          size="small"
+          [label]="'airspaceDebug.cameraSide' | translate"
+          (onClick)="cameraPreset('side')"
+        />
+        <p-button
+          size="small"
+          [label]="'airspaceDebug.cameraTop' | translate"
+          (onClick)="cameraPreset('top')"
+        />
+        <p-button
+          size="small"
+          [label]="'airspaceDebug.cameraLow' | translate"
+          (onClick)="cameraPreset('low')"
+        />
+      </div>
+      <label class="debug-lab__slider">
+        <span>{{ 'airspaceDebug.pitch' | translate }} ({{ pitch() }}°)</span>
+        <p-slider
+          [ngModel]="pitch()"
+          (ngModelChange)="pitch.set($event); applyCameraSliders()"
+          [min]="0"
+          [max]="85"
+          [step]="1"
+        />
+      </label>
+      <label class="debug-lab__slider">
+        <span>{{ 'airspaceDebug.bearing' | translate }} ({{ bearing() }}°)</span>
+        <p-slider
+          [ngModel]="bearing()"
+          (ngModelChange)="bearing.set($event); applyCameraSliders()"
+          [min]="0"
+          [max]="359"
+          [step]="1"
+        />
+      </label>
+      <label class="debug-lab__slider">
+        <span>{{ 'airspaceDebug.zoom' | translate }} ({{ zoom() }})</span>
+        <p-slider
+          [ngModel]="zoom()"
+          (ngModelChange)="zoom.set($event); applyCameraSliders()"
+          [min]="9"
+          [max]="16"
+          [step]="0.1"
+        />
+      </label>
+    </section>
+
+    <section class="debug-lab__section debug-lab__section--scenarios">
+      <div class="debug-lab__section-head">
+        <h3>{{ 'airspaceDebug.scenariosTitle' | translate }}</h3>
+        <p-button
+          size="small"
+          severity="secondary"
+          [label]="'airspaceDebug.showAll' | translate"
+          (onClick)="showAll()"
+          [disabled]="showAllZones() && !selectedScenarioId()"
+        />
+      </div>
+      <ul class="debug-lab__list">
+        @for (scenario of scenarios(); track scenario.id) {
+          <li>
+            <button
+              type="button"
+              class="debug-lab__scenario"
+              [class.debug-lab__scenario--active]="selectedScenarioId() === scenario.id"
+              (click)="selectScenario(scenario)"
+            >
+              <span class="debug-lab__scenario-title">{{ scenario.titleKey | translate }}</span>
+              <span class="debug-lab__scenario-cat">{{ categoryLabel(scenario.category) }}</span>
+              <span class="debug-lab__scenario-desc">{{ scenario.descriptionKey | translate }}</span>
+              <span class="debug-lab__scenario-expected">{{ scenario.expectedKey | translate }}</span>
+            </button>
+          </li>
+        }
+      </ul>
+    </section>
+  </aside>
+
+  <main class="debug-lab__map-wrap">
+    <mgl-map
+      class="debug-lab__map"
+      [mapStyle]="mapStyle()"
+      [center]="debugGridCenter()"
+      [zoom]="[zoom()]"
+      [pitch]="[pitch()]"
+      [bearing]="[bearing()]"
+      [centerClampedToGround]="false"
+      [minPitch]="0"
+      [maxPitch]="85"
+      [dragRotate]="true"
+      [touchPitch]="true"
+      [pitchWithRotate]="true"
+      [attributionControl]="false"
+      (mapLoad)="onMapLoad($event)"
+      (mapMove)="onMapMove()"
+    />
+  </main>
+</div>

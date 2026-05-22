@@ -10,6 +10,7 @@ import {
 import { filterWireframeSpecsForViewport } from './airspace-wireframe-perf.util';
 import {
   AIRSPACE_WIREFRAME_LAYER_ID,
+  buildAirspaceCeilingMeshBuffers,
   buildAirspaceWallMeshBuffers,
   buildAirspaceWireframePositions,
   type AirspaceWireframeVolumeSpec
@@ -17,8 +18,10 @@ import {
 
 export { AIRSPACE_WIREFRAME_LAYER_ID };
 
-/** Opacité des plans verticaux (pas de couvercle plancher/plafond). */
+/** Opacité des parois verticales. */
 const WALL_FILL_OPACITY = 0.22;
+/** Couvercle horizontal au plafond MSL. */
+const CEILING_FILL_OPACITY = 0.14;
 
 export function createAirspaceWireframeCustomLayer(): AirspaceWireframeThreeCustomLayer {
   return new AirspaceWireframeThreeCustomLayer();
@@ -27,6 +30,7 @@ export function createAirspaceWireframeCustomLayer(): AirspaceWireframeThreeCust
 interface ColorGroupRenderBundle {
   specs: AirspaceWireframeVolumeSpec[];
   walls: THREE.Mesh;
+  ceilings: THREE.Mesh;
   lines: THREE.LineSegments;
 }
 
@@ -110,6 +114,7 @@ export class AirspaceWireframeThreeCustomLayer implements CustomLayerInterface {
 
     for (const bundle of this.bundles) {
       this.renderer.render(bundle.walls, this.camera);
+      this.renderer.render(bundle.ceilings, this.camera);
       this.renderer.render(bundle.lines, this.camera);
     }
   }
@@ -164,14 +169,33 @@ export class AirspaceWireframeThreeCustomLayer implements CustomLayerInterface {
         depthWrite: false
       });
 
+      const ceilingGeom = new THREE.BufferGeometry();
+      ceilingGeom.setAttribute(
+        'position',
+        new THREE.BufferAttribute(new Float32Array(0), 3)
+      );
+      ceilingGeom.setIndex(new THREE.BufferAttribute(new Uint32Array(0), 1));
+
+      const ceilingMat = new THREE.MeshBasicMaterial({
+        color: new THREE.Color(color),
+        transparent: true,
+        opacity: CEILING_FILL_OPACITY,
+        depthTest: true,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      });
+
       const walls = new THREE.Mesh(wallGeom, wallMat);
+      const ceilings = new THREE.Mesh(ceilingGeom, ceilingMat);
       const lines = new THREE.LineSegments(lineGeom, lineMat);
       walls.frustumCulled = false;
+      ceilings.frustumCulled = false;
       lines.frustumCulled = false;
 
       this.scene.add(walls);
+      this.scene.add(ceilings);
       this.scene.add(lines);
-      this.bundles.push({ specs: group, walls, lines });
+      this.bundles.push({ specs: group, walls, ceilings, lines });
     }
 
     this.positionsDirty = true;
@@ -193,6 +217,17 @@ export class AirspaceWireframeThreeCustomLayer implements CustomLayerInterface {
         );
       }
 
+      const ceilings = buildAirspaceCeilingMeshBuffers(bundle.specs, map);
+      if (ceilings.indices.length > 0) {
+        bundle.ceilings.geometry.setAttribute(
+          'position',
+          new THREE.BufferAttribute(ceilings.positions, 3)
+        );
+        bundle.ceilings.geometry.setIndex(
+          new THREE.BufferAttribute(ceilings.indices, 1)
+        );
+      }
+
       const linePos = buildAirspaceWireframePositions(bundle.specs, map);
       if (linePos.length >= 6) {
         bundle.lines.geometry.setAttribute(
@@ -206,7 +241,7 @@ export class AirspaceWireframeThreeCustomLayer implements CustomLayerInterface {
   private disposeBundles(): void {
     const disposedMaterials = new Set<THREE.Material>();
     for (const bundle of this.bundles) {
-      for (const obj of [bundle.walls, bundle.lines]) {
+      for (const obj of [bundle.walls, bundle.ceilings, bundle.lines]) {
         obj.geometry.dispose();
         const mat = obj.material;
         const materials = Array.isArray(mat) ? mat : [mat];

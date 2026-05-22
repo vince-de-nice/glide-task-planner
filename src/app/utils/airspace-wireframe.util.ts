@@ -2,6 +2,7 @@ import type { FeatureCollection, Geometry, Position } from 'geojson';
 import { MercatorCoordinate, type Map as MaplibreMap } from 'maplibre-gl';
 import {
   parseAirspaceLimit,
+  resolveCeilingMslM,
   type ParsedAirspaceLimit
 } from './airspace-altitude.util';
 import type { AirspaceVolumeProperties } from './airspace-volume-enrich.util';
@@ -17,6 +18,8 @@ const FLAT_RING_MAX_VERTICES_BUILD = 32;
 export const TERRAIN_RING_MAX_SEGMENT_KM = 0.6;
 /** Plafond de sommets après densification (perf). */
 export const TERRAIN_RING_MAX_VERTICES = 220;
+/** Emprise > N km : pas de volume 3D (GEO France, etc.). */
+const WIREFRAME_MAX_DIAGONAL_KM = 350;
 const MIN_VOLUME_HEIGHT_M = 1;
 
 export interface AirspaceWireframeVolumeSpec {
@@ -49,9 +52,6 @@ export function buildAirspaceWireframeSpecs(
     const props = feature.properties;
     if (!props?.hasVolume) continue;
 
-    const vertical = buildWireframeVerticalModel(props);
-    if (!vertical) continue;
-
     const rings = exteriorRings(feature.geometry);
     const color = normalizeWireframeColor(props.stroke);
     const id = String(props.id ?? props.GUId ?? i);
@@ -59,6 +59,11 @@ export function buildAirspaceWireframeSpecs(
     for (let r = 0; r < rings.length; r++) {
       const ring = openRingVertices(rings[r]);
       if (ring.length < 3) continue;
+      if (shouldSkipWireframeVolume(props, ring)) continue;
+
+      const vertical = buildWireframeVerticalModel(props);
+      if (!vertical) continue;
+
       const needsTerrain =
         vertical.useTerrainBase || vertical.useTerrainTop;
       const prepared = prepareRingVertices(ring, needsTerrain);
@@ -89,23 +94,30 @@ export interface WireframeVerticalModel {
 export function buildWireframeVerticalModel(
   props: AirspaceVolumeProperties
 ): WireframeVerticalModel | null {
-  const baseM = props.extrusionBaseM;
-  const topM = props.extrusionTopM;
+  const lower = parseAirspaceLimit(props.lower, undefined);
+  const upper = parseAirspaceLimit(props.upper, undefined);
+
+  const topM =
+    resolveCeilingMslM(props.upper, props.upperM) ??
+    props.extrusionTopM ??
+    null;
+  const useTerrainBase = limitUsesTerrain(lower);
+  const useTerrainTop = limitUsesTerrain(upper);
+
+  let baseM = props.extrusionBaseM;
+  if (useTerrainBase) {
+    baseM = baseM ?? 0;
+  }
+
   if (
-    baseM == null ||
     topM == null ||
-    !Number.isFinite(baseM) ||
+    baseM == null ||
     !Number.isFinite(topM) ||
+    !Number.isFinite(baseM) ||
     topM - baseM < MIN_VOLUME_HEIGHT_M
   ) {
     return null;
   }
-
-  const lower = parseAirspaceLimit(props.lower, props.lowerM);
-  const upper = parseAirspaceLimit(props.upper, props.upperM);
-
-  const useTerrainBase = limitUsesTerrain(lower);
-  const useTerrainTop = limitUsesTerrain(upper);
 
   return {
     baseM,
@@ -192,6 +204,48 @@ export function buildVolumeMercatorCorners(
 export interface AirspaceWallMeshBuffers {
   positions: Float32Array;
   indices: Uint32Array;
+}
+
+/** Couvercle horizontal au plafond MSL (anneau du haut). */
+export function buildAirspaceCeilingMeshBuffers(
+  specs: readonly AirspaceWireframeVolumeSpec[],
+  map: MaplibreMap | null
+): AirspaceWallMeshBuffers {
+  const vertList: number[] = [];
+  const indexList: number[] = [];
+  let vertexBase = 0;
+
+  for (const spec of specs) {
+    const corners = buildVolumeMercatorCorners(spec, map);
+    if (!corners || corners.top.length < 3) continue;
+
+    const top = corners.top;
+    for (const p of top) {
+      pushMercator(vertList, p);
+    }
+    for (let i = 1; i < top.length - 1; i++) {
+      indexList.push(vertexBase, vertexBase + i, vertexBase + i + 1);
+    }
+    vertexBase += top.length;
+  }
+
+  return {
+    positions: new Float32Array(vertList),
+    indices: new Uint32Array(indexList)
+  };
+}
+
+function shouldSkipWireframeVolume(
+  props: AirspaceVolumeProperties,
+  ring: { lng: number; lat: number }[]
+): boolean {
+  const type = (props.type ?? '').toUpperCase();
+  const cls = (props.class ?? '').toUpperCase();
+  if (type === 'GEO' || cls === 'AREA') return true;
+
+  const b = ringLngLatBounds(ring);
+  const diagKm = haversineKm([b.west, b.south], [b.east, b.north]);
+  return diagKm > WIREFRAME_MAX_DIAGONAL_KM;
 }
 
 /** Plans verticaux (parois) entre plancher et plafond — 2 triangles par arête du polygone. */

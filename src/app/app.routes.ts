@@ -32,6 +32,13 @@ export const routes: Routes = [
         m => m.SafetyProfileComponent
       )
   },
+  {
+    path: 'airspace-debug',
+    loadComponent: () =>
+      import('./components/airspace-debug-lab/airspace-debug-lab.component').then(
+        m => m.AirspaceDebugLabComponent
+      )
+  },
   { path: 'planner', redirectTo: 'declaration', pathMatch: 'full' },
   { path: 'map', redirectTo: 'declaration', pathMatch: 'full' },
   { path: '**', redirectTo: 'declaration' }

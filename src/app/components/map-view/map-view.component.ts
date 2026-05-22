@@ -36,8 +36,14 @@ import { DEFAULT_TASK_EXPORT_RADIUS_M } from '../../models/task-declaration.mode
 import { WaypointService } from '../../services/waypoint.service';
 import { TaskStateService } from '../../services/task-state.service';
 import { DistanceService } from '../../services/distance.service';
+import { AirspaceZoneFiltersComponent } from '../airspace-zone-filters/airspace-zone-filters.component';
 import { AirspaceLayerService } from '../../services/airspace-layer.service';
 import { AirspaceMapDisplayService } from '../../services/airspace-map-display.service';
+import {
+  DEFAULT_AIRSPACE_ZONE_FILTERS,
+  type AirspaceFilterFieldOptions,
+  type AirspaceZoneFiltersPrefs
+} from '../../utils/airspace-zone-filter.util';
 import { configureMapFreeCamera } from '../../utils/map-free-camera.util';
 import { DEFAULT_POAFF_REGION_ID } from '../../config/map-airspace.config';
 import { Waypoint, WaypointType } from '../../models/waypoint.model';
@@ -118,7 +124,8 @@ export interface MapContextMenuState {
     Select,
     ToggleSwitch,
     Tooltip,
-    TranslatePipe
+    TranslatePipe,
+    AirspaceZoneFiltersComponent
   ],
   templateUrl: './map-view.component.html',
   styleUrls: ['./map-view.component.scss'],
@@ -167,6 +174,9 @@ export class MapViewComponent implements OnInit {
   airspaceStatus = signal<string | null>(null);
   airspaceLoading = signal(false);
   airspaceConfigReady = signal(false);
+  airspaceFiltersDialogOpen = signal(false);
+  airspaceZoneFilters = signal<AirspaceZoneFiltersPrefs>(DEFAULT_AIRSPACE_ZONE_FILTERS);
+  airspaceFilterOptions = signal<AirspaceFilterFieldOptions | null>(null);
 
   catalogTypeFilter = signal<WaypointType[]>(['turnpoint', 'airfield', 'landable', 'custom']);
   filtersExpanded = signal(false);
@@ -390,11 +400,24 @@ export class MapViewComponent implements OnInit {
     }
   }
 
+  openAirspaceFiltersDialog(): void {
+    this.airspaceFiltersDialogOpen.set(true);
+  }
+
+  onAirspaceZoneFiltersChange(filters: AirspaceZoneFiltersPrefs): void {
+    this.airspaceZoneFilters.set(filters);
+    this.persistAirspacePrefs();
+    if (this.airspaceVisible()) {
+      void this.reloadAirspaceLayer();
+    }
+  }
+
   private persistAirspacePrefs(): void {
     this.airspaceMapDisplay.writePrefs(this.airspaceScreenId, {
       visible: this.airspaceVisible(),
       volume3d: this.airspaceVolume3d(),
-      regionId: this.airspaceRegionId()
+      regionId: this.airspaceRegionId(),
+      zoneFilters: this.airspaceZoneFilters()
     });
   }
 
@@ -421,18 +444,25 @@ export class MapViewComponent implements OnInit {
     this.airspaceLoading.set(true);
     this.airspaceStatus.set(this.i18n.t('map.airspaceLoading'));
 
+    const forceReload = this.airspaceMapDisplay.getFilterOptions(this.airspaceScreenId) == null;
     const outcome = await this.airspaceMapDisplay.applyToMap(
       map,
       this.airspaceScreenId,
-      MAP_LAYER.OBS_FILL
+      MAP_LAYER.OBS_FILL,
+      { forceReload }
     );
 
     this.airspaceLoading.set(false);
+    this.airspaceFilterOptions.set(outcome.filterOptions);
+    this.airspaceZoneFilters.set(
+      this.airspaceMapDisplay.readPrefs(this.airspaceScreenId).zoneFilters
+    );
     this.airspaceStatus.set(outcome.ok ? outcome.status : outcome.status);
   }
 
   onAirspaceRegionChange(regionId: string): void {
     this.airspaceRegionId.set(regionId);
+    this.airspaceMapDisplay.clearScreenCache(this.airspaceScreenId);
     this.persistAirspacePrefs();
     if (this.airspaceVisible()) {
       void this.reloadAirspaceLayer();
@@ -461,6 +491,7 @@ export class MapViewComponent implements OnInit {
     this.airspaceVisible.set(airPrefs.visible);
     this.airspaceVolume3d.set(airPrefs.volume3d);
     this.airspaceRegionId.set(airPrefs.regionId);
+    this.airspaceZoneFilters.set(airPrefs.zoneFilters);
 
     void this.airspaceLayerService.ensureConfigLoaded().then(() => {
       this.airspaceConfigReady.set(true);

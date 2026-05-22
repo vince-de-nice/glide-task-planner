@@ -1,6 +1,7 @@
 import { Waypoint } from './waypoint.model';
 import { ObservationZoneConfig } from './observation-zone.model';
 import type { LegTerrainCache } from './leg-terrain-cache.model';
+import type { LegAirspaceZoneCatalogEntry } from './leg-airspace-zone.model';
 
 /** Rôle d'un point dans le circuit (ordre de la liste). */
 export type CircuitLegRole = 'departure' | 'arrival' | 'turnpoint';
@@ -22,6 +23,10 @@ export interface SafetyOutgoingBranch {
   terrainCache?: LegTerrainCache;
   /** Désactivation auto des terrains inutiles déjà appliquée (une fois par branche). */
   landablesAutoPruned?: boolean;
+  /** Zones POAFF dans le périmètre d'évolution de la branche (catalogue par coupe). */
+  airspaceZoneCatalog?: LegAirspaceZoneCatalogEntry[];
+  /** Clés de zones masquées sur la carte pour cette branche. */
+  disabledAirspaceZoneKeys?: string[];
 }
 
 export interface CircuitLeg {

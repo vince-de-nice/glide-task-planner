@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  extractFlightLevelFromText,
+  FL999_CEILING_M,
   flightLevelToMslM,
   parseAirspaceLimit,
+  resolveCeilingMslM,
   resolveExtrusionBounds
 } from './airspace-altitude.util';
 
@@ -18,6 +21,19 @@ describe('airspace-altitude.util', () => {
     const agl = parseAirspaceLimit('2000FT AGL');
     expect(agl?.kind).toBe('agl');
     expect(agl?.valueM).toBeCloseTo(609.6, 0);
+  });
+
+  it('parses FL999 in composite labels and ignores bogus upperM', () => {
+    expect(extractFlightLevelFromText('SFC → FL999')).toBe(999);
+    expect(parseAirspaceLimit('FL999')?.valueM).toBeCloseTo(FL999_CEILING_M, 0);
+    expect(resolveCeilingMslM('FL999', 999)).toBeCloseTo(FL999_CEILING_M, 0);
+    expect(resolveCeilingMslM('FL999', 30449)).toBeCloseTo(30449, 0);
+  });
+
+  it('builds extrusion bounds for SFC → FL999 with DEM floor', () => {
+    const bounds = resolveExtrusionBounds('SFC', 'FL999', 0, 30449, 2761);
+    expect(bounds?.extrusionTopM).toBe(30449);
+    expect(bounds?.extrusionBaseM).toBeCloseTo(2761, 0);
   });
 
   it('builds extrusion bounds with DEM for AGL floor', () => {

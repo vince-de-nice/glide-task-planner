@@ -25,7 +25,8 @@ import type {
   MapLayerMouseEvent,
   StyleSpecification
 } from 'maplibre-gl';
-import type { Feature, FeatureCollection, LineString, Point } from 'geojson';
+import type { Feature, FeatureCollection, Geometry, LineString, Point } from 'geojson';
+import type { AirspaceVolumeProperties } from '../../utils/airspace-volume-enrich.util';
 import { TaskStateService } from '../../services/task-state.service';
 import { WaypointService } from '../../services/waypoint.service';
 import {
@@ -39,6 +40,13 @@ import {
 } from '../../services/glide-envelope.service';
 import { AirspaceMapDisplayService } from '../../services/airspace-map-display.service';
 import { DEFAULT_POAFF_REGION_ID } from '../../config/map-airspace.config';
+import { computeLegEvolutionEnvelope } from '../../utils/leg-evolution-envelope.util';
+import {
+  airspaceFeatureToHighlightLines,
+  buildLegAirspaceZoneCatalog,
+  findAirspaceFeatureByKey,
+  mergeDisabledAirspaceKeys
+} from '../../utils/leg-airspace-zone-filter.util';
 import { configureMapFreeCamera } from '../../utils/map-free-camera.util';
 import {
   DEFAULT_SAFETY_PARAMS,
@@ -114,7 +122,9 @@ const PROFILE_MAP_SOURCE = {
   LANDABLE_HIGHLIGHT: 'safety-profile-landable-highlight',
   CONE_RING_LABELS: 'safety-profile-cone-ring-labels',
   CURSOR: 'safety-profile-cursor',
-  CURSOR_TRACK: 'safety-profile-cursor-track'
+  CURSOR_TRACK: 'safety-profile-cursor-track',
+  AIRSPACE_HOVER_FILL: 'safety-profile-airspace-hover-fill',
+  AIRSPACE_HOVER_LINE: 'safety-profile-airspace-hover-line'
 } as const;
 
 const PROFILE_MAP_LAYER = {
@@ -127,7 +137,9 @@ const PROFILE_MAP_LAYER = {
   LANDABLE_HIGHLIGHT_LABEL: 'safety-profile-landable-highlight-label',
   CONE_RING_LABELS: 'safety-profile-cone-ring-labels',
   CURSOR_TRACK: 'safety-profile-cursor-track',
-  CURSOR_POINT: 'safety-profile-cursor-point'
+  CURSOR_POINT: 'safety-profile-cursor-point',
+  AIRSPACE_HOVER_FILL: 'safety-profile-airspace-hover-fill',
+  AIRSPACE_HOVER_LINE: 'safety-profile-airspace-hover-line'
 } as const;
 
 /** Ordre de superposition des calques métier (bas → haut). */
@@ -143,7 +155,9 @@ const PROFILE_LAYER_STACK: readonly string[] = [
   PROFILE_MAP_LAYER.LANDABLE_HIGHLIGHT_LABEL,
   PROFILE_MAP_LAYER.CONE_RING_LABELS,
   PROFILE_MAP_LAYER.CURSOR_TRACK,
-  PROFILE_MAP_LAYER.CURSOR_POINT
+  PROFILE_MAP_LAYER.CURSOR_POINT,
+  PROFILE_MAP_LAYER.AIRSPACE_HOVER_FILL,
+  PROFILE_MAP_LAYER.AIRSPACE_HOVER_LINE
 ];
 
 /** Branches traitées en parallèle (tuiles DEM partagées via cache global). */
@@ -201,7 +215,6 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   basemapPanelExpanded = signal(false);
   /** Volumes 3D des cônes de demi-finesse sur la carte (branche active). */
   cones3dVisible = signal(true);
-  airspaceVisible = signal(false);
   airspaceVolume3d = signal(true);
   airspaceRegionId = signal(DEFAULT_POAFF_REGION_ID);
   airspaceLoading = signal(false);
@@ -258,6 +271,39 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   readonly hoveredLandableId = signal<string | null>(null);
   /** Terrain sélectionné (clic carte ou puce) — visible dans la liste. */
   readonly selectedLandableId = signal<string | null>(null);
+  /** Zone espace aérien survolée dans la liste. */
+  readonly hoveredAirspaceZoneKey = signal<string | null>(null);
+
+  readonly activeLegAirspaceToggles = computed(() => {
+    const legIdx = this.selectedLegIndex();
+    const legs = this.circuitLegs();
+    if (legIdx < 0 || legIdx >= legs.length - 1) return [];
+    const catalog = legs[legIdx].safetyOutgoing?.airspaceZoneCatalog ?? [];
+    const disabled = new Set(
+      legs[legIdx].safetyOutgoing?.disabledAirspaceZoneKeys ?? []
+    );
+    return catalog.map(z => {
+      const vertical = [z.lower, z.upper].filter(Boolean).join(' → ');
+      const meta = [z.class, z.type].filter(Boolean).join(' · ');
+      return {
+        key: z.key,
+        name: z.name,
+        shortName:
+          z.name.length > 24 ? `${z.name.slice(0, 22)}…` : z.name,
+        meta,
+        vertical,
+        enabled: !disabled.has(z.key)
+      };
+    });
+  });
+
+  readonly activeLegEnabledAirspaceZoneKeys = computed(() => {
+    const keys = new Set<string>();
+    for (const z of this.activeLegAirspaceToggles()) {
+      if (z.enabled) keys.add(z.key);
+    }
+    return keys;
+  });
 
   readonly currentParams = computed<SafetyParams>(() => ({
     glideRatio: this.glideRatio(),
@@ -427,9 +473,11 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     }
 
     const airPrefs = this.airspaceMapDisplay.readPrefs(this.airspaceScreenId);
-    this.airspaceVisible.set(airPrefs.visible);
     this.airspaceVolume3d.set(airPrefs.volume3d);
     this.airspaceRegionId.set(airPrefs.regionId);
+    if (!airPrefs.visible) {
+      this.persistAirspacePrefs();
+    }
   }
 
   ngOnDestroy(): void {
@@ -499,58 +547,77 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     this.fitToActiveLeg();
   }
 
-  onAirspaceToggle(on: boolean): void {
-    this.airspaceVisible.set(on);
-    this.persistAirspacePrefs();
-    if (on) {
-      void this.reloadAirspaceLayer();
-    } else {
-      this.disableAirspaceLayer();
-    }
-  }
-
   onAirspaceVolume3dToggle(on: boolean): void {
     this.airspaceVolume3d.set(on);
     this.persistAirspacePrefs();
-    if (this.airspaceVisible()) {
-      void this.reloadAirspaceLayer();
-    }
+    void this.applyLegAirspaceDisplayToMap();
+  }
+
+  onAirspaceZoneChipActivate(
+    legIndex: number,
+    zoneKey: string,
+    enabled: boolean,
+    event: Event
+  ): void {
+    this.onAirspaceZoneToggle(legIndex, zoneKey, enabled);
+    event.stopPropagation();
   }
 
   private persistAirspacePrefs(): void {
+    const current = this.airspaceMapDisplay.readPrefs(this.airspaceScreenId);
     this.airspaceMapDisplay.writePrefs(this.airspaceScreenId, {
-      visible: this.airspaceVisible(),
+      ...current,
+      visible: true,
       volume3d: this.airspaceVolume3d(),
       regionId: this.airspaceRegionId()
     });
   }
 
-  private disableAirspaceLayer(): void {
-    const map = this.map;
-    if (map) this.airspaceMapDisplay.removeFromMap(map);
-  }
-
   private async reloadAirspaceLayer(): Promise<void> {
-    if (this.airspaceLoading()) return;
+    if (this.airspaceLoading() || !this.hasTask()) return;
 
     const map = this.map;
     if (!map) return;
 
-    if (!this.airspaceVisible()) {
-      this.disableAirspaceLayer();
+    this.airspaceLoading.set(true);
+    const needCache =
+      this.airspaceMapDisplay.getCachedEnriched(this.airspaceScreenId) == null;
+    if (needCache) {
+      const warm = await this.airspaceMapDisplay.applyToMap(
+        map,
+        this.airspaceScreenId,
+        PROFILE_MAP_LAYER.POINTS,
+        { forceReload: true, loadCacheOnly: true }
+      );
+      if (!warm.ok) {
+        this.airspaceLoading.set(false);
+        console.warn('[safety-profile] airspace:', warm.status);
+        return;
+      }
+    }
+    this.syncAllLegAirspaceCatalogs();
+    await this.applyLegAirspaceDisplayToMap();
+    this.airspaceLoading.set(false);
+  }
+
+  private async applyLegAirspaceDisplayToMap(): Promise<void> {
+    const map = this.map;
+    if (!map || !this.hasTask()) return;
+    const keys = this.activeLegEnabledAirspaceZoneKeys();
+    if (keys.size === 0) {
+      this.airspaceMapDisplay.removeFromMap(map);
+      this.syncAirspaceHoverHighlight();
       return;
     }
-
-    this.airspaceLoading.set(true);
-    const outcome = await this.airspaceMapDisplay.applyToMap(
+    const forceReload = false;
+    await this.airspaceMapDisplay.applyToMap(
       map,
       this.airspaceScreenId,
-      PROFILE_MAP_LAYER.POINTS
+      PROFILE_MAP_LAYER.POINTS,
+      { forceReload, legDisplayZoneKeys: keys }
     );
-    this.airspaceLoading.set(false);
-    if (!outcome.ok) {
-      console.warn('[safety-profile] airspace:', outcome.status);
-    }
+    this.syncAirspaceHoverHighlight();
+    this.repositionProfileMapLayers();
   }
 
   onLookPadPointerDown(event: PointerEvent): void {
@@ -734,7 +801,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       this.updateSafetyCones3d();
       this.updateSafetyMinAltitude3d();
       this.updateProfileMapPoints();
-      if (this.airspaceVisible()) {
+      if (this.hasTask()) {
         void this.reloadAirspaceLayer();
       }
     }
@@ -876,6 +943,35 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       }
     });
 
+    map.addSource(PROFILE_MAP_SOURCE.AIRSPACE_HOVER_FILL, {
+      type: 'geojson',
+      data: EMPTY_FC
+    });
+    map.addLayer({
+      id: PROFILE_MAP_LAYER.AIRSPACE_HOVER_FILL,
+      type: 'fill',
+      source: PROFILE_MAP_SOURCE.AIRSPACE_HOVER_FILL,
+      paint: {
+        'fill-color': '#f59e0b',
+        'fill-opacity': 0.38,
+        'fill-outline-color': '#b45309'
+      }
+    });
+    map.addSource(PROFILE_MAP_SOURCE.AIRSPACE_HOVER_LINE, {
+      type: 'geojson',
+      data: EMPTY_FC
+    });
+    map.addLayer({
+      id: PROFILE_MAP_LAYER.AIRSPACE_HOVER_LINE,
+      type: 'line',
+      source: PROFILE_MAP_SOURCE.AIRSPACE_HOVER_LINE,
+      paint: {
+        'line-color': '#b45309',
+        'line-width': 3,
+        'line-opacity': 0.95
+      }
+    });
+
     map.addSource(PROFILE_MAP_SOURCE.CONE_RING_LABELS, {
       type: 'geojson',
       data: EMPTY_FC
@@ -991,7 +1087,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     requestAnimationFrame(() => {
       map.resize();
       this.fitToActiveLeg();
-      if (this.airspaceVisible()) {
+      if (this.hasTask()) {
         void this.reloadAirspaceLayer();
       }
     });
@@ -1047,6 +1143,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     this.selectedLegIndex.set(index);
     this.hoveredLandableId.set(null);
     this.selectedLandableId.set(null);
+    this.hoveredAirspaceZoneKey.set(null);
     this.resetLegYMaxIfTooLowForLeg(index);
     const cursor = this.profileMapCursor();
     if (cursor && cursor.legIndex !== index) {
@@ -1056,7 +1153,9 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     this.updateSafetyCones3d();
     this.updateSafetyMinAltitude3d();
     this.updateProfileMapPoints();
+    this.syncAirspaceHoverHighlight();
     this.fitToActiveLeg();
+    void this.applyLegAirspaceDisplayToMap();
   }
 
   selectPrevLeg(): void {
@@ -1128,6 +1227,10 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   ): void {
     this.lastEnvelopeInputKey = '';
     this.taskState.setSafetyLandableEnabled(branchIndex, landableId, enabled);
+    this.syncLegAirspaceCatalogForIndex(branchIndex);
+    if (branchIndex === this.selectedLegIndex()) {
+      void this.applyLegAirspaceDisplayToMap();
+    }
   }
 
   onLandableChipHover(legIndex: number, landableId: string | null): void {
@@ -1187,7 +1290,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
 
     const scroller =
       this.landablesChipsScroll()?.nativeElement ??
-      chip.closest<HTMLElement>('.leg__landables-chips');
+      chip.closest<HTMLElement>('.leg__panel-chips');
     if (!scroller) {
       chip.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       return;
@@ -1281,6 +1384,157 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
 
   enabledLandableCount(leg: LegRender): number {
     return leg.landableToggles.filter(t => t.enabled).length;
+  }
+
+  enabledAirspaceZoneCount(): number {
+    return this.activeLegAirspaceToggles().filter(z => z.enabled).length;
+  }
+
+  onAirspaceZoneToggle(
+    branchIndex: number,
+    zoneKey: string,
+    enabled: boolean
+  ): void {
+    this.taskState.setSafetyAirspaceZoneEnabled(branchIndex, zoneKey, enabled);
+    if (branchIndex === this.selectedLegIndex()) {
+      void this.applyLegAirspaceDisplayToMap();
+    }
+  }
+
+  onAirspaceZoneChipHover(zoneKey: string | null): void {
+    this.hoveredAirspaceZoneKey.set(zoneKey);
+    this.syncAirspaceHoverHighlight();
+  }
+
+  isAirspaceZoneChipHovered(zoneKey: string): boolean {
+    return this.hoveredAirspaceZoneKey() === zoneKey;
+  }
+
+  enableAllAirspaceZonesOnLeg(legIndex: number, event?: Event): void {
+    event?.stopPropagation();
+    const keys = this.activeLegAirspaceToggles().map(z => z.key);
+    this.taskState.setAllSafetyAirspaceZonesEnabled(legIndex, keys, true);
+    if (legIndex === this.selectedLegIndex()) {
+      void this.applyLegAirspaceDisplayToMap();
+    }
+  }
+
+  disableAllAirspaceZonesOnLeg(legIndex: number, event?: Event): void {
+    event?.stopPropagation();
+    const keys = this.activeLegAirspaceToggles().map(z => z.key);
+    this.taskState.setAllSafetyAirspaceZonesEnabled(legIndex, keys, false);
+    if (legIndex === this.selectedLegIndex()) {
+      void this.applyLegAirspaceDisplayToMap();
+    }
+  }
+
+  private syncAllLegAirspaceCatalogs(): void {
+    const enriched = this.airspaceMapDisplay.getCachedEnriched(
+      this.airspaceScreenId
+    );
+    if (!enriched) return;
+    for (const leg of this.legRenders()) {
+      this.syncLegAirspaceCatalogForLeg(leg, enriched);
+    }
+  }
+
+  private syncLegAirspaceCatalogForIndex(branchIndex: number): void {
+    const leg = this.legRenders().find(r => r.index === branchIndex);
+    const enriched = this.airspaceMapDisplay.getCachedEnriched(
+      this.airspaceScreenId
+    );
+    if (!leg || !enriched) return;
+    this.syncLegAirspaceCatalogForLeg(leg, enriched);
+  }
+
+  private syncLegAirspaceCatalogForLeg(
+    leg: LegRender,
+    enriched: FeatureCollection<Geometry, AirspaceVolumeProperties>
+  ): void {
+    const enabledIds = new Set(
+      leg.landableToggles
+        .filter(t => this.taskState.isSafetyLandableEnabled(leg.index, t.id))
+        .map(t => t.id)
+    );
+    const apexMap = new Map<string, [number, number]>();
+    for (const id of enabledIds) {
+      const wp = this.waypointService.getWaypoint(id);
+      if (wp) apexMap.set(id, [wp.longitude, wp.latitude]);
+    }
+    const envelope = computeLegEvolutionEnvelope({
+      fromLng: leg.fromWaypoint.longitude,
+      fromLat: leg.fromWaypoint.latitude,
+      toLng: leg.toWaypoint.longitude,
+      toLat: leg.toWaypoint.latitude,
+      legLengthKm: leg.distanceKm,
+      profileStartKm: leg.envelope.profileStartKm,
+      profileEndKm: leg.envelope.profileEndKm,
+      samples: leg.envelope.samples,
+      landableCones: leg.envelope.landableCones,
+      enabledLandableIds: enabledIds,
+      landableApexLngLat: apexMap
+    });
+    const catalog = buildLegAirspaceZoneCatalog(enriched, envelope);
+    const legs = this.circuitLegs();
+    const prevDisabled =
+      legs[leg.index]?.safetyOutgoing?.disabledAirspaceZoneKeys;
+    const disabled = mergeDisabledAirspaceKeys(catalog, prevDisabled);
+    this.taskState.setLegAirspaceZoneCatalog(leg.index, catalog, disabled);
+  }
+
+  private syncAirspaceHoverHighlight(): void {
+    const map = this.map;
+    if (!map) return;
+    const fillSrc = map.getSource(PROFILE_MAP_SOURCE.AIRSPACE_HOVER_FILL);
+    const lineSrc = map.getSource(PROFILE_MAP_SOURCE.AIRSPACE_HOVER_LINE);
+    if (
+      !fillSrc ||
+      fillSrc.type !== 'geojson' ||
+      !lineSrc ||
+      lineSrc.type !== 'geojson'
+    ) {
+      return;
+    }
+
+    const key = this.hoveredAirspaceZoneKey();
+    if (!key) {
+      (fillSrc as GeoJSONSource).setData(EMPTY_FC);
+      (lineSrc as GeoJSONSource).setData(EMPTY_FC);
+      return;
+    }
+
+    const enriched = this.airspaceMapDisplay.getCachedEnriched(
+      this.airspaceScreenId
+    );
+    if (!enriched) {
+      (fillSrc as GeoJSONSource).setData(EMPTY_FC);
+      (lineSrc as GeoJSONSource).setData(EMPTY_FC);
+      return;
+    }
+
+    const feature = findAirspaceFeatureByKey(enriched, key);
+    if (!feature) {
+      (fillSrc as GeoJSONSource).setData(EMPTY_FC);
+      (lineSrc as GeoJSONSource).setData(EMPTY_FC);
+      return;
+    }
+
+    const fillFc: FeatureCollection =
+      feature.geometry.type === 'Polygon'
+        ? {
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                properties: {},
+                geometry: feature.geometry
+              }
+            ]
+          }
+        : EMPTY_FC;
+    (fillSrc as GeoJSONSource).setData(fillFc);
+    (lineSrc as GeoJSONSource).setData(airspaceFeatureToHighlightLines(feature));
+    this.repositionProfileMapLayers();
   }
 
   landableColorsRecordForLeg(leg: LegRender): Record<string, string> {
@@ -1871,6 +2125,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
         this.resetLegYMaxIfTooLowForLeg(this.selectedLegIndex());
         requestAnimationFrame(() => this.fitToActiveLeg());
       }
+      void this.reloadAirspaceLayer();
     } catch {
       /* DEM indisponible : les coupes utilisent le secours extrémités si besoin */
     } finally {

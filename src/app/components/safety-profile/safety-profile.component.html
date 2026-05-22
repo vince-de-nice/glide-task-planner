@@ -113,24 +113,12 @@
             >
               <i class="pi pi-box" aria-hidden="true"></i>
             </button>
-            <button
-              type="button"
-              class="safety-profile__map-fab"
-              [class.safety-profile__map-fab--on]="airspaceVisible()"
-              [class.safety-profile__map-fab--loading]="airspaceLoading()"
-              [disabled]="airspaceLoading()"
-              [attr.aria-label]="'safetyProfile.airspace' | translate"
-              [attr.aria-pressed]="airspaceVisible()"
-              [title]="'safetyProfile.airspaceHint' | translate"
-              (click)="onAirspaceToggle(!airspaceVisible())"
-            >
-              <i class="pi pi-cloud" aria-hidden="true"></i>
-            </button>
-            @if (airspaceVisible()) {
+            @if (activeLegAirspaceToggles().length > 0) {
               <button
                 type="button"
                 class="safety-profile__map-fab"
                 [class.safety-profile__map-fab--on]="airspaceVolume3d()"
+                [class.safety-profile__map-fab--loading]="airspaceLoading()"
                 [disabled]="airspaceLoading()"
                 [attr.aria-label]="'safetyProfile.airspaceVolume3d' | translate"
                 [attr.aria-pressed]="airspaceVolume3d()"
@@ -317,34 +305,35 @@
               class="safety-profile__profile-sidebar"
               [attr.aria-label]="'safetyProfile.profileSidebarAria' | translate"
             >
+              <div class="safety-profile__sidebar-scroll">
               @if (leg.landableToggles.length > 0) {
-                <div class="leg__landables">
-                  <div class="leg__landables-header">
-                    <span class="leg__landables-title">
+                <div class="leg__sidebar-panel leg__sidebar-panel--landables">
+                  <div class="leg__panel-head">
+                    <span class="leg__panel-title">
                       {{ 'safetyProfile.landablesToggleTitle' | translate }}
                       ({{ enabledLandableCount(leg) }}/{{ leg.landableToggles.length }})
                     </span>
-                    <div class="leg__landables-actions">
-                      <button type="button" class="legs-toolbar__btn" (click)="enableAllLandablesOnLeg(leg, $event)">
-                        {{ 'safetyProfile.landablesEnableAll' | translate }}
-                      </button>
-                      <button
-                        type="button"
-                        class="legs-toolbar__btn legs-toolbar__btn--accent"
-                        [disabled]="uselessEnabledLandableCount(leg) === 0"
-                        [attr.title]="'safetyProfile.landablesDisableUselessHint' | translate"
-                        (click)="disableUselessLandablesOnLeg(leg, $event)"
-                      >
-                        {{ 'safetyProfile.landablesDisableUseless' | translate }}
-                      </button>
-                      <button type="button" class="legs-toolbar__btn" (click)="disableAllLandablesOnLeg(leg, $event)">
-                        {{ 'safetyProfile.landablesDisableAll' | translate }}
-                      </button>
-                    </div>
+                  </div>
+                  <div class="leg__panel-actions leg__panel-actions--landables">
+                    <button type="button" class="legs-toolbar__btn" (click)="enableAllLandablesOnLeg(leg, $event)">
+                      {{ 'safetyProfile.landablesEnableAll' | translate }}
+                    </button>
+                    <button
+                      type="button"
+                      class="legs-toolbar__btn legs-toolbar__btn--accent"
+                      [disabled]="uselessEnabledLandableCount(leg) === 0"
+                      [attr.title]="'safetyProfile.landablesDisableUselessHint' | translate"
+                      (click)="disableUselessLandablesOnLeg(leg, $event)"
+                    >
+                      {{ 'safetyProfile.landablesDisableUseless' | translate }}
+                    </button>
+                    <button type="button" class="legs-toolbar__btn" (click)="disableAllLandablesOnLeg(leg, $event)">
+                      {{ 'safetyProfile.landablesDisableAll' | translate }}
+                    </button>
                   </div>
                   <div
                     #landablesChipsScroll
-                    class="leg__landables-chips"
+                    class="leg__panel-chips"
                     role="group"
                     [attr.aria-label]="'safetyProfile.landablesToggleTitle' | translate"
                   >
@@ -377,7 +366,62 @@
                 </div>
               }
 
-              <div class="leg__scale">
+              @if (activeLegAirspaceToggles().length > 0) {
+                <div class="leg__sidebar-panel leg__sidebar-panel--airspace">
+                  <div class="leg__panel-head">
+                    <span class="leg__panel-title">
+                      {{ 'safetyProfile.airspaceZonesTitle' | translate }}
+                      ({{ enabledAirspaceZoneCount() }}/{{ activeLegAirspaceToggles().length }})
+                    </span>
+                    <p class="leg__panel-subtitle">
+                      {{ 'safetyProfile.airspaceZonesHint' | translate }}
+                    </p>
+                  </div>
+                  <div class="leg__panel-actions leg__panel-actions--airspace">
+                    <button
+                      type="button"
+                      class="legs-toolbar__btn"
+                      (click)="enableAllAirspaceZonesOnLeg(leg.index, $event)"
+                    >
+                      {{ 'safetyProfile.airspaceZonesEnableAll' | translate }}
+                    </button>
+                    <button
+                      type="button"
+                      class="legs-toolbar__btn"
+                      (click)="disableAllAirspaceZonesOnLeg(leg.index, $event)"
+                    >
+                      {{ 'safetyProfile.airspaceZonesDisableAll' | translate }}
+                    </button>
+                  </div>
+                  <div
+                    class="leg__panel-chips leg__panel-chips--airspace"
+                    role="group"
+                    [attr.aria-label]="'safetyProfile.airspaceZonesTitle' | translate"
+                  >
+                    @for (zone of activeLegAirspaceToggles(); track zone.key) {
+                      <button
+                        type="button"
+                        class="leg__landable-chip leg__airspace-chip"
+                        [class.leg__landable-chip--off]="!zone.enabled"
+                        [class.leg__landable-chip--hovered]="isAirspaceZoneChipHovered(zone.key)"
+                        [attr.aria-pressed]="zone.enabled"
+                        [attr.title]="zone.name + (zone.vertical ? ' — ' + zone.vertical : '')"
+                        (mouseenter)="onAirspaceZoneChipHover(zone.key)"
+                        (mouseleave)="onAirspaceZoneChipHover(null)"
+                        (click)="onAirspaceZoneChipActivate(leg.index, zone.key, !zone.enabled, $event)"
+                      >
+                        <span class="leg__landable-chip-name">{{ zone.shortName }}</span>
+                        @if (zone.meta) {
+                          <span class="leg__airspace-chip-meta">{{ zone.meta }}</span>
+                        }
+                      </button>
+                    }
+                  </div>
+                </div>
+              }
+              </div>
+
+              <div class="leg__scale leg__scale--pinned">
                 <label class="leg__scale-label">
                   <span>{{ 'safetyProfile.verticalScaleMax' | translate }}</span>
                   <p-inputnumber

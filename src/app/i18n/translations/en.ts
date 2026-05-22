@@ -7,6 +7,7 @@ export const en = {
     nav: {
       circuit: 'Task',
       safetyProfile: 'Safety profile',
+      airspaceDebug: 'Airspace lab',
       waypoints: 'Waypoints',
       dataSources: 'Data sources',
       library: 'Library',
@@ -20,6 +21,56 @@ export const en = {
       en: 'EN'
     },
     footer: 'Glide Task Planner'
+  },
+  airspaceFilters: {
+    aria: 'Filter displayed airspace zones',
+    title: 'Airspace filters',
+    intro:
+      'Types and names: click chips. Floor / ceiling: use sliders (MSL altitudes from loaded zones).',
+    reset: 'Clear all',
+    noData: 'Load airspace to see filter options.',
+    tabZones: 'Zone types',
+    tabVertical: 'Altitudes',
+    altitudeIntro:
+      'Only zones whose floor and ceiling (m MSL, after AGL/DEM) fall within the ranges below stay visible.',
+    floorTitle: 'Zone floor',
+    ceilingTitle: 'Zone ceiling',
+    altitudeReset: 'Full range',
+    floorIdle: 'Any floor — sliders at region maximum.',
+    floorActive: 'Filter on: floor must be within the range.',
+    ceilingIdle: 'Any ceiling — sliders at region maximum.',
+    ceilingActive: 'Filter on: ceiling must be within the range.',
+    noAltitude: 'No MSL altitude could be derived from loaded zones.',
+    altitudeUnknown:
+      '{{count}} zone(s) with unknown altitude — hidden when an altitude filter is active.',
+    tabName: 'Name',
+    selectAll: 'Select all',
+    clear: 'Clear selection',
+    searchPlaceholder: 'Search…',
+    noMatch: 'No matching label.',
+    sectionIdle: 'No selection — all zones for this criterion are shown.',
+    sectionInclude: '{{count}} selected — map shows only these.',
+    sectionExclude: '{{count}} selected — map hides these.',
+    activeCount: '{{count}} active filter(s)',
+    modeInclude: 'Keep selection',
+    modeExclude: 'Hide selection',
+    volume: 'Geometry',
+    volumeAll: 'All',
+    volumeVolumetric: '3D volumes only',
+    volumeFlat: '2D outlines only',
+    class: 'Class',
+    type: 'Type',
+    name: 'Name',
+    namePlaceholder: 'Substring…',
+    nameAdd: 'Add',
+    nameRemove: 'Remove {{term}}',
+    limitKind: {
+      msl: 'MSL / FL',
+      agl: 'AGL',
+      ground: 'Ground / GND',
+      unlimited: 'Unlimited',
+      unknown: 'Other'
+    }
   },
   common: {
     yes: 'Yes',
@@ -333,7 +384,10 @@ export const en = {
     airspaceVolume3d: '3D volumes (true scale)',
     airspaceVolume3dHint: 'Prisms from floor to ceiling (FL standard pressure, AGL + DEM ground)',
     airspaceLoading: 'Loading airspace…',
-    airspacePoaffVolumes: 'POAFF — {{label}} · {{count}} 3D volumes',
+    airspacePoaffVolumes:
+      'POAFF — {{label}} · {{count}} 3D volumes · {{shown}}/{{total}} zones',
+    airspaceFiltersFab: 'Airspace filters',
+    airspaceFiltersFabAria: 'Open airspace filters',
     mapNotReady: 'Map not ready — wait a moment and try again.',
     airspaceOpenAip: 'OpenAIP (worldwide)',
     airspacePoaff: 'POAFF/SIA — {{label}} (optional OpenAIP key in public/config/airspace.json)',
@@ -648,6 +702,93 @@ export const en = {
     removeAll: 'All occurrences of « {{name}} » removed',
     waypointDeleted: 'Waypoint « {{name}} » deleted'
   },
+  airspaceDebug: {
+    title: 'Airspace debug lab',
+    intro:
+      'Fictional zones near the Aravis to validate 2D rendering, 3D wireframe volumes, and MSL/AGL ceilings. Free camera (pitch up to 85°).',
+    placement: 'Test placement',
+    relocateToMapCenter: 'Move zones here (map center)',
+    relocateHint:
+      'Pan to the terrain you want, then click: the whole test grid is moved to the current map center and DEM is re-sampled.',
+    gridAnchor: 'Grid anchor',
+    display: 'Display',
+    volume3d: '3D volumes (wireframe)',
+    useDem: 'DEM terrain (else fixed 1800 m ground)',
+    hillshade: 'Terrain hillshade',
+    basemap: 'Basemap',
+    camera: 'Camera',
+    cameraOblique: 'Oblique',
+    cameraSide: 'Side',
+    cameraTop: 'Top-down',
+    cameraLow: 'Low angle',
+    pitch: 'Pitch',
+    bearing: 'Bearing',
+    zoom: 'Zoom',
+    scenariosTitle: 'Test scenarios',
+    showAll: 'Show all',
+    status: '{{volumes}} volume(s), {{wireframes}} wireframe(s) — {{total}} zone(s)',
+    category: {
+      msl: 'MSL',
+      fl: 'Flight level',
+      agl: 'AGL / ground',
+      terrain: 'Terrain',
+      flat: '2D only',
+      excluded: 'No 3D wire',
+      edge: 'Edge case'
+    },
+    scenarios: {
+      mslFlBox: {
+        title: 'CTR FL100 → FL200',
+        desc: 'Constant MSL floor and ceiling (no terrain follow).',
+        expected: 'Purple prism: base ~FL100, top ~FL200, flat roof visible.'
+      },
+      sfcFl999: {
+        title: 'SFC → FL999',
+        desc: 'POAFF “unlimited” ceiling (~30.5 km MSL).',
+        expected: 'Very tall orange volume; floor on terrain if DEM on.'
+      },
+      fl999BadUpperM: {
+        title: 'FL999 + wrong upperM (999)',
+        desc: 'Ensures FL999 text wins over upperM=999 m.',
+        expected: 'Same height as SFC→FL999, not a 999 m box.'
+      },
+      aglGndTop: {
+        title: 'GND → 2500FT AGL',
+        desc: 'AGL ceiling follows terrain per vertex.',
+        expected: 'Sloped top with terrain; floor on DEM ground.'
+      },
+      ftAmsl: {
+        title: '3000FT AMSL → 4500FT AMSL',
+        desc: 'Feet AMSL (not flight level).',
+        expected: 'Blue prism between ~914 m and ~1372 m MSL.'
+      },
+      mslMeters: {
+        title: '2000M → 3500M',
+        desc: 'Explicit MSL limits in metres.',
+        expected: 'Red prism between 2000 and 3500 m MSL.'
+      },
+      unlimited: {
+        title: 'SFC → UNLIMITED',
+        desc: 'Display cap (~20 km).',
+        expected: 'Tall purple volume; internal cap ~20,000 m.'
+      },
+      geoLocal: {
+        title: 'GEO (small area)',
+        desc: 'GEO / AREA type — excluded from wireframe.',
+        expected: 'No 3D wireframe; clickable hit area only in volume mode.'
+      },
+      flatOutline: {
+        title: '2D outline only',
+        desc: 'No usable vertical limits.',
+        expected: 'Boundary lines only (no prism).'
+      },
+      largeArea: {
+        title: 'Large AREA (> 350 km)',
+        desc: 'Simulated national extent — no 3D wireframe.',
+        expected: 'No wireframe; fit bounds to whole France.'
+      }
+    }
+  },
   safetyProfile: {
     title: 'Task safety profile',
     paramsTitle: 'Safety parameters',
@@ -662,8 +803,11 @@ export const en = {
     cones3d: '3D cones on map',
     cones3dHint:
       'Shows half-ratio glide volumes from each enabled landable and the combined min envelope (red). Tilt the map for a better view.',
-    airspace: 'Airspace',
-    airspaceHint: 'All POAFF types for the selected region',
+    airspaceZonesTitle: 'Zones in evolution perimeter',
+    airspaceZonesHint:
+      'Filtered by enabled location cones (horizontal and vertical). Hover for map preview.',
+    airspaceZonesEnableAll: 'Show all',
+    airspaceZonesDisableAll: 'Hide all',
     airspaceVolume3d: '3D volumes (true scale)',
     airspaceVolume3dHint:
       'Prisms from floor to ceiling; AGL/GND uses DEM ground under the polygon',

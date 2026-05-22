@@ -70,6 +70,11 @@ export class App {
         route: '/safety-profile',
         label: this.i18n.t('app.nav.safetyProfile'),
         icon: 'pi pi-chart-line'
+      },
+      {
+        route: '/airspace-debug',
+        label: this.i18n.t('app.nav.airspaceDebug'),
+        icon: 'pi pi-wrench'
       }
     ];
   });
@@ -81,6 +86,7 @@ export class App {
     if (path === '/data-sources') return this.i18n.t('app.nav.dataSources');
     if (path === '/library') return this.i18n.t('app.nav.library');
     if (path === '/safety-profile') return this.i18n.t('app.nav.safetyProfile');
+    if (path === '/airspace-debug') return this.i18n.t('app.nav.airspaceDebug');
     return this.i18n.t('app.nav.circuit');
   });
 
@@ -121,7 +127,8 @@ export class App {
       path === '/' ||
       path === '/data-sources' ||
       path === '/library' ||
-      path === '/safety-profile'
+      path === '/safety-profile' ||
+      path === '/airspace-debug'
     );
   }
 }

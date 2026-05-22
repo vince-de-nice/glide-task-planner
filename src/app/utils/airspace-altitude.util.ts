@@ -18,6 +18,8 @@ export interface ParsedAirspaceLimit {
 }
 
 const FL_RE = /^FL\s*(\d+)\s*$/i;
+/** FL dans un libellé composé (ex. « SFC → FL999 »). */
+const FL_EMBEDDED_RE = /\bFL\s*(\d+)\b/i;
 const FT_AMSL_RE = /^(\d+)\s*FT\s*AMSL$/i;
 const FT_AGL_RE = /^(\d+)\s*FT\s*AGL$/i;
 const FT_RE = /^(\d+)\s*FT$/i;
@@ -36,6 +38,78 @@ const UNLIMITED_TOKENS = new Set([
 /** Niveau de vol → altitude MSL (pression standard 1013,25 hPa). */
 export function flightLevelToMslM(fl: number): number {
   return fl * FL_TO_M;
+}
+
+/** FL « illimité » courant en POAFF / OpenAir (≈ 30,5 km MSL, pression standard). */
+export const FL999_CEILING_M = flightLevelToMslM(999);
+
+/** Extrait un niveau de vol du texte POAFF (tolère libellés composés). */
+export function extractFlightLevelFromText(text: string | undefined): number | null {
+  const raw = text?.trim() ?? '';
+  if (!raw) return null;
+  const embedded = raw.toUpperCase().match(FL_EMBEDDED_RE);
+  if (embedded) return Number(embedded[1]);
+  const strict = raw.toUpperCase().match(FL_RE);
+  if (strict) return Number(strict[1]);
+  return null;
+}
+
+/**
+ * Plafond MSL : priorité au texte FL (ICAO), puis upperM POAFF (mètres).
+ * Évite d’interpréter upperM=999 comme 999 m quand le libellé est FL999.
+ */
+export function resolveCeilingMslM(
+  upperText: string | undefined,
+  upperM: number | undefined
+): number | null {
+  const fl = extractFlightLevelFromText(upperText);
+  if (fl != null) {
+    const fromFl = flightLevelToMslM(fl);
+    if (
+      upperM != null &&
+      Number.isFinite(upperM) &&
+      upperM >= fromFl * 0.85
+    ) {
+      return upperM;
+    }
+    return fromFl;
+  }
+
+  const parsed = parseAirspaceLimit(upperText, undefined);
+  if (parsed?.kind === 'msl') return parsed.valueM;
+  if (parsed?.kind === 'unlimited') return AIRSPACE_UNLIMITED_CAP_M;
+  if (upperM != null && Number.isFinite(upperM)) return upperM;
+  return null;
+}
+
+/**
+ * Plancher MSL / terrain : texte GND/SFC/AGL prioritaire ; lowerM POAFF en secours MSL.
+ */
+export function resolveFloorReferenceM(
+  lowerText: string | undefined,
+  lowerM: number | undefined,
+  groundM: number | null
+): number | null {
+  const parsed = parseAirspaceLimit(lowerText, undefined);
+  if (!parsed) {
+    if (lowerM != null && Number.isFinite(lowerM) && !isAglLimitText(lowerText)) {
+      return lowerM;
+    }
+    return null;
+  }
+
+  switch (parsed.kind) {
+    case 'agl':
+    case 'ground':
+      if (groundM != null) return groundM + parsed.valueM;
+      return null;
+    case 'msl':
+      return parsed.valueM;
+    case 'unlimited':
+      return 0;
+    default:
+      return null;
+  }
 }
 
 export function isAglLimitText(text: string | undefined): boolean {
@@ -68,9 +142,9 @@ export function parseAirspaceLimit(
     return { kind: 'ground', valueM: 0, raw };
   }
 
-  const fl = upper.match(FL_RE);
-  if (fl) {
-    const n = Number(fl[1]);
+  const flEmbedded = upper.match(FL_EMBEDDED_RE);
+  if (flEmbedded) {
+    const n = Number(flEmbedded[1]);
     return { kind: 'msl', valueM: flightLevelToMslM(n), raw };
   }
 
@@ -122,16 +196,14 @@ export function resolveExtrusionBounds(
   upperM: number | undefined,
   groundM: number | null
 ): ExtrusionBounds | null {
-  const lower = parseAirspaceLimit(lowerText, lowerM);
-  const upper = parseAirspaceLimit(upperText, upperM);
-  if (!lower && !upper) return null;
+  const lower = parseAirspaceLimit(lowerText, undefined);
+  const upper = parseAirspaceLimit(upperText, undefined);
+  if (!lower && !upper && upperM == null && lowerM == null) return null;
 
-  let baseM: number | null = null;
-  if (lower) {
+  let baseM = resolveFloorReferenceM(lowerText, lowerM, groundM);
+  if (baseM == null && lower) {
     switch (lower.kind) {
       case 'agl':
-        if (groundM != null) baseM = groundM + lower.valueM;
-        break;
       case 'ground':
         if (groundM != null) baseM = groundM + lower.valueM;
         break;
@@ -145,9 +217,6 @@ export function resolveExtrusionBounds(
         break;
     }
   }
-  if (baseM == null && lowerM != null && Number.isFinite(lowerM) && !isAglLimitText(lowerText)) {
-    baseM = lowerM;
-  }
   if (
     baseM == null &&
     lower != null &&
@@ -159,9 +228,18 @@ export function resolveExtrusionBounds(
     const offset = lower.kind === 'agl' ? lower.valueM : inferAglOffsetM(lowerText ?? '', lowerM);
     baseM = groundM + offset;
   }
+  if (
+    baseM == null &&
+    lowerM != null &&
+    Number.isFinite(lowerM) &&
+    !isAglLimitText(lowerText) &&
+    !GROUND_TOKENS.has((lowerText ?? '').trim().toUpperCase())
+  ) {
+    baseM = lowerM;
+  }
 
-  let topM: number | null = null;
-  if (upper) {
+  let topM = resolveCeilingMslM(upperText, upperM);
+  if (topM == null && upper) {
     switch (upper.kind) {
       case 'agl':
         if (groundM != null) topM = groundM + upper.valueM;
@@ -178,9 +256,6 @@ export function resolveExtrusionBounds(
       default:
         break;
     }
-  }
-  if (topM == null && upperM != null && Number.isFinite(upperM)) {
-    topM = upperM;
   }
 
   if (baseM == null || topM == null || !Number.isFinite(baseM) || !Number.isFinite(topM)) {

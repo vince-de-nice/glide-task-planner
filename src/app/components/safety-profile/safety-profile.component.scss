@@ -645,13 +645,26 @@
 .safety-profile__profile-sidebar {
   display: flex;
   flex-direction: column;
-  flex: 0 0 min(16.5rem, 34vw);
+  flex: 0 0 min(20rem, 40vw);
+  width: min(20rem, 40vw);
   min-height: 0;
-  gap: 0.5rem;
+  gap: 0;
   padding: 0 0.6rem 0 0.65rem;
   border-left: 1px solid var(--gc-border);
   background: color-mix(in srgb, var(--gc-bg) 55%, var(--gc-surface));
+  overflow: hidden;
+}
+
+.safety-profile__sidebar-scroll {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 0.5rem;
+  overflow-x: hidden;
   overflow-y: auto;
+  padding: 0.15rem 0 0.5rem;
+  -webkit-overflow-scrolling: touch;
 }
 
 .safety-profile__profile-header {
@@ -899,48 +912,104 @@
   }
 }
 
-.leg__landables {
+.leg__sidebar-panel {
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: 0 0 auto;
   padding: 0.5rem 0.45rem;
   background: var(--gc-surface);
   border: 1px solid var(--gc-border);
   border-radius: var(--gc-radius-sm);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
 }
 
-.leg__landables-header {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.35rem;
-  margin-bottom: 0.4rem;
+.leg__panel-head {
   flex-shrink: 0;
+  margin-bottom: 0.35rem;
 }
 
-.leg__landables-title {
+.leg__panel-title {
+  display: block;
   font-size: 0.78rem;
   font-weight: 700;
   color: var(--gc-text-secondary);
+  line-height: 1.3;
 }
 
-.leg__landables-actions {
-  flex-wrap: wrap;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
+.leg__panel-subtitle {
+  margin: 0.2rem 0 0;
+  font-size: 0.68rem;
+  font-weight: 400;
+  color: var(--gc-text-muted, #64748b);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 
-.leg__landables-chips {
+.leg__panel-actions {
+  display: grid;
+  gap: 0.28rem;
+  flex-shrink: 0;
+  margin-bottom: 0.35rem;
+
+  .legs-toolbar__btn {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+    white-space: normal;
+    line-height: 1.2;
+    min-height: 1.65rem;
+    padding: 0.2rem 0.35rem;
+  }
+}
+
+.leg__panel-actions--landables {
+  grid-template-columns: 1fr 1fr;
+
+  .legs-toolbar__btn:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+}
+
+.leg__panel-actions--airspace {
+  grid-template-columns: 1fr 1fr;
+}
+
+.leg__panel-chips {
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 0.3rem;
-  flex: 1 1 auto;
-  min-height: 0;
+  max-height: min(11.5rem, 24vh);
+  margin-top: 0.35rem;
+  padding: 0.4rem 0.05rem 0.1rem;
+  overflow-x: hidden;
   overflow-y: auto;
-  padding: 0.1rem 0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  border-top: 1px solid var(--gc-border);
+}
+
+.safety-profile__sidebar-scroll:not(:has(.leg__sidebar-panel--airspace)) .leg__panel-chips {
+  max-height: min(16rem, 34vh);
+}
+
+.leg__panel-chips--airspace .leg__airspace-chip {
+  --chip-color: #d97706;
+  flex-direction: column;
+  align-items: flex-start;
+  border-radius: 0.45rem;
+  white-space: normal;
+}
+
+.leg__airspace-chip-meta {
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: var(--gc-text-muted, #64748b);
+  line-height: 1.25;
+  text-align: left;
 }
 
 .leg__landable-chip {
@@ -1044,6 +1113,14 @@
   background: var(--gc-surface);
   border: 1px solid var(--gc-border);
   border-radius: var(--gc-radius-sm);
+
+  &--pinned {
+    margin-top: auto;
+    border-top: 1px solid var(--gc-border);
+    border-radius: var(--gc-radius-sm) var(--gc-radius-sm) 0 0;
+    box-shadow: 0 -4px 12px rgb(15 23 42 / 0.06);
+    z-index: 1;
+  }
 }
 
 .leg__scale-label {

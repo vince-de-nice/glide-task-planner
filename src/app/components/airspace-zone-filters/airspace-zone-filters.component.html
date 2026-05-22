@@ -1,0 +1,269 @@
+<p-dialog
+  [visible]="visible()"
+  (visibleChange)="onDialogVisibleChange($event)"
+  [header]="'airspaceFilters.title' | translate"
+  [modal]="true"
+  [closable]="true"
+  [dismissableMask]="true"
+  [draggable]="false"
+  styleClass="airspace-filters-dialog"
+  [style]="{ width: 'min(92vw, 42rem)' }"
+  [contentStyle]="{ padding: '0' }"
+>
+  @if (!options()) {
+    <p class="airspace-filters__empty">{{ 'airspaceFilters.noData' | translate }}</p>
+  } @else {
+    <div class="airspace-filters__body">
+      <p class="airspace-filters__intro">{{ 'airspaceFilters.intro' | translate }}</p>
+
+      <div class="airspace-filters__block">
+        <h3 class="airspace-filters__block-title">{{ 'airspaceFilters.volume' | translate }}</h3>
+        <p-selectbutton
+          [options]="volumeOptions()"
+          optionLabel="label"
+          optionValue="value"
+          [ngModel]="filters().volume"
+          (ngModelChange)="onVolumeChange($event)"
+        />
+      </div>
+
+      <p-selectbutton
+        class="airspace-filters__tabs"
+        [options]="tabOptions()"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="activeTab()"
+        (ngModelChange)="setTab($event)"
+      />
+
+      <div class="airspace-filters__tab-panel">
+        @if (activeTab() === 'name') {
+          <div class="airspace-filters__block">
+            <h3 class="airspace-filters__block-title">{{ 'airspaceFilters.name' | translate }}</h3>
+            <p class="airspace-filters__hint">{{ sectionModeHint('name') }}</p>
+            <div class="airspace-filters__mode-row">
+              <button
+                type="button"
+                class="airspace-filters__mode-btn"
+                [class.airspace-filters__mode-btn--on]="filters().name.mode === 'include'"
+                (click)="setCriterionMode('name', 'include')"
+              >
+                <i class="pi pi-check-circle" aria-hidden="true"></i>
+                {{ 'airspaceFilters.modeInclude' | translate }}
+              </button>
+              <button
+                type="button"
+                class="airspace-filters__mode-btn"
+                [class.airspace-filters__mode-btn--on]="filters().name.mode === 'exclude'"
+                (click)="setCriterionMode('name', 'exclude')"
+              >
+                <i class="pi pi-ban" aria-hidden="true"></i>
+                {{ 'airspaceFilters.modeExclude' | translate }}
+              </button>
+            </div>
+            <div class="airspace-filters__name-row">
+              <input
+                type="search"
+                class="airspace-filters__search"
+                [(ngModel)]="nameDraft"
+                [placeholder]="'airspaceFilters.namePlaceholder' | translate"
+                (keydown.enter)="addNameTerm(); $event.preventDefault()"
+              />
+              <p-button
+                type="button"
+                [label]="'airspaceFilters.nameAdd' | translate"
+                icon="pi pi-plus"
+                size="small"
+                (onClick)="addNameTerm()"
+              />
+            </div>
+            @if (filters().name.values.length > 0) {
+              <div class="airspace-filters__chip-grid">
+                @for (term of filters().name.values; track term) {
+                  <button
+                    type="button"
+                    class="airspace-filters__chip airspace-filters__chip--on"
+                    (click)="removeNameTerm(term)"
+                  >
+                    {{ term }}
+                    <i class="pi pi-times" aria-hidden="true"></i>
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        } @else if (activeTab() === 'vertical') {
+          @if (altitudeExtents(); as ext) {
+            <p class="airspace-filters__hint airspace-filters__hint--lead">
+              {{ 'airspaceFilters.altitudeIntro' | translate }}
+            </p>
+
+            <div class="airspace-filters__block airspace-filters__block--alt">
+              <div class="airspace-filters__block-head">
+                <h3 class="airspace-filters__block-title">
+                  {{ 'airspaceFilters.floorTitle' | translate }}
+                </h3>
+                <button type="button" class="airspace-filters__link" (click)="clearFloorFilter()">
+                  {{ 'airspaceFilters.altitudeReset' | translate }}
+                </button>
+              </div>
+              <p class="airspace-filters__alt-values">
+                {{ formatAltitudeMslLabel(filters().floorMsl.minM) }}
+                <span aria-hidden="true">→</span>
+                {{ formatAltitudeMslLabel(filters().floorMsl.maxM) }}
+              </p>
+              <p-slider
+                class="airspace-filters__slider"
+                [ngModel]="floorSliderModel()"
+                (ngModelChange)="onFloorSliderChange($event)"
+                [range]="true"
+                [min]="ext.floorMinM"
+                [max]="ext.floorMaxM"
+                [step]="altStepM"
+              />
+              <p class="airspace-filters__hint">
+                @if (filters().floorMsl.active) {
+                  {{ 'airspaceFilters.floorActive' | translate }}
+                } @else {
+                  {{ 'airspaceFilters.floorIdle' | translate }}
+                }
+              </p>
+            </div>
+
+            <div class="airspace-filters__block airspace-filters__block--alt">
+              <div class="airspace-filters__block-head">
+                <h3 class="airspace-filters__block-title">
+                  {{ 'airspaceFilters.ceilingTitle' | translate }}
+                </h3>
+                <button type="button" class="airspace-filters__link" (click)="clearCeilingFilter()">
+                  {{ 'airspaceFilters.altitudeReset' | translate }}
+                </button>
+              </div>
+              <p class="airspace-filters__alt-values">
+                {{ formatAltitudeMslLabel(filters().ceilingMsl.minM) }}
+                <span aria-hidden="true">→</span>
+                {{ formatAltitudeMslLabel(filters().ceilingMsl.maxM) }}
+              </p>
+              <p-slider
+                class="airspace-filters__slider"
+                [ngModel]="ceilingSliderModel()"
+                (ngModelChange)="onCeilingSliderChange($event)"
+                [range]="true"
+                [min]="ext.ceilingMinM"
+                [max]="ext.ceilingMaxM"
+                [step]="altStepM"
+              />
+              <p class="airspace-filters__hint">
+                @if (filters().ceilingMsl.active) {
+                  {{ 'airspaceFilters.ceilingActive' | translate }}
+                } @else {
+                  {{ 'airspaceFilters.ceilingIdle' | translate }}
+                }
+              </p>
+            </div>
+
+            @if (ext.unknownCount > 0) {
+              <p class="airspace-filters__hint">
+                {{
+                  'airspaceFilters.altitudeUnknown'
+                    | translate: { count: ext.unknownCount }
+                }}
+              </p>
+            }
+          } @else {
+            <p class="airspace-filters__hint">{{ 'airspaceFilters.noAltitude' | translate }}</p>
+          }
+        } @else {
+          @for (section of sectionsForActiveTab(); track section.key) {
+            @if (section.values.length > 0) {
+              <div class="airspace-filters__block">
+                <div class="airspace-filters__block-head">
+                  <h3 class="airspace-filters__block-title">
+                    {{ section.label }}
+                    <span class="airspace-filters__count">({{ section.values.length }})</span>
+                  </h3>
+                  <div class="airspace-filters__block-actions">
+                    <button type="button" class="airspace-filters__link" (click)="selectAllInSection(section)">
+                      {{ 'airspaceFilters.selectAll' | translate }}
+                    </button>
+                    <button type="button" class="airspace-filters__link" (click)="clearSection(section.key)">
+                      {{ 'airspaceFilters.clear' | translate }}
+                    </button>
+                  </div>
+                </div>
+                <p class="airspace-filters__hint">{{ sectionModeHint(section.key) }}</p>
+                <div class="airspace-filters__mode-row">
+                  <button
+                    type="button"
+                    class="airspace-filters__mode-btn"
+                    [class.airspace-filters__mode-btn--on]="criterionMode(section.key) === 'include'"
+                    (click)="setCriterionMode(section.key, 'include')"
+                  >
+                    <i class="pi pi-check-circle" aria-hidden="true"></i>
+                    {{ 'airspaceFilters.modeInclude' | translate }}
+                  </button>
+                  <button
+                    type="button"
+                    class="airspace-filters__mode-btn"
+                    [class.airspace-filters__mode-btn--on]="criterionMode(section.key) === 'exclude'"
+                    (click)="setCriterionMode(section.key, 'exclude')"
+                  >
+                    <i class="pi pi-ban" aria-hidden="true"></i>
+                    {{ 'airspaceFilters.modeExclude' | translate }}
+                  </button>
+                </div>
+                @if (section.values.length > 8) {
+                  <input
+                    type="search"
+                    class="airspace-filters__search"
+                    [ngModel]="sectionSearch()[section.key] ?? ''"
+                    (ngModelChange)="patchSectionSearch(section.key, $event)"
+                    [placeholder]="'airspaceFilters.searchPlaceholder' | translate"
+                  />
+                }
+                <div class="airspace-filters__chip-grid" role="group" [attr.aria-label]="section.label">
+                  @for (value of filteredValues(section); track value) {
+                    <button
+                      type="button"
+                      class="airspace-filters__chip"
+                      [class.airspace-filters__chip--on]="isValueSelected(section.key, value)"
+                      [attr.aria-pressed]="isValueSelected(section.key, value)"
+                      (click)="toggleValue(section.key, value)"
+                    >
+                      {{ value }}
+                    </button>
+                  }
+                </div>
+                @if (filteredValues(section).length === 0) {
+                  <p class="airspace-filters__hint">{{ 'airspaceFilters.noMatch' | translate }}</p>
+                }
+              </div>
+            }
+          }
+        }
+      </div>
+    </div>
+  }
+
+  <ng-template pTemplate="footer">
+    <div class="airspace-filters__footer">
+      @if (activeCriteriaCount() > 0) {
+        <span class="airspace-filters__footer-badge">
+          {{ 'airspaceFilters.activeCount' | translate: { count: activeCriteriaCount() } }}
+        </span>
+      }
+      <p-button
+        [label]="'airspaceFilters.reset' | translate"
+        icon="pi pi-refresh"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="resetFilters()"
+      />
+      <p-button
+        [label]="'common.close' | translate"
+        icon="pi pi-check"
+        (onClick)="onDialogVisibleChange(false)"
+      />
+    </div>
+  </ng-template>
+</p-dialog>
