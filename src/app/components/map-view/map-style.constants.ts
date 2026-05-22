@@ -163,6 +163,7 @@ export const MAP_SOURCE = {
   TASK_LABELS: 'task-labels',
   OBS_ZONES: 'obs-zones',
   AIRSPACE: 'airspace',
+  AIRSPACE_EDGES: 'airspace-edges',
   OPENAIP: 'openaip-raster'
 } as const;
 
@@ -171,7 +172,10 @@ export const MAP_LAYER = {
   BASE_LABELS: 'base-labels',
   TERRAIN_HILLSHADE: 'terrain-hillshade',
   AIRSPACE_FILL: 'airspace-fill',
+  AIRSPACE_HIT_FILL: 'airspace-hit-fill',
+  AIRSPACE_LINE_HALO: 'airspace-line-halo',
   AIRSPACE_LINE: 'airspace-line',
+  AIRSPACE_EXTRUSION: 'airspace-extrusion',
   OPENAIP_RASTER: 'openaip-raster',
   OBS_FILL: 'obs-zones-fill',
   OBS_LINE: 'obs-zones-line',
@@ -343,6 +347,8 @@ const LAYERS_ABOVE_BASE_IMAGERY: readonly string[] = [
   MAP_LAYER.TERRAIN_HILLSHADE,
   MAP_LAYER.OPENAIP_RASTER,
   MAP_LAYER.AIRSPACE_FILL,
+  MAP_LAYER.AIRSPACE_EXTRUSION,
+  MAP_LAYER.AIRSPACE_LINE_HALO,
   MAP_LAYER.AIRSPACE_LINE,
   MAP_LAYER.OBS_FILL,
   MAP_LAYER.OBS_LINE,

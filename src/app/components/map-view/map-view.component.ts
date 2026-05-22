@@ -21,14 +21,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MapComponent } from '@maplibre/ngx-maplibre-gl';
 import {
-  Popup,
   type GeoJSONSource,
   type Map as MaplibreMap,
   type MapLayerMouseEvent,
   type MapMouseEvent
 } from 'maplibre-gl';
 import type { Feature, FeatureCollection, Geometry, Point } from 'geojson';
-import type { PoaffProperties } from '../../services/airspace-layer.service';
 import { extendBoundsWithShape } from '../../utils/obs-zone-map.util';
 import {
   buildObsZoneShapesForCircuit,
@@ -38,7 +36,9 @@ import { DEFAULT_TASK_EXPORT_RADIUS_M } from '../../models/task-declaration.mode
 import { WaypointService } from '../../services/waypoint.service';
 import { TaskStateService } from '../../services/task-state.service';
 import { DistanceService } from '../../services/distance.service';
-import { AirspaceLayerService, AirspaceLoadResult } from '../../services/airspace-layer.service';
+import { AirspaceLayerService } from '../../services/airspace-layer.service';
+import { AirspaceMapDisplayService } from '../../services/airspace-map-display.service';
+import { configureMapFreeCamera } from '../../utils/map-free-camera.util';
 import { DEFAULT_POAFF_REGION_ID } from '../../config/map-airspace.config';
 import { Waypoint, WaypointType } from '../../models/waypoint.model';
 import {
@@ -132,6 +132,8 @@ export class MapViewComponent implements OnInit {
   private distanceService = inject(DistanceService);
   private mapFocus = inject(MapFocusService);
   readonly airspaceLayerService = inject(AirspaceLayerService);
+  private readonly airspaceMapDisplay = inject(AirspaceMapDisplayService);
+  private readonly airspaceScreenId = 'task-map' as const;
 
   compact = input(false);
 
@@ -160,6 +162,7 @@ export class MapViewComponent implements OnInit {
 
   obsZonesVisible = signal(true);
   airspaceVisible = signal(false);
+  airspaceVolume3d = signal(true);
   airspaceRegionId = signal(DEFAULT_POAFF_REGION_ID);
   airspaceStatus = signal<string | null>(null);
   airspaceLoading = signal(false);
@@ -234,7 +237,6 @@ export class MapViewComponent implements OnInit {
   private terrainElevationRaf = 0;
   /** Première couche métier (ancrage pour changement de fond). */
   private dataLayerAnchorId: string | null = null;
-  private airspacePopup: Popup | null = null;
   private readonly taskFeatureCache = new Map<string, Feature<Point, WaypointMapFeatureProps>>();
   private readonly catalogFeatureCache = new Map<string, Feature<Point, WaypointMapFeatureProps>>();
   private focusPulseTimer: ReturnType<typeof setTimeout> | null = null;
@@ -371,65 +373,70 @@ export class MapViewComponent implements OnInit {
   }
 
   onAirspaceToggle(on: boolean): void {
+    this.airspaceVisible.set(on);
+    this.persistAirspacePrefs();
     if (on) {
-      void this.enableAirspaceLayer();
+      void this.reloadAirspaceLayer();
     } else {
       this.disableAirspaceLayer();
     }
   }
 
+  onAirspaceVolume3dToggle(on: boolean): void {
+    this.airspaceVolume3d.set(on);
+    this.persistAirspacePrefs();
+    if (this.airspaceVisible()) {
+      void this.reloadAirspaceLayer();
+    }
+  }
+
+  private persistAirspacePrefs(): void {
+    this.airspaceMapDisplay.writePrefs(this.airspaceScreenId, {
+      visible: this.airspaceVisible(),
+      volume3d: this.airspaceVolume3d(),
+      regionId: this.airspaceRegionId()
+    });
+  }
+
   private disableAirspaceLayer(): void {
-    this.removeAirspaceFromMap();
-    this.airspaceVisible.set(false);
+    const map = this.map;
+    if (map) this.airspaceMapDisplay.removeFromMap(map);
     this.airspaceStatus.set(null);
   }
 
-  private async enableAirspaceLayer(): Promise<void> {
-    if (this.airspaceVisible() || this.airspaceLoading()) {
+  private async reloadAirspaceLayer(): Promise<void> {
+    if (this.airspaceLoading()) return;
+
+    const map = this.map;
+    if (!map) {
+      this.airspaceStatus.set(this.i18n.t('map.mapNotReady'));
+      return;
+    }
+
+    if (!this.airspaceVisible()) {
+      this.disableAirspaceLayer();
       return;
     }
 
     this.airspaceLoading.set(true);
     this.airspaceStatus.set(this.i18n.t('map.airspaceLoading'));
 
-    const map = this.map;
-    if (!map) {
-      this.airspaceLoading.set(false);
-      this.airspaceStatus.set(this.i18n.t('map.mapNotReady'));
-      return;
-    }
-
-    const { result, failure } = await this.airspaceLayerService.loadPoaffWithDiagnostics(
-      this.airspaceRegionId()
+    const outcome = await this.airspaceMapDisplay.applyToMap(
+      map,
+      this.airspaceScreenId,
+      MAP_LAYER.OBS_FILL
     );
 
     this.airspaceLoading.set(false);
-
-    if (!result) {
-      this.airspaceStatus.set(this.airspaceLayerService.poaffFailureMessage(failure));
-      return;
-    }
-
-    this.applyAirspaceLayer(map, result);
-    this.airspaceVisible.set(true);
-
-    const hint =
-      result.source === 'openaip'
-        ? this.i18n.t('map.airspaceOpenAip')
-        : this.i18n.t('map.airspacePoaff', { label: result.label });
-    this.airspaceStatus.set(hint);
+    this.airspaceStatus.set(outcome.ok ? outcome.status : outcome.status);
   }
 
   onAirspaceRegionChange(regionId: string): void {
     this.airspaceRegionId.set(regionId);
+    this.persistAirspacePrefs();
     if (this.airspaceVisible()) {
       void this.reloadAirspaceLayer();
     }
-  }
-
-  private async reloadAirspaceLayer(): Promise<void> {
-    this.disableAirspaceLayer();
-    await this.enableAirspaceLayer();
   }
 
   ngOnInit(): void {
@@ -450,6 +457,11 @@ export class MapViewComponent implements OnInit {
       this.showFullCatalog.set(true);
     }
 
+    const airPrefs = this.airspaceMapDisplay.readPrefs(this.airspaceScreenId);
+    this.airspaceVisible.set(airPrefs.visible);
+    this.airspaceVolume3d.set(airPrefs.volume3d);
+    this.airspaceRegionId.set(airPrefs.regionId);
+
     void this.airspaceLayerService.ensureConfigLoaded().then(() => {
       this.airspaceConfigReady.set(true);
     });
@@ -463,6 +475,7 @@ export class MapViewComponent implements OnInit {
 
   onMapLoad(map: MaplibreMap): void {
     this.map = map;
+    configureMapFreeCamera(map);
     map.doubleClickZoom.disable();
     this.initDataLayers(map);
     this.mapReady.set(true);
@@ -487,7 +500,6 @@ export class MapViewComponent implements OnInit {
     map.on('mouseleave', MAP_LAYER.CATALOG_CLUSTER, () => {
       map.getCanvas().style.cursor = '';
     });
-    map.on('click', MAP_LAYER.AIRSPACE_FILL, e => this.showAirspacePopup(e));
     map.on('click', e => {
       const hitLayers = [...WAYPOINT_MENU_LAYERS, MAP_LAYER.CATALOG_CLUSTER];
       const onWaypoint = map.queryRenderedFeatures(e.point, { layers: hitLayers }).length;
@@ -505,6 +517,9 @@ export class MapViewComponent implements OnInit {
       map.resize();
       this.updateWaypointsSource();
       this.updateObsZones();
+      if (this.airspaceVisible()) {
+        void this.reloadAirspaceLayer();
+      }
     });
   }
 
@@ -811,20 +826,6 @@ export class MapViewComponent implements OnInit {
     void this.handleWaypointAction(action, wp);
   }
 
-  private showAirspacePopup(event: MapLayerMouseEvent): void {
-    const feature = event.features?.[0];
-    const map = this.map;
-    if (!feature || !map) return;
-    const html = this.airspaceLayerService.buildPoaffPopupHtml(
-      feature as Feature<Geometry, PoaffProperties>
-    );
-    this.airspacePopup?.remove();
-    this.airspacePopup = new Popup({ closeOnClick: true, maxWidth: '280px' })
-      .setLngLat(event.lngLat)
-      .setHTML(html)
-      .addTo(map);
-  }
-
   onEditDialogSave(payload: WaypointEditPayload): void {
     if (this.editIsCreate()) {
       const wp = this.waypointService.addWaypoint(payload);
@@ -1011,90 +1012,6 @@ export class MapViewComponent implements OnInit {
     const { lines, labels } = buildTaskLinesGeoJson(legs);
     setGeoJsonData(map, MAP_SOURCE.TASK_LINES, lines);
     setGeoJsonData(map, MAP_SOURCE.TASK_LABELS, labels);
-  }
-
-  private applyAirspaceLayer(map: MaplibreMap, result: AirspaceLoadResult): void {
-    this.removeAirspaceFromMap();
-
-    if (result.source === 'openaip' && result.rasterTileUrl) {
-      map.addSource(MAP_SOURCE.OPENAIP, {
-        type: 'raster',
-        tiles: [result.rasterTileUrl],
-        tileSize: 256,
-        scheme: 'tms',
-        maxzoom: 14
-      });
-      map.addLayer(
-        {
-          id: MAP_LAYER.OPENAIP_RASTER,
-          type: 'raster',
-          source: MAP_SOURCE.OPENAIP,
-          paint: { 'raster-opacity': 0.72 }
-        },
-        MAP_LAYER.OBS_FILL
-      );
-      return;
-    }
-
-    if (result.geojson) {
-      map.addSource(MAP_SOURCE.AIRSPACE, {
-        type: 'geojson',
-        data: result.geojson
-      });
-      map.addLayer(
-        {
-          id: MAP_LAYER.AIRSPACE_FILL,
-          type: 'fill',
-          source: MAP_SOURCE.AIRSPACE,
-          paint: {
-            'fill-color': ['coalesce', ['get', 'fill'], '#f0abfc'],
-            'fill-opacity': [
-              'min',
-              ['*', ['coalesce', ['get', 'fill-opacity'], 0.45], 0.55],
-              0.45
-            ]
-          }
-        },
-        MAP_LAYER.OBS_FILL
-      );
-      map.addLayer(
-        {
-          id: MAP_LAYER.AIRSPACE_LINE,
-          type: 'line',
-          source: MAP_SOURCE.AIRSPACE,
-          paint: {
-            'line-color': ['coalesce', ['get', 'stroke'], '#c026d3'],
-            'line-width': ['coalesce', ['get', 'stroke-width'], 1.5],
-            'line-opacity': ['coalesce', ['get', 'stroke-opacity'], 0.85]
-          }
-        },
-        MAP_LAYER.OBS_FILL
-      );
-    }
-
-    reorderMapOverlayLayers(map);
-  }
-
-  private removeAirspaceFromMap(): void {
-    const map = this.map;
-    if (!map) return;
-    this.airspacePopup?.remove();
-    this.airspacePopup = null;
-
-    for (const layerId of [
-      MAP_LAYER.AIRSPACE_FILL,
-      MAP_LAYER.AIRSPACE_LINE,
-      MAP_LAYER.OPENAIP_RASTER
-    ]) {
-      if (map.getLayer(layerId)) {
-        map.removeLayer(layerId);
-      }
-    }
-    for (const sourceId of [MAP_SOURCE.AIRSPACE, MAP_SOURCE.OPENAIP]) {
-      if (map.getSource(sourceId)) {
-        map.removeSource(sourceId);
-      }
-    }
   }
 
   centerOnTask(): void {

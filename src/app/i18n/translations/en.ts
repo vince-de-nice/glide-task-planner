@@ -330,7 +330,10 @@ export const en = {
     taskZonesAria: 'Show observation zones',
     airspace: 'Airspace',
     airspaceAria: 'Show airspace',
+    airspaceVolume3d: '3D volumes (true scale)',
+    airspaceVolume3dHint: 'Prisms from floor to ceiling (FL standard pressure, AGL + DEM ground)',
     airspaceLoading: 'Loading airspace…',
+    airspacePoaffVolumes: 'POAFF — {{label}} · {{count}} 3D volumes',
     mapNotReady: 'Map not ready — wait a moment and try again.',
     airspaceOpenAip: 'OpenAIP (worldwide)',
     airspacePoaff: 'POAFF/SIA — {{label}} (optional OpenAIP key in public/config/airspace.json)',
@@ -659,6 +662,11 @@ export const en = {
     cones3d: '3D cones on map',
     cones3dHint:
       'Shows half-ratio glide volumes from each enabled landable and the combined min envelope (red). Tilt the map for a better view.',
+    airspace: 'Airspace',
+    airspaceHint: 'All POAFF types for the selected region',
+    airspaceVolume3d: '3D volumes (true scale)',
+    airspaceVolume3dHint:
+      'Prisms from floor to ceiling; AGL/GND uses DEM ground under the polygon',
     lookPadAria:
       'Look control: hold left mouse button and drag',
     lookPadHint:

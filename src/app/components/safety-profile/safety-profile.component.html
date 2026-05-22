@@ -65,10 +65,15 @@
           <mgl-map
             class="safety-profile__map"
             [mapStyle]="mapStyle"
+            [centerClampedToGround]="false"
             [minPitch]="0"
             [maxPitch]="85"
             [dragRotate]="true"
             [touchPitch]="true"
+            [pitchWithRotate]="true"
+            [touchZoomRotate]="true"
+            [rollEnabled]="true"
+            [keyboard]="true"
             (mapLoad)="onMapLoad($event)"
           />
           <div class="safety-profile__map-controls">
@@ -108,6 +113,33 @@
             >
               <i class="pi pi-box" aria-hidden="true"></i>
             </button>
+            <button
+              type="button"
+              class="safety-profile__map-fab"
+              [class.safety-profile__map-fab--on]="airspaceVisible()"
+              [class.safety-profile__map-fab--loading]="airspaceLoading()"
+              [disabled]="airspaceLoading()"
+              [attr.aria-label]="'safetyProfile.airspace' | translate"
+              [attr.aria-pressed]="airspaceVisible()"
+              [title]="'safetyProfile.airspaceHint' | translate"
+              (click)="onAirspaceToggle(!airspaceVisible())"
+            >
+              <i class="pi pi-cloud" aria-hidden="true"></i>
+            </button>
+            @if (airspaceVisible()) {
+              <button
+                type="button"
+                class="safety-profile__map-fab"
+                [class.safety-profile__map-fab--on]="airspaceVolume3d()"
+                [disabled]="airspaceLoading()"
+                [attr.aria-label]="'safetyProfile.airspaceVolume3d' | translate"
+                [attr.aria-pressed]="airspaceVolume3d()"
+                [title]="'safetyProfile.airspaceVolume3dHint' | translate"
+                (click)="onAirspaceVolume3dToggle(!airspaceVolume3d())"
+              >
+                <i class="pi pi-objects-column" aria-hidden="true"></i>
+              </button>
+            }
             <button
               type="button"
               class="safety-profile__map-fab"

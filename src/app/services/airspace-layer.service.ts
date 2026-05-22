@@ -30,11 +30,16 @@ export type AirspaceLoadFailure =
 
 export interface PoaffProperties {
   id?: string;
+  GUId?: string;
   nameV?: string;
   class?: string;
   type?: string;
   lower?: string;
   upper?: string;
+  /** Plancher en mètres (fichiers POAFF enrichis). */
+  lowerM?: number;
+  /** Plafond en mètres (fichiers POAFF enrichis). */
+  upperM?: number;
   desc?: string;
   stroke?: string;
   'stroke-width'?: number;

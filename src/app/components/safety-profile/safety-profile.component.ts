@@ -37,6 +37,9 @@ import {
   LegEnvelope,
   type EnvelopeSample
 } from '../../services/glide-envelope.service';
+import { AirspaceMapDisplayService } from '../../services/airspace-map-display.service';
+import { DEFAULT_POAFF_REGION_ID } from '../../config/map-airspace.config';
+import { configureMapFreeCamera } from '../../utils/map-free-camera.util';
 import {
   DEFAULT_SAFETY_PARAMS,
   SAFETY_PARAMS_BOUNDS,
@@ -174,6 +177,8 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   private i18n = inject(TranslateService);
   private router = inject(Router);
   private readonly injector = inject(Injector);
+  private readonly airspaceMapDisplay = inject(AirspaceMapDisplayService);
+  private readonly airspaceScreenId = 'safety-profile' as const;
 
   /** Liste défilable des terrains (colonne droite de la coupe). */
   private readonly landablesChipsScroll =
@@ -196,6 +201,10 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   basemapPanelExpanded = signal(false);
   /** Volumes 3D des cônes de demi-finesse sur la carte (branche active). */
   cones3dVisible = signal(true);
+  airspaceVisible = signal(false);
+  airspaceVolume3d = signal(true);
+  airspaceRegionId = signal(DEFAULT_POAFF_REGION_ID);
+  airspaceLoading = signal(false);
   lookPadActive = signal(false);
   altPadActive = signal(false);
   /** Style initial — les changements de fond passent par applyBasemapToMap. */
@@ -232,8 +241,9 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   private static readonly LOOK_PAD_PITCH_PER_PX = 0.45;
   /** mètres MSL par pixel (glisser vers le haut = monter). */
   private static readonly ALT_PAD_METERS_PER_PX = 4;
-  private static readonly MIN_CAMERA_ALTITUDE_ABOVE_GROUND_M = 30;
-  private static readonly MAX_CAMERA_ALTITUDE_M = 50_000;
+  /** Altitude œil caméra (m MSL) — sans plancher lié au relief. */
+  private static readonly MIN_CAMERA_ALTITUDE_M = -2_000;
+  private static readonly MAX_CAMERA_ALTITUDE_M = 120_000;
   private lastEnvelopeInputKey = '';
   private refreshChain: Promise<void> = Promise.resolve();
   private refreshQueued = false;
@@ -416,6 +426,10 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       this.mapStyle = buildBaseMapStyle(storedBasemap, true);
     }
 
+    const airPrefs = this.airspaceMapDisplay.readPrefs(this.airspaceScreenId);
+    this.airspaceVisible.set(airPrefs.visible);
+    this.airspaceVolume3d.set(airPrefs.volume3d);
+    this.airspaceRegionId.set(airPrefs.regionId);
   }
 
   ngOnDestroy(): void {
@@ -432,6 +446,8 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     if (!map || typeof map.getLayer !== 'function') {
       return;
     }
+
+    this.airspaceMapDisplay.removeFromMap(map);
 
     try {
       if (this.branchClickHandler) {
@@ -481,6 +497,60 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     this.updateSafetyCones3d();
     this.updateSafetyMinAltitude3d();
     this.fitToActiveLeg();
+  }
+
+  onAirspaceToggle(on: boolean): void {
+    this.airspaceVisible.set(on);
+    this.persistAirspacePrefs();
+    if (on) {
+      void this.reloadAirspaceLayer();
+    } else {
+      this.disableAirspaceLayer();
+    }
+  }
+
+  onAirspaceVolume3dToggle(on: boolean): void {
+    this.airspaceVolume3d.set(on);
+    this.persistAirspacePrefs();
+    if (this.airspaceVisible()) {
+      void this.reloadAirspaceLayer();
+    }
+  }
+
+  private persistAirspacePrefs(): void {
+    this.airspaceMapDisplay.writePrefs(this.airspaceScreenId, {
+      visible: this.airspaceVisible(),
+      volume3d: this.airspaceVolume3d(),
+      regionId: this.airspaceRegionId()
+    });
+  }
+
+  private disableAirspaceLayer(): void {
+    const map = this.map;
+    if (map) this.airspaceMapDisplay.removeFromMap(map);
+  }
+
+  private async reloadAirspaceLayer(): Promise<void> {
+    if (this.airspaceLoading()) return;
+
+    const map = this.map;
+    if (!map) return;
+
+    if (!this.airspaceVisible()) {
+      this.disableAirspaceLayer();
+      return;
+    }
+
+    this.airspaceLoading.set(true);
+    const outcome = await this.airspaceMapDisplay.applyToMap(
+      map,
+      this.airspaceScreenId,
+      PROFILE_MAP_LAYER.POINTS
+    );
+    this.airspaceLoading.set(false);
+    if (!outcome.ok) {
+      console.warn('[safety-profile] airspace:', outcome.status);
+    }
   }
 
   onLookPadPointerDown(event: PointerEvent): void {
@@ -620,14 +690,10 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     map.jumpTo(camera);
   }
 
-  private clampCameraAltitudeM(map: MaplibreMap, altitudeM: number): number {
-    const lngLat = map.transform.getCameraLngLat();
-    const ground = map.queryTerrainElevation(lngLat);
-    const minAlt =
-      (ground ?? 0) + SafetyProfileComponent.MIN_CAMERA_ALTITUDE_ABOVE_GROUND_M;
+  private clampCameraAltitudeM(_map: MaplibreMap, altitudeM: number): number {
     return Math.min(
       SafetyProfileComponent.MAX_CAMERA_ALTITUDE_M,
-      Math.max(minAlt, altitudeM)
+      Math.max(SafetyProfileComponent.MIN_CAMERA_ALTITUDE_M, altitudeM)
     );
   }
 
@@ -668,12 +734,16 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       this.updateSafetyCones3d();
       this.updateSafetyMinAltitude3d();
       this.updateProfileMapPoints();
+      if (this.airspaceVisible()) {
+        void this.reloadAirspaceLayer();
+      }
     }
     this.basemapPanelExpanded.set(false);
   }
 
   onMapLoad(map: MaplibreMap): void {
     this.map = map;
+    configureMapFreeCamera(map);
     if (!map.getTerrain()) {
       map.setTerrain({ source: MAP_SOURCE.TERRAIN_DEM, exaggeration: 1 });
     }
@@ -918,12 +988,12 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     this.updateProfileMapPoints();
     this.fitToActiveLeg();
 
-    map.setMinPitch(0);
-    map.setMaxPitch(85);
-
     requestAnimationFrame(() => {
       map.resize();
       this.fitToActiveLeg();
+      if (this.airspaceVisible()) {
+        void this.reloadAirspaceLayer();
+      }
     });
 
     map.once('idle', () => {

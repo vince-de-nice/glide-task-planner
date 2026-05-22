@@ -4,6 +4,15 @@
       [mapStyle]="mapStyle"
       [center]="mapCenter()"
       [zoom]="mapZoom()"
+      [centerClampedToGround]="false"
+      [minPitch]="0"
+      [maxPitch]="85"
+      [dragRotate]="true"
+      [touchPitch]="true"
+      [pitchWithRotate]="true"
+      [touchZoomRotate]="true"
+      [rollEnabled]="true"
+      [keyboard]="true"
       [doubleClickZoom]="false"
       (mapLoad)="onMapLoad($event)"
       (mapDblClick)="onMapDblClick($event)"
@@ -101,6 +110,22 @@
         <i class="pi pi-cloud" aria-hidden="true"></i>
       </button>
 
+      @if (airspaceVisible()) {
+        <button
+          type="button"
+          class="map-fab"
+          [class.map-fab--on]="airspaceVolume3d()"
+          [disabled]="airspaceLoading()"
+          (click)="onAirspaceVolume3dToggle(!airspaceVolume3d())"
+          [pTooltip]="'map.airspaceVolume3d' | translate"
+          tooltipPosition="left"
+          [attr.aria-label]="'map.airspaceVolume3d' | translate"
+          [attr.aria-pressed]="airspaceVolume3d()"
+        >
+          <i class="pi pi-box" aria-hidden="true"></i>
+        </button>
+      }
+
     </div>
 
     @if (cursorElevationLine(); as elevLine) {
@@ -167,11 +192,7 @@
       </div>
     }
 
-    @if (
-      airspaceConfigReady() &&
-      !airspaceLayerService.hasOpenAipKey() &&
-      airspaceVisible()
-    ) {
+    @if (airspaceConfigReady() && airspaceVisible()) {
       <div class="map-overlay map-overlay--region">
         <p-select
           [options]="poaffRegions"

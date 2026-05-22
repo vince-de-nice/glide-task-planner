@@ -329,7 +329,10 @@ export const fr = {
     taskZonesAria: 'Afficher les zones d’observation',
     airspace: 'Espaces aériens',
     airspaceAria: 'Afficher les espaces aériens',
+    airspaceVolume3d: 'Volumes 3D (échelle)',
+    airspaceVolume3dHint: 'Prismes entre plancher et plafond (FL en pression standard, AGL + relief DEM)',
     airspaceLoading: 'Chargement des espaces aériens…',
+    airspacePoaffVolumes: 'POAFF — {{label}} · {{count}} volumes 3D',
     mapNotReady: 'Carte non initialisée — attendez un instant puis réessayez.',
     airspaceOpenAip: 'OpenAIP (monde)',
     airspacePoaff: 'POAFF/SIA — {{label}} (clé OpenAIP optionnelle dans public/config/airspace.json)',
@@ -659,6 +662,11 @@ export const fr = {
     cones3d: 'Cônes 3D sur la carte',
     cones3dHint:
       'Affiche les volumes de demi-finesse depuis chaque terrain posable actif et l’enveloppe min. (rouge). Inclinez la carte pour mieux les voir.',
+    airspace: 'Espaces aériens',
+    airspaceHint: 'Tous les types POAFF de la région sélectionnée',
+    airspaceVolume3d: 'Volumes 3D (échelle)',
+    airspaceVolume3dHint:
+      'Prismes entre plancher et plafond ; AGL/GND avec relief DEM sous le polygone',
     lookPadAria:
       'Contrôle du regard : maintenir le clic gauche enfoncé et glisser',
     lookPadHint:
