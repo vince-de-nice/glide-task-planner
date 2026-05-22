@@ -135,7 +135,7 @@ export async function enrichAirspaceCollectionWithDem(
   collection: FeatureCollection<Geometry, PoaffProperties>,
   options: { chunkSize?: number } = {}
 ): Promise<FeatureCollection<Geometry, AirspaceVolumeProperties>> {
-  const chunk = options.chunkSize ?? 40;
+  const chunk = options.chunkSize ?? 120;
   const groundById = new Map<string, number>();
 
   for (let i = 0; i < collection.features.length; i++) {

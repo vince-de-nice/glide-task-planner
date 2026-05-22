@@ -1,5 +1,6 @@
 import type {
   ExpressionSpecification,
+  GeoJSONSource,
   MapLayerMouseEvent,
   Map as MaplibreMap
 } from 'maplibre-gl';
@@ -13,6 +14,7 @@ import type { AirspaceLoadResult } from '../services/airspace-layer.service';
 import type { PoaffProperties } from '../services/airspace-layer.service';
 import type { AirspaceVolumeProperties } from './airspace-volume-enrich.util';
 import { buildAirspaceBoundaryLineCollection } from './airspace-boundary-lines.util';
+import { filterAirspaceFeaturesForViewport } from './airspace-wireframe-perf.util';
 import {
   AIRSPACE_WIREFRAME_LAYER_ID,
   buildAirspaceWireframeSpecs
@@ -21,6 +23,11 @@ import {
 type AirspaceWireframeLayer = import('./airspace-wireframe-three-layer.util').AirspaceWireframeThreeCustomLayer;
 
 const wireframeLayersByMap = new WeakMap<MaplibreMap, AirspaceWireframeLayer>();
+const fullAirspaceByMap = new WeakMap<
+  MaplibreMap,
+  FeatureCollection<Geometry, AirspaceVolumeProperties>
+>();
+const viewportSyncHandlerByMap = new WeakMap<MaplibreMap, () => void>();
 
 const AIRSPACE_EDGE_WIDTH: ExpressionSpecification = [
   'interpolate',
@@ -103,8 +110,66 @@ async function applyAirspaceWireframeLayer(
   layer.setVisible(true);
 }
 
+function viewportAirspaceCollection(
+  map: MaplibreMap,
+  full: FeatureCollection<Geometry, AirspaceVolumeProperties>
+): FeatureCollection<Geometry, AirspaceVolumeProperties> {
+  return {
+    type: 'FeatureCollection',
+    features: filterAirspaceFeaturesForViewport(full.features, map)
+  };
+}
+
+function refreshAirspaceViewportData(map: MaplibreMap): void {
+  const full = fullAirspaceByMap.get(map);
+  if (!full) return;
+
+  const visible = viewportAirspaceCollection(map, full);
+  const main = map.getSource(MAP_SOURCE.AIRSPACE);
+  if (main && 'setData' in main) {
+    (main as GeoJSONSource).setData(visible);
+  }
+
+  const edgeSrc = map.getSource(MAP_SOURCE.AIRSPACE_EDGES);
+  if (edgeSrc && 'setData' in edgeSrc) {
+    const flat = visible.features.filter(f => f.properties?.hasVolume !== true);
+    (edgeSrc as GeoJSONSource).setData(
+      flat.length > 0
+        ? buildAirspaceBoundaryLineCollection({
+            type: 'FeatureCollection',
+            features: flat
+          })
+        : { type: 'FeatureCollection', features: [] }
+    );
+  }
+}
+
+function bindAirspaceViewportSync(map: MaplibreMap): void {
+  if (viewportSyncHandlerByMap.has(map)) return;
+
+  let raf = 0;
+  const handler = (): void => {
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => refreshAirspaceViewportData(map));
+  };
+  viewportSyncHandlerByMap.set(map, handler);
+  map.on('moveend', handler);
+  map.on('idle', handler);
+}
+
+function unbindAirspaceViewportSync(map: MaplibreMap): void {
+  const handler = viewportSyncHandlerByMap.get(map);
+  if (handler) {
+    map.off('moveend', handler);
+    map.off('idle', handler);
+    viewportSyncHandlerByMap.delete(map);
+  }
+  fullAirspaceByMap.delete(map);
+}
+
 export function removeAirspaceLayersFromMap(map: MaplibreMap): void {
   unbindAirspaceClickHandlers(map);
+  unbindAirspaceViewportSync(map);
   removeAirspaceWireframeLayer(map);
 
   for (const layerId of [
@@ -198,12 +263,14 @@ export async function applyAirspaceLayersToMap(
     return;
   }
 
-  const edges = buildAirspaceBoundaryLineCollection(geojson);
+  fullAirspaceByMap.set(map, geojson);
+  const visible = viewportAirspaceCollection(map, geojson);
 
   map.addSource(MAP_SOURCE.AIRSPACE, {
     type: 'geojson',
-    data: geojson
+    data: visible
   });
+  bindAirspaceViewportSync(map);
 
   if (options.volume3d) {
     map.addLayer(
@@ -220,7 +287,7 @@ export async function applyAirspaceLayersToMap(
       options.beforeLayerId
     );
     await applyAirspaceWireframeLayer(map, geojson, options.beforeLayerId);
-    const flatFeatures = geojson.features.filter(f => f.properties?.hasVolume !== true);
+    const flatFeatures = visible.features.filter(f => f.properties?.hasVolume !== true);
     if (flatFeatures.length > 0) {
       addAirspaceEdgeLayers(
         map,
@@ -250,7 +317,10 @@ export async function applyAirspaceLayersToMap(
       },
       options.beforeLayerId
     );
-    addAirspaceEdgeLayers(map, edges, options.beforeLayerId);
+    const visibleEdges = buildAirspaceBoundaryLineCollection(visible);
+    if (visibleEdges.features.length > 0) {
+      addAirspaceEdgeLayers(map, visibleEdges, options.beforeLayerId);
+    }
     removeAirspaceWireframeLayer(map);
   }
 

@@ -6,15 +6,26 @@ import {
 } from './airspace-altitude.util';
 import type { AirspaceVolumeProperties } from './airspace-volume-enrich.util';
 
+import { haversineKm } from './geo.util';
+import { ringLngLatBounds, type WireframeLngLatBounds } from './airspace-wireframe-perf.util';
+
 export const AIRSPACE_WIREFRAME_LAYER_ID = 'airspace-wireframe-3d';
 
-const MAX_RING_VERTICES = 64;
+/** Sommets max pour limites MSL (FL / AMSL) à la construction. */
+const FLAT_RING_MAX_VERTICES_BUILD = 32;
+/** Espacement max (km) entre sommets le long du contour pour zones AGL/GND. */
+export const TERRAIN_RING_MAX_SEGMENT_KM = 0.6;
+/** Plafond de sommets après densification (perf). */
+export const TERRAIN_RING_MAX_VERTICES = 220;
 const MIN_VOLUME_HEIGHT_M = 1;
 
 export interface AirspaceWireframeVolumeSpec {
   id: string;
   ring: ReadonlyArray<{ lng: number; lat: number }>;
+  bounds: WireframeLngLatBounds;
   color: string;
+  /** Au moins une limite suit le relief (DEM au repos de la carte). */
+  needsTerrainSampling: boolean;
   /** Plancher MSL constant (limites FL / FT AMSL). */
   baseM: number;
   /** Plafond MSL constant. */
@@ -48,11 +59,16 @@ export function buildAirspaceWireframeSpecs(
     for (let r = 0; r < rings.length; r++) {
       const ring = openRingVertices(rings[r]);
       if (ring.length < 3) continue;
+      const needsTerrain =
+        vertical.useTerrainBase || vertical.useTerrainTop;
+      const prepared = prepareRingVertices(ring, needsTerrain);
       specs.push({
         id: `${id}-${r}`,
-        ring: decimateRing(ring, MAX_RING_VERTICES),
+        ring: prepared,
+        bounds: ringLngLatBounds(prepared),
         color,
-        ...vertical
+        ...vertical,
+        needsTerrainSampling: vertical.useTerrainBase || vertical.useTerrainTop
       });
     }
   }
@@ -60,10 +76,19 @@ export function buildAirspaceWireframeSpecs(
   return specs;
 }
 
+export interface WireframeVerticalModel {
+  baseM: number;
+  topM: number;
+  useTerrainBase: boolean;
+  useTerrainTop: boolean;
+  baseOffsetM: number;
+  topOffsetM: number;
+}
+
 /** Modèle vertical : constant MSL et/ou suivi du relief par sommet. */
 export function buildWireframeVerticalModel(
   props: AirspaceVolumeProperties
-): Omit<AirspaceWireframeVolumeSpec, 'id' | 'ring' | 'color'> | null {
+): WireframeVerticalModel | null {
   const baseM = props.extrusionBaseM;
   const topM = props.extrusionTopM;
   if (
@@ -130,6 +155,82 @@ export function wireframeVertexTopM(
   return spec.topM;
 }
 
+export interface VolumeMercatorCorners {
+  bottom: MercatorCoordinate[];
+  top: MercatorCoordinate[];
+}
+
+/** Coins plancher / plafond en coordonnées Mercator (mise à jour avec le DEM). */
+export function buildVolumeMercatorCorners(
+  spec: AirspaceWireframeVolumeSpec,
+  map: MaplibreMap | null
+): VolumeMercatorCorners | null {
+  const n = spec.ring.length;
+  if (n < 3) return null;
+
+  const bottom: MercatorCoordinate[] = [];
+  const top: MercatorCoordinate[] = [];
+  const sampleTerrain =
+    map != null && (spec.needsTerrainSampling || spec.useTerrainBase || spec.useTerrainTop);
+
+  for (const p of spec.ring) {
+    const groundM = sampleTerrain
+      ? (map.queryTerrainElevation([p.lng, p.lat]) ?? null)
+      : null;
+    const baseAlt = wireframeVertexBaseM(spec, groundM);
+    const topAlt = wireframeVertexTopM(spec, groundM);
+    const floorAlt = Math.min(baseAlt, topAlt);
+    const ceilAlt = Math.max(baseAlt, topAlt);
+
+    bottom.push(MercatorCoordinate.fromLngLat([p.lng, p.lat], floorAlt));
+    top.push(MercatorCoordinate.fromLngLat([p.lng, p.lat], ceilAlt));
+  }
+
+  return { bottom, top };
+}
+
+export interface AirspaceWallMeshBuffers {
+  positions: Float32Array;
+  indices: Uint32Array;
+}
+
+/** Plans verticaux (parois) entre plancher et plafond — 2 triangles par arête du polygone. */
+export function buildAirspaceWallMeshBuffers(
+  specs: readonly AirspaceWireframeVolumeSpec[],
+  map: MaplibreMap | null
+): AirspaceWallMeshBuffers {
+  const vertList: number[] = [];
+  const indexList: number[] = [];
+  let vertexBase = 0;
+
+  for (const spec of specs) {
+    const corners = buildVolumeMercatorCorners(spec, map);
+    if (!corners) continue;
+    const n = corners.bottom.length;
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      pushMercator(vertList, corners.bottom[i]);
+      pushMercator(vertList, corners.bottom[j]);
+      pushMercator(vertList, corners.top[j]);
+      pushMercator(vertList, corners.top[i]);
+      indexList.push(
+        vertexBase,
+        vertexBase + 1,
+        vertexBase + 2,
+        vertexBase,
+        vertexBase + 2,
+        vertexBase + 3
+      );
+      vertexBase += 4;
+    }
+  }
+
+  return {
+    positions: new Float32Array(vertList),
+    indices: new Uint32Array(indexList)
+  };
+}
+
 /**
  * Positions pour `THREE.LineSegments` : paires de sommets (mercator x,y,z).
  * Le relief est rééchantillonné à chaque appel (carte inclinée / tuiles DEM).
@@ -161,31 +262,22 @@ function appendVolumeWireframe(
   spec: AirspaceWireframeVolumeSpec,
   map: MaplibreMap | null
 ): number {
-  const n = spec.ring.length;
-  if (n < 3) return offset;
+  const corners = buildVolumeMercatorCorners(spec, map);
+  if (!corners) return offset;
 
-  const bottom: MercatorCoordinate[] = [];
-  const top: MercatorCoordinate[] = [];
-
-  for (const p of spec.ring) {
-    const groundM = map?.queryTerrainElevation([p.lng, p.lat]) ?? null;
-    const baseAlt = wireframeVertexBaseM(spec, groundM);
-    const topAlt = wireframeVertexTopM(spec, groundM);
-    const floorAlt = Math.min(baseAlt, topAlt);
-    const ceilAlt = Math.max(baseAlt, topAlt);
-
-    bottom.push(MercatorCoordinate.fromLngLat([p.lng, p.lat], floorAlt));
-    top.push(MercatorCoordinate.fromLngLat([p.lng, p.lat], ceilAlt));
-  }
-
+  const n = corners.bottom.length;
   for (let i = 0; i < n; i++) {
     const j = (i + 1) % n;
-    offset = writeSegment(buffer, offset, bottom[i], bottom[j]);
-    offset = writeSegment(buffer, offset, top[i], top[j]);
-    offset = writeSegment(buffer, offset, bottom[i], top[i]);
+    offset = writeSegment(buffer, offset, corners.bottom[i], corners.bottom[j]);
+    offset = writeSegment(buffer, offset, corners.top[i], corners.top[j]);
+    offset = writeSegment(buffer, offset, corners.bottom[i], corners.top[i]);
   }
 
   return offset;
+}
+
+function pushMercator(list: number[], mc: MercatorCoordinate): void {
+  list.push(mc.x, mc.y, mc.z);
 }
 
 function writeSegment(
@@ -241,4 +333,50 @@ function decimateRing<T>(pts: readonly T[], maxCount: number): T[] {
     out.push(pts[i]);
   }
   return out;
+}
+
+/**
+ * Insère des sommets le long de chaque arête pour pouvoir épouser le relief (AGL).
+ */
+export function densifyRingVertices(
+  ring: readonly { lng: number; lat: number }[],
+  maxSegmentLengthKm: number
+): { lng: number; lat: number }[] {
+  if (ring.length < 2 || maxSegmentLengthKm <= 0) return [...ring];
+
+  const out: { lng: number; lat: number }[] = [];
+  const n = ring.length;
+
+  for (let i = 0; i < n; i++) {
+    const a = ring[i];
+    const b = ring[(i + 1) % n];
+    out.push(a);
+
+    const distKm = haversineKm([a.lng, a.lat], [b.lng, b.lat]);
+    const steps = Math.max(1, Math.ceil(distKm / maxSegmentLengthKm));
+    for (let s = 1; s < steps; s++) {
+      const t = s / steps;
+      out.push({
+        lng: a.lng + (b.lng - a.lng) * t,
+        lat: a.lat + (b.lat - a.lat) * t
+      });
+    }
+  }
+
+  return out;
+}
+
+function prepareRingVertices(
+  ring: { lng: number; lat: number }[],
+  needsTerrain: boolean
+): { lng: number; lat: number }[] {
+  if (!needsTerrain) {
+    return decimateRing(ring, FLAT_RING_MAX_VERTICES_BUILD);
+  }
+
+  let dense = densifyRingVertices(ring, TERRAIN_RING_MAX_SEGMENT_KM);
+  if (dense.length > TERRAIN_RING_MAX_VERTICES) {
+    dense = decimateRing(dense, TERRAIN_RING_MAX_VERTICES);
+  }
+  return dense;
 }

@@ -1,5 +1,5 @@
 /**
- * Calque MapLibre custom (Three.js) : fil de fer 3D des volumes d'espaces aériens.
+ * Calque MapLibre custom (Three.js) : fil de fer + parois verticales des volumes POAFF.
  */
 import * as THREE from 'three';
 import {
@@ -7,16 +7,27 @@ import {
   type CustomRenderMethodInput,
   type Map as MaplibreMap
 } from 'maplibre-gl';
+import { filterWireframeSpecsForViewport } from './airspace-wireframe-perf.util';
 import {
   AIRSPACE_WIREFRAME_LAYER_ID,
+  buildAirspaceWallMeshBuffers,
   buildAirspaceWireframePositions,
   type AirspaceWireframeVolumeSpec
 } from './airspace-wireframe.util';
 
 export { AIRSPACE_WIREFRAME_LAYER_ID };
 
+/** Opacité des plans verticaux (pas de couvercle plancher/plafond). */
+const WALL_FILL_OPACITY = 0.22;
+
 export function createAirspaceWireframeCustomLayer(): AirspaceWireframeThreeCustomLayer {
   return new AirspaceWireframeThreeCustomLayer();
+}
+
+interface ColorGroupRenderBundle {
+  specs: AirspaceWireframeVolumeSpec[];
+  walls: THREE.Mesh;
+  lines: THREE.LineSegments;
 }
 
 export class AirspaceWireframeThreeCustomLayer implements CustomLayerInterface {
@@ -28,15 +39,26 @@ export class AirspaceWireframeThreeCustomLayer implements CustomLayerInterface {
   private renderer: THREE.WebGLRenderer | null = null;
   private readonly camera = new THREE.Camera();
   private readonly scene = new THREE.Scene();
-  private readonly lineGroups: THREE.LineSegments[] = [];
-  /** Groupes alignés sur {@link lineGroups} (même ordre). */
-  private colorGroups: AirspaceWireframeVolumeSpec[][] = [];
-  private specs: AirspaceWireframeVolumeSpec[] = [];
+  private readonly bundles: ColorGroupRenderBundle[] = [];
+  private allSpecs: AirspaceWireframeVolumeSpec[] = [];
   private visible = false;
+  private positionsDirty = true;
+
+  private mapChangeRaf = 0;
+
+  private readonly onMapChange = (): void => {
+    cancelAnimationFrame(this.mapChangeRaf);
+    this.mapChangeRaf = requestAnimationFrame(() => {
+      this.positionsDirty = true;
+      this.rebuildBundles();
+      this.map?.triggerRepaint();
+    });
+  };
 
   setSpecs(specs: AirspaceWireframeVolumeSpec[]): void {
-    this.specs = specs;
-    this.rebuildLineGroups();
+    this.allSpecs = specs;
+    this.positionsDirty = true;
+    this.rebuildBundles();
     this.map?.triggerRepaint();
   }
 
@@ -50,22 +72,34 @@ export class AirspaceWireframeThreeCustomLayer implements CustomLayerInterface {
     this.renderer = new THREE.WebGLRenderer({
       canvas: map.getCanvas(),
       context: gl,
-      antialias: true
+      antialias: false
     });
     this.renderer.autoClear = false;
-    this.rebuildLineGroups();
+    map.on('moveend', this.onMapChange);
+    map.on('idle', this.onMapChange);
+    this.rebuildBundles();
   }
 
   onRemove(): void {
-    this.disposeLineGroups();
+    cancelAnimationFrame(this.mapChangeRaf);
+    const map = this.map;
+    if (map) {
+      map.off('moveend', this.onMapChange);
+      map.off('idle', this.onMapChange);
+    }
+    this.disposeBundles();
     this.renderer = null;
     this.map = null;
+    this.allSpecs = [];
   }
 
   render(_gl: WebGLRenderingContext | WebGL2RenderingContext, args: CustomRenderMethodInput): void {
-    if (!this.renderer || !this.visible || this.lineGroups.length === 0) return;
+    if (!this.renderer || !this.visible || this.bundles.length === 0) return;
 
-    this.syncLinePositions();
+    if (this.positionsDirty) {
+      this.syncGeometry();
+      this.positionsDirty = false;
+    }
 
     const projection = new THREE.Matrix4().fromArray(
       args.defaultProjectionData.mainMatrix
@@ -74,18 +108,25 @@ export class AirspaceWireframeThreeCustomLayer implements CustomLayerInterface {
     this.renderer.resetState();
     this.camera.projectionMatrix = projection;
 
-    for (const lines of this.lineGroups) {
-      this.renderer.render(lines, this.camera);
+    for (const bundle of this.bundles) {
+      this.renderer.render(bundle.walls, this.camera);
+      this.renderer.render(bundle.lines, this.camera);
     }
   }
 
-  private rebuildLineGroups(): void {
-    this.disposeLineGroups();
-    this.colorGroups = [];
-    if (this.specs.length === 0) return;
+  private activeSpecs(): AirspaceWireframeVolumeSpec[] {
+    const map = this.map;
+    if (!map || this.allSpecs.length === 0) return [];
+    return filterWireframeSpecsForViewport(this.allSpecs, map);
+  }
+
+  private rebuildBundles(): void {
+    this.disposeBundles();
+    const active = this.activeSpecs();
+    if (active.length === 0) return;
 
     const byColor = new Map<string, AirspaceWireframeVolumeSpec[]>();
-    for (const spec of this.specs) {
+    for (const spec of active) {
       const key = spec.color.toLowerCase();
       const list = byColor.get(key) ?? [];
       list.push(spec);
@@ -93,64 +134,91 @@ export class AirspaceWireframeThreeCustomLayer implements CustomLayerInterface {
     }
 
     for (const [color, group] of byColor) {
-      const positions = buildAirspaceWireframePositions(group, this.map);
-      if (positions.length < 6) continue;
+      const wallGeom = new THREE.BufferGeometry();
+      wallGeom.setAttribute(
+        'position',
+        new THREE.BufferAttribute(new Float32Array(0), 3)
+      );
+      wallGeom.setIndex(new THREE.BufferAttribute(new Uint32Array(0), 1));
 
-      this.colorGroups.push(group);
-
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-      const material = new THREE.LineBasicMaterial({
+      const wallMat = new THREE.MeshBasicMaterial({
         color: new THREE.Color(color),
         transparent: true,
-        opacity: 0.92,
+        opacity: WALL_FILL_OPACITY,
+        depthTest: true,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      });
+
+      const lineGeom = new THREE.BufferGeometry();
+      lineGeom.setAttribute(
+        'position',
+        new THREE.BufferAttribute(new Float32Array(0), 3)
+      );
+
+      const lineMat = new THREE.LineBasicMaterial({
+        color: new THREE.Color(color),
+        transparent: true,
+        opacity: 0.95,
         depthTest: true,
         depthWrite: false
       });
 
-      const lines = new THREE.LineSegments(geometry, material);
+      const walls = new THREE.Mesh(wallGeom, wallMat);
+      const lines = new THREE.LineSegments(lineGeom, lineMat);
+      walls.frustumCulled = false;
       lines.frustumCulled = false;
-      this.lineGroups.push(lines);
+
+      this.scene.add(walls);
       this.scene.add(lines);
+      this.bundles.push({ specs: group, walls, lines });
     }
+
+    this.positionsDirty = true;
   }
 
-  private syncLinePositions(): void {
-    for (let i = 0; i < this.lineGroups.length; i++) {
-      const lines = this.lineGroups[i];
-      const group = this.colorGroups[i];
-      if (!group) continue;
+  private syncGeometry(): void {
+    const map = this.map;
+    if (!map) return;
 
-      const positions = buildAirspaceWireframePositions(group, this.map);
-      const attr = lines.geometry.getAttribute('position') as THREE.BufferAttribute;
-      if (attr.array.length !== positions.length) {
-        lines.geometry.setAttribute(
+    for (const bundle of this.bundles) {
+      const walls = buildAirspaceWallMeshBuffers(bundle.specs, map);
+      if (walls.indices.length > 0) {
+        bundle.walls.geometry.setAttribute(
           'position',
-          new THREE.BufferAttribute(positions, 3)
+          new THREE.BufferAttribute(walls.positions, 3)
         );
-      } else {
-        attr.array.set(positions);
-        attr.needsUpdate = true;
+        bundle.walls.geometry.setIndex(
+          new THREE.BufferAttribute(walls.indices, 1)
+        );
+      }
+
+      const linePos = buildAirspaceWireframePositions(bundle.specs, map);
+      if (linePos.length >= 6) {
+        bundle.lines.geometry.setAttribute(
+          'position',
+          new THREE.BufferAttribute(linePos, 3)
+        );
       }
     }
   }
 
-  private disposeLineGroups(): void {
+  private disposeBundles(): void {
     const disposedMaterials = new Set<THREE.Material>();
-    for (const lines of this.lineGroups) {
-      lines.geometry.dispose();
-      const mat = lines.material;
-      const materials = Array.isArray(mat) ? mat : [mat];
-      for (const m of materials) {
-        if (!disposedMaterials.has(m)) {
-          m.dispose();
-          disposedMaterials.add(m);
+    for (const bundle of this.bundles) {
+      for (const obj of [bundle.walls, bundle.lines]) {
+        obj.geometry.dispose();
+        const mat = obj.material;
+        const materials = Array.isArray(mat) ? mat : [mat];
+        for (const m of materials) {
+          if (!disposedMaterials.has(m)) {
+            m.dispose();
+            disposedMaterials.add(m);
+          }
         }
+        this.scene.remove(obj);
       }
-      this.scene.remove(lines);
     }
-    this.lineGroups.length = 0;
-    this.colorGroups = [];
+    this.bundles.length = 0;
   }
 }
