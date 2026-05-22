@@ -1,5 +1,6 @@
 import { Waypoint } from './waypoint.model';
 import { ObservationZoneConfig } from './observation-zone.model';
+import type { LegTerrainCache } from './leg-terrain-cache.model';
 
 /** Rôle d'un point dans le circuit (ordre de la liste). */
 export type CircuitLegRole = 'departure' | 'arrival' | 'turnpoint';
@@ -17,6 +18,10 @@ export function canWaypointBeArrival(wp: Waypoint | undefined): boolean {
 export interface SafetyOutgoingBranch {
   /** Terrains posables exclus du calcul et de l'affichage sur cette branche. */
   disabledLandableIds: string[];
+  /** Profil terrain DEM (Mapterhorn z15) — évite les re-téléchargements inutiles. */
+  terrainCache?: LegTerrainCache;
+  /** Désactivation auto des terrains inutiles déjà appliquée (une fois par branche). */
+  landablesAutoPruned?: boolean;
 }
 
 export interface CircuitLeg {

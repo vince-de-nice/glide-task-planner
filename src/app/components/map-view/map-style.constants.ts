@@ -130,6 +130,12 @@ export const CATALOG_DOT_MIN_ZOOM = 8;
 /** Tuiles DEM Mapterhorn (Terrarium, 512 px) — voir https://mapterhorn.com/ */
 export const MAPTERHORN_DEM_TILEJSON_URL = 'https://tiles.mapterhorn.com/tilejson.json';
 
+/** Modèle z/x/y pour fetch direct (@watergis/terrain-rgb, échantillonnage profil). */
+export const MAPTERHORN_DEM_TILE_URL =
+  'https://tiles.mapterhorn.com/{z}/{x}/{y}.webp';
+
+export const MAPTERHORN_DEM_TILE_SIZE = 512;
+
 export const MAP_TERRAIN_HILLSHADE_KEY = 'gc-map-terrain-hillshade';
 
 export const MAP_SOURCE = {
@@ -202,23 +208,6 @@ function terrainDemSourceSpec(): {
     encoding: 'terrarium',
     attribution:
       '<a href="https://mapterhorn.com/attribution" target="_blank" rel="noopener">© Mapterhorn</a>'
-  };
-}
-
-/**
- * Style minimal pour la carte hors écran d'échantillonnage DEM (pas d'imagerie).
- */
-export function buildDemOnlyMapStyle(): StyleSpecification {
-  return {
-    version: 8,
-    sources: {
-      [MAP_SOURCE.TERRAIN_DEM]: terrainDemSourceSpec()
-    },
-    layers: [],
-    terrain: {
-      source: MAP_SOURCE.TERRAIN_DEM,
-      exaggeration: 1
-    }
   };
 }
 

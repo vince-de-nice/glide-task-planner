@@ -25,7 +25,10 @@ import type { FeatureCollection, LineString, Point } from 'geojson';
 import { TaskStateService } from '../../services/task-state.service';
 import { WaypointService } from '../../services/waypoint.service';
 import { TerrainProfileService } from '../../services/terrain-profile.service';
-import { TerrainSamplingProgressService } from '../../services/terrain-sampling-progress.service';
+import {
+  TerrainSamplingProgressService,
+  type LegSamplingProgress
+} from '../../services/terrain-sampling-progress.service';
 import {
   GlideEnvelopeService,
   LegEnvelope,
@@ -56,7 +59,23 @@ import {
   LegEndpointInfo,
   LegProfileChartComponent
 } from './leg-profile-chart.component';
+import type { LegSafetyOutgoingPatch } from '../../services/task-state.service';
 import { resolveLegElevationM } from '../../utils/elevation.util';
+import {
+  isLegTerrainCacheValid,
+  legProfileFromTerrainCache,
+  mergeTerrainCaches,
+  terrainCacheCoversExtent,
+  terrainCacheFromLegProfile,
+  type LegTerrainCacheContext
+} from '../../models/leg-terrain-cache.model';
+import type { LegTerrainCache } from '../../models/leg-terrain-cache.model';
+import type { LegProfile } from '../../services/terrain-profile.service';
+import { haversineKm } from '../../utils/terrain-dem-chunk.util';
+import {
+  clearTerrainDemTileCache,
+  runTasksWithConcurrency
+} from '../../utils/terrain-dem-tile.util';
 import {
   defaultLegYMaxM,
   landableColorFromId
@@ -127,6 +146,16 @@ const PROFILE_LAYER_STACK: readonly string[] = [
   PROFILE_MAP_LAYER.CURSOR_POINT
 ];
 
+/** Branches traitées en parallèle (tuiles DEM partagées via cache global). */
+const LEG_PROFILE_PARALLELISM = 3;
+
+interface LegPair {
+  fromLeg: CircuitLeg;
+  toLeg: CircuitLeg;
+  from: Waypoint;
+  to: Waypoint;
+}
+
 @Component({
   selector: 'app-safety-profile',
   standalone: true,
@@ -174,6 +203,8 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   /** Style initial — les changements de fond passent par applyBasemapToMap. */
   mapStyle: StyleSpecification = buildBaseMapStyle(DEFAULT_BASEMAP_ID, true);
   profilesLoading = signal(false);
+  /** Branche en cours de réessai DEM (évite un refresh global déclenché par l’effect). */
+  readonly terrainRetryLegIndex = signal<number | null>(null);
   profilesVersion = signal(0);
   /** Branche affichée dans la coupe (index 0…n-1). */
   selectedLegIndex = signal(0);
@@ -202,7 +233,9 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   private static readonly ALT_PAD_METERS_PER_PX = 4;
   private static readonly MIN_CAMERA_ALTITUDE_ABOVE_GROUND_M = 30;
   private static readonly MAX_CAMERA_ALTITUDE_M = 50_000;
-  private lastProfileHash = '';
+  private lastEnvelopeInputKey = '';
+  private refreshChain: Promise<void> = Promise.resolve();
+  private refreshQueued = false;
   readonly profileMapCursor = signal<{
     legIndex: number;
     longitude: number;
@@ -273,6 +306,28 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
 
   readonly legRenders = signal<LegRender[]>([]);
 
+  /** Onglets branche (rendus complets ou paires circuit pendant le chargement DEM). */
+  readonly legTabItems = computed(() => {
+    const renders = this.legRenders();
+    if (renders.length > 0) {
+      return renders.map(r => ({
+        index: r.index,
+        fromName: r.fromWaypoint.name,
+        toName: r.toWaypoint.name,
+        distanceKm: r.distanceKm
+      }));
+    }
+    return this.legPairs().map((p, i) => ({
+      index: i,
+      fromName: p.from.name,
+      toName: p.to.name,
+      distanceKm: haversineKm(
+        [p.from.longitude, p.from.latitude],
+        [p.to.longitude, p.to.latitude]
+      )
+    }));
+  });
+
   readonly activeLegRender = computed(() => {
     const renders = this.legRenders();
     const idx = this.selectedLegIndex();
@@ -297,13 +352,14 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       this.groundMarginM.set(persisted.groundMarginM);
     });
 
-    // Trigger profile recomputation when params or task change and map is ready.
+    // Recalcul des coupes (sérialisé — évite les refresh parallèles qui figent le navigateur).
     effect(() => {
       this.currentParams();
       this.circuitLegs();
       this.profilesVersion();
       this.landables();
-      void this.refreshProfiles();
+      if (this.terrainRetryLegIndex() != null) return;
+      this.scheduleRefreshProfiles();
     });
 
     effect(() => {
@@ -720,35 +776,33 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     });
 
     this.mapReady.set(true);
-    void this.refreshProfiles();
+    this.scheduleRefreshProfiles();
   }
 
   onGlideRatioChange(value: number | null | undefined): void {
     if (value == null || !Number.isFinite(value)) return;
     this.glideRatio.set(value);
     this.taskState.setSafetyParams({ glideRatio: value });
-    this.terrainProfile.clearCache();
-    this.lastProfileHash = '';
+    this.lastEnvelopeInputKey = '';
   }
 
   onArrivalMarginChange(value: number | null | undefined): void {
     if (value == null || !Number.isFinite(value)) return;
     this.arrivalMarginM.set(value);
     this.taskState.setSafetyParams({ arrivalMarginM: value });
-    this.lastProfileHash = '';
+    this.lastEnvelopeInputKey = '';
   }
 
   onGroundMarginChange(value: number | null | undefined): void {
     if (value == null || !Number.isFinite(value)) return;
     this.groundMarginM.set(value);
     this.taskState.setSafetyParams({ groundMarginM: value });
-    this.lastProfileHash = '';
+    this.lastEnvelopeInputKey = '';
   }
 
   onResetDefaults(): void {
     this.taskState.resetSafetyParams();
-    this.terrainProfile.clearCache();
-    this.lastProfileHash = '';
+    this.lastEnvelopeInputKey = '';
   }
 
   toggleParamsPanel(): void {
@@ -782,6 +836,21 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
 
   selectNextLeg(): void {
     this.selectLeg(this.selectedLegIndex() + 1);
+  }
+
+  legProgressAriaLabel(legIndex: number, prog: LegSamplingProgress): string {
+    this.i18n.locale();
+    const leg = legIndex + 1;
+    if (prog.phase === 'dem') {
+      return this.i18n.t('safetyProfile.demProgress.legBarDem', {
+        leg,
+        percent: prog.percent
+      });
+    }
+    if (prog.phase === 'compute') {
+      return this.i18n.t('safetyProfile.demProgress.legBarCompute', { leg });
+    }
+    return this.i18n.t('safetyProfile.demProgress.legBarDone', { leg });
   }
 
   defaultYMaxForLeg(leg: LegRender): number {
@@ -828,13 +897,13 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     landableId: string,
     enabled: boolean
   ): void {
-    this.lastProfileHash = '';
+    this.lastEnvelopeInputKey = '';
     this.taskState.setSafetyLandableEnabled(branchIndex, landableId, enabled);
   }
 
   enableAllLandablesOnLeg(leg: LegRender, event?: Event): void {
     event?.stopPropagation();
-    this.lastProfileHash = '';
+    this.lastEnvelopeInputKey = '';
     this.taskState.setAllSafetyLandablesEnabled(
       leg.index,
       leg.landableToggles.map(t => t.id),
@@ -844,7 +913,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
 
   disableAllLandablesOnLeg(leg: LegRender, event?: Event): void {
     event?.stopPropagation();
-    this.lastProfileHash = '';
+    this.lastEnvelopeInputKey = '';
     this.taskState.setAllSafetyLandablesEnabled(
       leg.index,
       leg.landableToggles.map(t => t.id),
@@ -865,7 +934,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       .filter(t => t.enabled && nonBinding.has(t.id))
       .map(t => t.id);
     if (toDisable.length === 0) return;
-    this.lastProfileHash = '';
+    this.lastEnvelopeInputKey = '';
     this.taskState.disableSafetyLandables(leg.index, toDisable);
   }
 
@@ -896,6 +965,15 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       });
     }
     this.syncProfileMapCursor();
+  }
+
+  /** Réessaie le chargement DEM d’une branche (cache tuiles + cache branche invalidés). */
+  retryLegDem(legIndex: number, event?: Event): void {
+    event?.stopPropagation();
+    if (this.profilesLoading() || this.terrainRetryLegIndex() != null) return;
+    const pairs = this.legPairs();
+    if (legIndex < 0 || legIndex >= pairs.length) return;
+    void this.runTerrainDemRetry(legIndex);
   }
 
   goToCircuit(): void {
@@ -1178,80 +1256,234 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     }
   }
 
-  private async refreshProfiles(): Promise<void> {
+  /** Une seule passe de refresh à la fois ; les demandes concurrentes sont mises en file. */
+  private scheduleRefreshProfiles(): void {
+    this.refreshChain = this.refreshChain
+      .then(async () => {
+        await this.refreshProfiles();
+        while (this.refreshQueued) {
+          this.refreshQueued = false;
+          await this.refreshProfiles();
+        }
+      })
+      .catch(() => undefined);
+  }
+
+  private buildEnvelopeInputKey(
+    pairs: {
+      fromLeg: CircuitLeg;
+      toLeg: CircuitLeg;
+      from: Waypoint;
+      to: Waypoint;
+    }[],
+    params: SafetyParams,
+    disabledOverrides?: ReadonlyMap<number, readonly string[]>
+  ): string {
+    const legs = pairs
+      .map((p, index) => {
+        const disabled =
+          disabledOverrides?.get(index)?.join(',') ??
+          p.fromLeg.safetyOutgoing?.disabledLandableIds?.join(',') ??
+          '';
+        const fromElev = resolveLegElevationM(p.from, p.fromLeg);
+        const toElev = resolveLegElevationM(p.to, p.toLeg);
+        return [
+          p.from.longitude.toFixed(4),
+          p.from.latitude.toFixed(4),
+          p.to.longitude.toFixed(4),
+          p.to.latitude.toFixed(4),
+          fromElev ?? 'n',
+          toElev ?? 'n',
+          disabled
+        ].join('|');
+      })
+      .join(';');
+    return `${legs}#${params.glideRatio}/${params.arrivalMarginM}/${params.groundMarginM}`;
+  }
+
+  private async runTerrainDemRetry(legIndex: number): Promise<void> {
+    this.terrainRetryLegIndex.set(legIndex);
+    clearTerrainDemTileCache();
+    this.taskState.clearLegTerrainCache(legIndex);
+    try {
+      await this.refreshSingleLegProfile(legIndex, { forceDemRefresh: true });
+      const pairs = this.legPairs();
+      this.lastEnvelopeInputKey = this.buildEnvelopeInputKey(
+        pairs,
+        this.currentParams()
+      );
+    } finally {
+      this.terrainRetryLegIndex.set(null);
+    }
+  }
+
+  private async refreshSingleLegProfile(
+    legIndex: number,
+    options: { forceDemRefresh?: boolean } = {}
+  ): Promise<void> {
     const pairs = this.legPairs();
-    const params = this.currentParams();
-    const landables = this.landables();
-    if (pairs.length === 0) {
-      this.legRenders.set([]);
+    if (legIndex < 0 || legIndex >= pairs.length) return;
+
+    if (this.profilesLoading()) {
+      this.refreshQueued = true;
       return;
     }
 
+    const params = this.currentParams();
+    const landables = this.landables();
+    const legCount = pairs.length;
+
     this.profilesLoading.set(true);
-    this.samplingProgress.begin(pairs.length);
+    this.samplingProgress.resetLeg(legIndex, legCount);
+
     try {
-      this.terrainProfile.clearCache();
-
-      const renders: LegRender[] = [];
-      const legCount = pairs.length;
-      for (let idx = 0; idx < pairs.length; idx++) {
-      const pair = pairs[idx];
-      const progressCtx = {
-        legIndex: idx,
+      const terrainCacheUpdates = new Map<number, LegTerrainCache>();
+      const { render } = await this.processLegProfile(
+        legIndex,
+        pairs[legIndex],
         legCount,
-        legLabel: `${pair.from.name} → ${pair.to.name}`
-      };
-      const fromLngLat: [number, number] = [
-        pair.from.longitude,
-        pair.from.latitude
-      ];
-      const toLngLat: [number, number] = [pair.to.longitude, pair.to.latitude];
-      const legGeo = {
-        fromLng: pair.from.longitude,
-        fromLat: pair.from.latitude,
-        toLng: pair.to.longitude,
-        toLat: pair.to.latitude
-      };
-      const fromElev = resolveLegElevationM(pair.from, pair.fromLeg);
-      const toElev = resolveLegElevationM(pair.to, pair.toLeg);
-      const endpoints = {
-        fromElevationM: fromElev ?? null,
-        toElevationM: toElev ?? null
-      };
+        landables,
+        params,
+        terrainCacheUpdates,
+        options
+      );
 
-      const initial = await this.terrainProfile.sampleLegProfileAtDemZoom(
+      const current = this.legRenders();
+      if (current.length === legCount) {
+        const renders = [...current];
+        renders[legIndex] = render;
+        this.legRenders.set(renders);
+      } else {
+        this.legRenders.set([render]);
+      }
+
+      const cache = terrainCacheUpdates.get(legIndex);
+      if (cache) {
+        this.taskState.applyLegSafetyOutgoingPatches(
+          new Map([[legIndex, { terrainCache: cache }]])
+        );
+      }
+
+      if (this.mapReady()) {
+        this.updateBranchLines();
+        if (this.selectedLegIndex() === legIndex) {
+          this.updateSafetyCones3d();
+          this.updateProfileMapPoints();
+          this.resetLegYMaxIfTooLowForLeg(legIndex);
+        }
+      }
+    } catch {
+      /* tuiles indisponibles */
+    } finally {
+      this.profilesLoading.set(false);
+      if (!this.samplingProgress.active()) {
+        this.samplingProgress.end();
+      }
+    }
+  }
+
+  private async processLegProfile(
+    idx: number,
+    pair: LegPair,
+    legCount: number,
+    landables: Waypoint[],
+    params: SafetyParams,
+    terrainCacheUpdates: Map<number, LegTerrainCache>,
+    options: { forceDemRefresh?: boolean } = {}
+  ): Promise<{
+    render: LegRender;
+    autoPruneIds?: readonly string[];
+  }> {
+    const progressCtx = {
+      legIndex: idx,
+      legCount,
+      legLabel: `${pair.from.name} → ${pair.to.name}`
+    };
+    const fromLngLat: [number, number] = [pair.from.longitude, pair.from.latitude];
+    const toLngLat: [number, number] = [pair.to.longitude, pair.to.latitude];
+    const legGeo = {
+      fromLng: pair.from.longitude,
+      fromLat: pair.from.latitude,
+      toLng: pair.to.longitude,
+      toLat: pair.to.latitude
+    };
+    const fromElev = resolveLegElevationM(pair.from, pair.fromLeg);
+    const toElev = resolveLegElevationM(pair.to, pair.toLeg);
+    const endpoints = {
+      fromElevationM: fromElev ?? null,
+      toElevationM: toElev ?? null
+    };
+    const cacheCtx: LegTerrainCacheContext = {
+      fromLngLat,
+      toLngLat,
+      fromElevationM: endpoints.fromElevationM,
+      toElevationM: endpoints.toElevationM
+    };
+    const legLengthKm = haversineKm(fromLngLat, toLngLat);
+
+    const forceDemRefresh = options.forceDemRefresh === true;
+    let storedCache = pair.fromLeg.safetyOutgoing?.terrainCache;
+    let initial: LegProfile;
+    if (
+      !forceDemRefresh &&
+      isLegTerrainCacheValid(storedCache, cacheCtx) &&
+      storedCache &&
+      terrainCacheCoversExtent(storedCache, 0, legLengthKm)
+    ) {
+      initial = legProfileFromTerrainCache(storedCache, fromLngLat, toLngLat);
+      this.samplingProgress.markTerrainReady(idx);
+    } else {
+      initial = await this.terrainProfile.sampleLegProfileAtDemZoom(
         fromLngLat,
         toLngLat,
         undefined,
         progressCtx
       );
-      this.samplingProgress.setComputeLeg(idx, legCount, progressCtx.legLabel);
-      const disabledSet = new Set(
-        pair.fromLeg.safetyOutgoing?.disabledLandableIds ?? []
-      );
-      const intersecting = this.glideEnvelope.filterIntersectingLandables(
-        landables,
-        params,
-        legGeo,
-        endpoints,
-        initial.totalDistanceKm,
-        initial.samples
-      );
-      const activeLandables = intersecting.filter(la => !disabledSet.has(la.id));
+      storedCache = terrainCacheFromLegProfile(initial, cacheCtx);
+      terrainCacheUpdates.set(idx, storedCache);
+    }
 
-      const extentActive = this.glideEnvelope.computeProfileExtent(
-        initial.totalDistanceKm,
-        activeLandables,
-        params,
-        legGeo,
-        endpoints,
-        initial.samples
-      );
-      let profile = initial;
+    const isFirstProfileLoad = !pair.fromLeg.safetyOutgoing?.landablesAutoPruned;
+    const disabledSet = new Set(
+      isFirstProfileLoad
+        ? []
+        : (pair.fromLeg.safetyOutgoing?.disabledLandableIds ?? [])
+    );
+    const intersecting = this.glideEnvelope.filterIntersectingLandables(
+      landables,
+      params,
+      legGeo,
+      endpoints,
+      initial.totalDistanceKm,
+      initial.samples
+    );
+    const activeLandables = intersecting.filter(la => !disabledSet.has(la.id));
+
+    const extentActive = this.glideEnvelope.computeProfileExtent(
+      initial.totalDistanceKm,
+      activeLandables,
+      params,
+      legGeo,
+      endpoints,
+      initial.samples
+    );
+    let profile = initial;
+    const needsExtended =
+      extentActive.startKm < 0 || extentActive.endKm > initial.totalDistanceKm;
+    if (needsExtended) {
       if (
-        extentActive.startKm < 0 ||
-        extentActive.endKm > initial.totalDistanceKm
+        !forceDemRefresh &&
+        isLegTerrainCacheValid(storedCache, cacheCtx) &&
+        storedCache &&
+        terrainCacheCoversExtent(
+          storedCache,
+          extentActive.startKm,
+          extentActive.endKm
+        )
       ) {
+        profile = legProfileFromTerrainCache(storedCache, fromLngLat, toLngLat);
+        this.samplingProgress.markTerrainReady(idx);
+      } else {
         profile = await this.terrainProfile.sampleLegRangeAtDemZoom(
           fromLngLat,
           toLngLat,
@@ -1260,32 +1492,66 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
           undefined,
           progressCtx
         );
-        this.samplingProgress.setComputeLeg(idx, legCount, progressCtx.legLabel);
+        const merged = mergeTerrainCaches(storedCache, profile, cacheCtx);
+        terrainCacheUpdates.set(idx, merged);
+        profile = legProfileFromTerrainCache(merged, fromLngLat, toLngLat);
       }
-      profile = this.terrainProfile.applyEndpointTerrainFallback(
-        profile,
-        fromElev ?? null,
-        toElev ?? null
-      );
-      const envelope = this.glideEnvelope.computeLegEnvelope(
-        profile.samples,
-        activeLandables,
-        params,
-        legGeo,
-        endpoints,
-        initial.totalDistanceKm
-      );
+    }
+    this.samplingProgress.setComputeLeg(idx, legCount, progressCtx.legLabel);
+    profile = this.terrainProfile.applyEndpointTerrainFallback(
+      profile,
+      fromElev ?? null,
+      toElev ?? null
+    );
+    let envelope = this.glideEnvelope.computeLegEnvelope(
+      profile.samples,
+      activeLandables,
+      params,
+      legGeo,
+      endpoints,
+      initial.totalDistanceKm
+    );
 
-      const landableToggles: LegLandableToggle[] = intersecting.map(la => ({
-        id: la.id,
-        name: la.name,
-        shortName: la.code?.trim() || la.name,
-        type: la.type === 'airfield' ? 'airfield' : 'landable',
-        color: landableColorFromId(la.id),
-        enabled: !disabledSet.has(la.id)
-      }));
+    let autoPruneIds: readonly string[] | undefined;
+    if (isFirstProfileLoad) {
+      const toDisable =
+        intersecting.length > 0
+          ? this.glideEnvelope.findNonBindingLandableIds(
+              envelope.samples,
+              intersecting,
+              params
+            )
+          : [];
+      autoPruneIds = toDisable;
+      for (const id of toDisable) {
+        disabledSet.add(id);
+      }
+      if (toDisable.length > 0) {
+        const prunedActive = intersecting.filter(la => !disabledSet.has(la.id));
+        envelope = this.glideEnvelope.computeLegEnvelope(
+          profile.samples,
+          prunedActive,
+          params,
+          legGeo,
+          endpoints,
+          initial.totalDistanceKm
+        );
+      }
+    }
 
-      renders.push({
+    const landableToggles: LegLandableToggle[] = intersecting.map(la => ({
+      id: la.id,
+      name: la.name,
+      shortName: la.code?.trim() || la.name,
+      type: la.type === 'airfield' ? 'airfield' : 'landable',
+      color: landableColorFromId(la.id),
+      enabled: !disabledSet.has(la.id)
+    }));
+
+    this.samplingProgress.completeLeg(idx);
+
+    return {
+      render: {
         index: idx,
         fromWaypoint: pair.from,
         toWaypoint: pair.to,
@@ -1300,26 +1566,85 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
         distanceKm: profile.totalDistanceKm,
         envelope,
         landableToggles
-      });
+      },
+      autoPruneIds
+    };
+  }
+
+  private async refreshProfiles(): Promise<void> {
+    const pairs = this.legPairs();
+    const params = this.currentParams();
+    const landables = this.landables();
+    if (pairs.length === 0) {
+      this.legRenders.set([]);
+      this.lastEnvelopeInputKey = '';
+      return;
+    }
+
+    const envelopeKey = this.buildEnvelopeInputKey(pairs, params);
+    if (
+      envelopeKey === this.lastEnvelopeInputKey &&
+      this.legRenders().length === pairs.length
+    ) {
+      return;
+    }
+
+    if (this.profilesLoading()) {
+      this.refreshQueued = true;
+      return;
+    }
+
+    this.profilesLoading.set(true);
+    this.samplingProgress.begin(pairs.length);
+    const terrainCacheUpdates = new Map<number, LegTerrainCache>();
+    const outgoingPatches = new Map<number, LegSafetyOutgoingPatch>();
+
+    try {
+      const legCount = pairs.length;
+      const renders: LegRender[] = new Array(legCount);
+      const disabledOverrides = new Map<number, string[]>();
+
+      await runTasksWithConcurrency(
+        pairs,
+        LEG_PROFILE_PARALLELISM,
+        async (pair, idx) => {
+          const { render, autoPruneIds } = await this.processLegProfile(
+            idx,
+            pair,
+            legCount,
+            landables,
+            params,
+            terrainCacheUpdates
+          );
+          renders[idx] = render;
+          if (autoPruneIds !== undefined) {
+            const patch: LegSafetyOutgoingPatch = {
+              markLandablesAutoPruned: true,
+              addDisabledLandableIds: autoPruneIds
+            };
+            const cache = terrainCacheUpdates.get(idx);
+            if (cache) patch.terrainCache = cache;
+            outgoingPatches.set(idx, patch);
+            const stored =
+              pair.fromLeg.safetyOutgoing?.disabledLandableIds ?? [];
+            disabledOverrides.set(idx, [
+              ...new Set([...stored, ...autoPruneIds])
+            ]);
+          }
+        }
+      );
+
+      for (const [idx, cache] of terrainCacheUpdates) {
+        if (outgoingPatches.has(idx)) continue;
+        outgoingPatches.set(idx, { terrainCache: cache });
       }
 
-      const hash = renders
-        .map(r => {
-          const terrain = r.envelope.samples
-            .map(s => (s.terrainM != null ? Math.round(s.terrainM) : 'x'))
-            .join(',');
-          const disabled = r.landableToggles
-            .filter(t => !t.enabled)
-            .map(t => t.id)
-            .join(',');
-          return `${terrain}|${disabled}`;
-        })
-        .join('||');
-      const hasTerrainGaps = renders.some(r =>
-        r.envelope.samples.some(s => s.terrainM == null)
+      this.taskState.applyLegSafetyOutgoingPatches(outgoingPatches);
+      this.lastEnvelopeInputKey = this.buildEnvelopeInputKey(
+        pairs,
+        params,
+        disabledOverrides.size > 0 ? disabledOverrides : undefined
       );
-      if (hash === this.lastProfileHash && !hasTerrainGaps) return;
-      this.lastProfileHash = hash;
 
       const selected = this.selectedLegIndex();
       if (renders.length > 0 && !renders.some(r => r.index === selected)) {

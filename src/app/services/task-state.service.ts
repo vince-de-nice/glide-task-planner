@@ -4,8 +4,13 @@ import {
   canWaypointBeDeparture,
   CircuitLeg,
   CircuitLegRole,
-  circuitRoleMapToken
+  circuitRoleMapToken,
+  type SafetyOutgoingBranch
 } from '../models/circuit.model';
+import {
+  terrainCacheMetaEqual,
+  type LegTerrainCache
+} from '../models/leg-terrain-cache.model';
 import { circuitRoleLabelI18n } from '../i18n/display-i18n.util';
 import { TranslateService } from '../i18n/translate.service';
 import {
@@ -31,6 +36,29 @@ import { readMigratedLocalStorage } from '../utils/local-storage-migrate.util';
 
 const STORAGE_KEY = 'gc_task_state';
 const LEGACY_STORAGE_KEYS = ['vav_task_state'];
+
+function mergeSafetyOutgoing(
+  disabledLandableIds: string[],
+  prev?: SafetyOutgoingBranch,
+  terrainCache?: LegTerrainCache,
+  markLandablesAutoPruned = false
+): SafetyOutgoingBranch | undefined {
+  const cache = terrainCache ?? prev?.terrainCache;
+  const autoPruned = markLandablesAutoPruned || prev?.landablesAutoPruned;
+  if (disabledLandableIds.length === 0 && !cache && !autoPruned) {
+    return undefined;
+  }
+  const branch: SafetyOutgoingBranch = { disabledLandableIds };
+  if (cache) branch.terrainCache = cache;
+  if (autoPruned) branch.landablesAutoPruned = true;
+  return branch;
+}
+
+export interface LegSafetyOutgoingPatch {
+  terrainCache?: LegTerrainCache;
+  addDisabledLandableIds?: readonly string[];
+  markLandablesAutoPruned?: boolean;
+}
 
 interface PersistedTaskState {
   circuitLegs?: CircuitLeg[];
@@ -206,6 +234,88 @@ export class TaskStateService {
     this.patchLegZone(index, { elevationM });
   }
 
+  /**
+   * Caches terrain, désactivations terrains et marqueur « auto-prune » en une seule écriture.
+   */
+  applyLegSafetyOutgoingPatches(
+    patches: ReadonlyMap<number, LegSafetyOutgoingPatch>
+  ): void {
+    if (patches.size === 0) return;
+    const legs = [...this.circuitLegs()];
+    let changed = false;
+
+    for (const [branchIndex, patch] of patches) {
+      if (branchIndex < 0 || branchIndex >= legs.length - 1) continue;
+      const leg = legs[branchIndex];
+      const prev = leg.safetyOutgoing;
+      const disabled = new Set(prev?.disabledLandableIds ?? []);
+      for (const id of patch.addDisabledLandableIds ?? []) {
+        disabled.add(id);
+      }
+      const disabledLandableIds = [...disabled];
+      const markAutoPruned = patch.markLandablesAutoPruned ?? false;
+      const next = mergeSafetyOutgoing(
+        disabledLandableIds,
+        prev,
+        patch.terrainCache,
+        markAutoPruned
+      );
+      const prevDisabled = prev?.disabledLandableIds ?? [];
+      if (
+        next === undefined &&
+        prev === undefined
+      ) {
+        continue;
+      }
+      if (
+        next &&
+        prev &&
+        terrainCacheMetaEqual(next.terrainCache, prev.terrainCache) &&
+        next.landablesAutoPruned === prev.landablesAutoPruned &&
+        next.disabledLandableIds.length === prevDisabled.length &&
+        next.disabledLandableIds.every((id, i) => id === prevDisabled[i])
+      ) {
+        continue;
+      }
+
+      legs[branchIndex] = { ...leg, safetyOutgoing: next };
+      changed = true;
+    }
+
+    if (changed) {
+      this.setLegs(legs);
+    }
+  }
+
+  /** Persiste les caches terrain en une seule écriture (évite de relancer les effects N fois). */
+  applyLegTerrainCaches(updates: ReadonlyMap<number, LegTerrainCache>): void {
+    if (updates.size === 0) return;
+    const patches = new Map<number, LegSafetyOutgoingPatch>();
+    for (const [branchIndex, terrainCache] of updates) {
+      patches.set(branchIndex, { terrainCache });
+    }
+    this.applyLegSafetyOutgoingPatches(patches);
+  }
+
+  /** Persiste le profil terrain DEM sur la branche sortante `branchIndex`. */
+  setLegTerrainCache(branchIndex: number, terrainCache: LegTerrainCache): void {
+    this.applyLegTerrainCaches(new Map([[branchIndex, terrainCache]]));
+  }
+
+  clearLegTerrainCache(branchIndex: number): void {
+    const legs = [...this.circuitLegs()];
+    if (branchIndex < 0 || branchIndex >= legs.length - 1) return;
+    const leg = legs[branchIndex];
+    if (!leg.safetyOutgoing?.terrainCache) return;
+    const disabled = leg.safetyOutgoing.disabledLandableIds ?? [];
+    const { terrainCache: _removed, ...rest } = leg.safetyOutgoing;
+    legs[branchIndex] = {
+      ...leg,
+      safetyOutgoing: mergeSafetyOutgoing(disabled, rest)
+    };
+    this.setLegs(legs);
+  }
+
   /** Branche `branchIndex` = segment du point `branchIndex` vers `branchIndex + 1`. */
   isSafetyLandableEnabled(branchIndex: number, landableId: string): boolean {
     const legs = this.circuitLegs();
@@ -231,8 +341,10 @@ export class TaskStateService {
     const disabledLandableIds = [...disabled];
     legs[branchIndex] = {
       ...leg,
-      safetyOutgoing:
-        disabledLandableIds.length > 0 ? { disabledLandableIds } : undefined
+      safetyOutgoing: mergeSafetyOutgoing(
+        disabledLandableIds,
+        leg.safetyOutgoing
+      )
     };
     this.setLegs(legs);
   }
@@ -250,7 +362,7 @@ export class TaskStateService {
     const disabledLandableIds = [...disabled];
     legs[branchIndex] = {
       ...leg,
-      safetyOutgoing: { disabledLandableIds }
+      safetyOutgoing: mergeSafetyOutgoing(disabledLandableIds, leg.safetyOutgoing)
     };
     this.setLegs(legs);
   }
@@ -271,8 +383,10 @@ export class TaskStateService {
     const disabledLandableIds = [...disabled];
     legs[branchIndex] = {
       ...leg,
-      safetyOutgoing:
-        disabledLandableIds.length > 0 ? { disabledLandableIds } : undefined
+      safetyOutgoing: mergeSafetyOutgoing(
+        disabledLandableIds,
+        leg.safetyOutgoing
+      )
     };
     this.setLegs(legs);
   }

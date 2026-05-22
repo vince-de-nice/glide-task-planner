@@ -213,14 +213,22 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
     const applySize = (): void => {
       const rect = el.getBoundingClientRect();
       const width = Math.round(rect.width);
-      const height = Math.round(rect.height);
-      if (width < MIN_CHART_WIDTH || height < MIN_CHART_HEIGHT) return;
+      if (width < MIN_CHART_WIDTH) return;
+      const measured = Math.round(rect.height);
+      const height =
+        measured >= MIN_CHART_HEIGHT
+          ? measured
+          : Math.max(MIN_CHART_HEIGHT, Math.round(width * 0.35));
       const prev = this.chartSize();
       if (prev.width === width && prev.height === height) return;
       this.chartSize.set({ width, height });
     };
 
     applySize();
+    requestAnimationFrame(() => {
+      applySize();
+      requestAnimationFrame(() => applySize());
+    });
     this.resizeObserver = new ResizeObserver(() => applySize());
     this.resizeObserver.observe(el);
   }

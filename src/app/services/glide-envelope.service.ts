@@ -134,8 +134,9 @@ export class GlideEnvelopeService {
         continue;
       }
       const proj = projectOntoLeg(from, to, la.longitude, la.latitude, legLengthKm);
-      startKm = Math.min(startKm, proj.alongKm);
-      endKm = Math.max(endKm, proj.alongKm);
+      const along = clamp(proj.alongKm, 0, legLengthKm);
+      startKm = Math.min(startKm, along);
+      endKm = Math.max(endKm, along);
     }
 
     return {
@@ -451,10 +452,19 @@ function coneAltitudeAtDistanceM(
   return elevationM + arrivalMarginM + (horizontalDistKm * 1000) / halfRatio;
 }
 
+/** Tolérance numérique sur la projection le long de la branche (km). */
+const ALONG_LEG_EPS_KM = 1e-4;
+
+/** Vrai si la projection du terrain est sur le segment de branche (pas sur le prolongement). */
+function isProjectedOnLegSegment(alongKm: number, legLengthKm: number): boolean {
+  return (
+    alongKm >= -ALONG_LEG_EPS_KM && alongKm <= legLengthKm + ALONG_LEG_EPS_KM
+  );
+}
+
 /**
- * Le cône (sommet au terrain + tour de piste, pente demi-finesse) intercepte le segment de branche
- * si la distance horizontale minimale au segment est inférieure à la portée horizontale
- * depuis l'altitude de référence maximale le long de la branche.
+ * Le cône intercepte la branche si le terrain est projeté sur le segment [départ, arrivée]
+ * et si la distance latérale au segment est inférieure à la portée horizontale du cône.
  */
 function coneIntersectsLegSegment(
   from: [number, number],
@@ -468,10 +478,6 @@ function coneIntersectsLegSegment(
   const elev = landable.elevation;
   if (elev == null || !Number.isFinite(elev)) return false;
 
-  const base = elev + params.arrivalMarginM;
-  if (refAltM <= base) return false;
-
-  const reachKm = ((refAltM - base) * halfRatio) / 1000;
   const proj = projectOntoLeg(
     from,
     to,
@@ -479,12 +485,15 @@ function coneIntersectsLegSegment(
     landable.latitude,
     legLengthKm
   );
+  if (!isProjectedOnLegSegment(proj.alongKm, legLengthKm)) {
+    return false;
+  }
 
-  if (proj.crossTrackKm <= reachKm) return true;
+  const base = elev + params.arrivalMarginM;
+  if (refAltM <= base) return false;
 
-  const distStartKm = haversineKm(from[0], from[1], landable.longitude, landable.latitude);
-  const distEndKm = haversineKm(to[0], to[1], landable.longitude, landable.latitude);
-  return distStartKm <= reachKm || distEndKm <= reachKm;
+  const reachKm = ((refAltM - base) * halfRatio) / 1000;
+  return proj.crossTrackKm <= reachKm;
 }
 
 function maxReferenceAltitudeM(

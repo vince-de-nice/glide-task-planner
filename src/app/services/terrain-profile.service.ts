@@ -40,8 +40,8 @@ const MAX_SAMPLES = 600;
 const SAMPLE_PER_KM = 10;
 
 /**
- * Échantillonnage du DEM le long des branches via une carte MapLibre dédiée
- * via la carte offscreen unique ({@link TerrainDemMapService}) qui défile à z15.
+ * Échantillonnage du DEM le long des branches via fetch direct de tuiles Mapterhorn
+ * ({@link TerrainDemMapService}, Terrarium z15, cache tuile).
  */
 @Injectable({ providedIn: 'root' })
 export class TerrainProfileService {
@@ -135,12 +135,10 @@ export class TerrainProfileService {
       const frac1 = (ci + 1) / chunkCount;
       const dMin = startDistanceKm + spanKm * frac0 - 0.03;
       const dMax = startDistanceKm + spanKm * frac1 + 0.03;
-      for (const s of samples) {
-        if (s.distanceKm < dMin || s.distanceKm > dMax || s.elevationM != null) {
-          continue;
-        }
-        s.elevationM = this.demMap.queryElevation(s.longitude, s.latitude);
-      }
+      const chunkSamples = samples.filter(
+        s => s.distanceKm >= dMin && s.distanceKm <= dMax && s.elevationM == null
+      );
+      await this.demMap.fillSampleElevations(chunkSamples);
     });
 
     const profile: LegProfile = {
@@ -272,10 +270,6 @@ function clamp(value: number, min: number, max: number): number {
 
 function toRad(deg: number): number {
   return (deg * Math.PI) / 180;
-}
-
-function toDeg(rad: number): number {
-  return (rad * 180) / Math.PI;
 }
 
 function haversineKm(a: [number, number], b: [number, number]): number {

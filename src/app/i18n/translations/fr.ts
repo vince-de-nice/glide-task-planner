@@ -719,13 +719,17 @@ export const fr = {
       computeTitle: 'Calcul des enveloppes de sécurité',
       leg: 'Branche {{current}} / {{total}}',
       chunk: 'Zone DEM {{current}} / {{total}}',
-      percent: '{{value}} %'
+      percent: '{{value}} %',
+      legBarDem: 'Branche {{leg}} : chargement du relief {{percent}} %',
+      legBarCompute: 'Branche {{leg}} : calcul de l’enveloppe',
+      legBarDone: 'Branche {{leg}} : terminé'
     },
     warnings: {
       noLandables:
         'Aucun terrain posable (aérodrome / vachable) dans la base CUP : le cône de finesse n’est pas calculé. Importez une base CUP pour activer cette aide.',
       terrainGaps:
-        'Certaines tuiles DEM ne sont pas encore chargées : laissez la carte se charger puis revenez sur cette page.'
+        'Relief incomplet sur cette branche : certaines tuiles DEM n’ont pas pu être chargées.',
+      terrainGapsRetry: 'Réessayer le relief'
     }
   }
 } as const;

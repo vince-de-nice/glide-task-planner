@@ -719,13 +719,17 @@ export const en = {
       computeTitle: 'Computing safety envelopes',
       leg: 'Leg {{current}} / {{total}}',
       chunk: 'DEM window {{current}} / {{total}}',
-      percent: '{{value}} %'
+      percent: '{{value}} %',
+      legBarDem: 'Leg {{leg}}: loading terrain {{percent}}%',
+      legBarCompute: 'Leg {{leg}}: computing envelope',
+      legBarDone: 'Leg {{leg}}: done'
     },
     warnings: {
       noLandables:
         'No safe landable (airfield / outlanding) in the CUP database: the glide cone is not computed. Load a CUP database to enable this safety helper.',
       terrainGaps:
-        'Some DEM tiles are not loaded yet: let the map load and revisit this page.'
+        'Incomplete terrain on this leg: some DEM tiles could not be loaded.',
+      terrainGapsRetry: 'Retry terrain load'
     }
   }
 } as unknown as typeof fr;

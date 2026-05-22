@@ -146,68 +146,6 @@
     }
 
     <div class="safety-profile__workspace">
-      @if (samplingProgress.active()) {
-        <div
-          class="safety-profile__progress-overlay"
-          role="status"
-          aria-live="polite"
-          aria-busy="true"
-        >
-          @if (samplingProgress.state(); as prog) {
-            <div class="safety-profile__progress-card">
-              <p class="safety-profile__progress-title">
-                @if (prog.phase === 'dem') {
-                  {{ 'safetyProfile.demProgress.title' | translate }}
-                } @else {
-                  {{ 'safetyProfile.demProgress.computeTitle' | translate }}
-                }
-              </p>
-              <div
-                class="safety-profile__progress-bar"
-                role="progressbar"
-                [attr.aria-valuenow]="prog.percent"
-                aria-valuemin="0"
-                aria-valuemax="100"
-              >
-                <span
-                  class="safety-profile__progress-fill"
-                  [style.width.%]="prog.percent"
-                ></span>
-              </div>
-              <p class="safety-profile__progress-percent">
-                {{
-                  'safetyProfile.demProgress.percent'
-                    | translate: { value: prog.percent }
-                }}
-              </p>
-              <p class="safety-profile__progress-detail">
-                {{
-                  'safetyProfile.demProgress.leg'
-                    | translate: {
-                      current: prog.legIndex + 1,
-                      total: prog.legCount
-                    }
-                }}
-                @if (prog.legLabel) {
-                  <span class="safety-profile__progress-leg"> — {{ prog.legLabel }}</span>
-                }
-              </p>
-              @if (prog.phase === 'dem' && prog.chunkCount > 1) {
-                <p class="safety-profile__progress-chunk">
-                  {{
-                    'safetyProfile.demProgress.chunk'
-                      | translate: {
-                        current: prog.chunkIndex + 1,
-                        total: prog.chunkCount
-                      }
-                  }}
-                </p>
-              }
-            </div>
-          }
-        </div>
-      }
-
       <section class="safety-profile__map-panel" [attr.aria-label]="'safetyProfile.mapAria' | translate">
         <div class="safety-profile__map-frame">
           <mgl-map
@@ -317,31 +255,59 @@
             <button
               type="button"
               class="leg-nav__btn"
-              [disabled]="selectedLegIndex() >= legRenders().length - 1"
+              [disabled]="selectedLegIndex() >= legTabItems().length - 1"
               [attr.aria-label]="'safetyProfile.nextLeg' | translate"
               (click)="selectNextLeg()"
             >
               <i class="pi pi-chevron-right" aria-hidden="true"></i>
             </button>
           </div>
-          <div class="safety-profile__leg-tabs" role="tablist" [attr.aria-label]="'safetyProfile.legTabsAria' | translate">
-            @for (leg of legRenders(); track leg.index) {
-              <button
-                type="button"
-                class="leg-tab"
-                role="tab"
-                [class.leg-tab--active]="leg.index === selectedLegIndex()"
-                [attr.aria-selected]="leg.index === selectedLegIndex()"
-                (click)="selectLeg(leg.index)"
-              >
-                <span class="leg-tab__num">{{ leg.index + 1 }}</span>
-                <span class="leg-tab__route">
-                  {{ leg.fromWaypoint.name }}
-                  <i class="pi pi-arrow-right" aria-hidden="true"></i>
-                  {{ leg.toWaypoint.name }}
-                </span>
-                <span class="leg-tab__dist">{{ leg.distanceKm | number: '1.0-0' }} km</span>
-              </button>
+          <div
+            class="safety-profile__leg-tabs"
+            role="tablist"
+            [attr.aria-label]="'safetyProfile.legTabsAria' | translate"
+            [attr.aria-busy]="samplingProgress.active()"
+          >
+            @for (tab of legTabItems(); track tab.index) {
+              <div class="leg-tab-stack">
+                <button
+                  type="button"
+                  class="leg-tab"
+                  role="tab"
+                  [class.leg-tab--active]="tab.index === selectedLegIndex()"
+                  [attr.aria-selected]="tab.index === selectedLegIndex()"
+                  (click)="selectLeg(tab.index)"
+                >
+                  <span class="leg-tab__num">{{ tab.index + 1 }}</span>
+                  <span class="leg-tab__route">
+                    {{ tab.fromName }}
+                    <i class="pi pi-arrow-right" aria-hidden="true"></i>
+                    {{ tab.toName }}
+                  </span>
+                  <span class="leg-tab__dist">{{ tab.distanceKm | number: '1.0-0' }} km</span>
+                </button>
+                @if (samplingProgress.state(); as progressState) {
+                  @if (progressState.legs[tab.index]; as legProg) {
+                    <div
+                      class="leg-tab__progress"
+                      [class.leg-tab__progress--pending]="legProg.phase === 'pending'"
+                      [class.leg-tab__progress--dem]="legProg.phase === 'dem'"
+                      [class.leg-tab__progress--compute]="legProg.phase === 'compute'"
+                      [class.leg-tab__progress--done]="legProg.phase === 'done'"
+                      role="progressbar"
+                      [attr.aria-valuenow]="legProg.percent"
+                      aria-valuemin="0"
+                      aria-valuemax="100"
+                      [attr.aria-label]="legProgressAriaLabel(tab.index, legProg)"
+                    >
+                      <span
+                        class="leg-tab__progress-fill"
+                        [style.width.%]="legProg.percent"
+                      ></span>
+                    </div>
+                  }
+                }
+              </div>
             }
           </div>
         </div>
@@ -365,10 +331,21 @@
           <div class="safety-profile__profile-body">
             <div class="safety-profile__profile-main">
               @if (leg.envelope.hasTerrainGaps) {
-                <p class="leg__warning">
+                <div class="leg__warning" role="alert">
                   <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
-                  {{ 'safetyProfile.warnings.terrainGaps' | translate }}
-                </p>
+                  <span class="leg__warning-text">
+                    {{ 'safetyProfile.warnings.terrainGaps' | translate }}
+                  </span>
+                  <button
+                    type="button"
+                    class="leg__warning-retry"
+                    [disabled]="profilesLoading() || terrainRetryLegIndex() === leg.index"
+                    (click)="retryLegDem(leg.index, $event)"
+                  >
+                    <i class="pi pi-refresh" aria-hidden="true"></i>
+                    {{ 'safetyProfile.warnings.terrainGapsRetry' | translate }}
+                  </button>
+                </div>
               }
 
               <div class="safety-profile__chart-wrap">

@@ -168,74 +168,6 @@
   position: relative;
 }
 
-.safety-profile__progress-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 30;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1.5rem;
-  background: rgb(15 23 42 / 0.45);
-  pointer-events: all;
-}
-
-.safety-profile__progress-card {
-  width: min(22rem, 100%);
-  padding: 1.1rem 1.25rem;
-  border-radius: var(--gc-radius-md);
-  background: var(--gc-surface);
-  border: 1px solid var(--gc-border-strong);
-  box-shadow: 0 12px 32px rgb(15 23 42 / 0.18);
-}
-
-.safety-profile__progress-title {
-  margin: 0 0 0.75rem;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--gc-text);
-}
-
-.safety-profile__progress-bar {
-  height: 0.45rem;
-  border-radius: 999px;
-  background: var(--gc-bg);
-  overflow: hidden;
-}
-
-.safety-profile__progress-fill {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #f97316, #ea580c);
-  transition: width 0.2s ease-out;
-}
-
-.safety-profile__progress-percent {
-  margin: 0.45rem 0 0;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--gc-text-muted);
-  text-align: right;
-}
-
-.safety-profile__progress-detail {
-  margin: 0.65rem 0 0;
-  font-size: 0.82rem;
-  color: var(--gc-text);
-  line-height: 1.35;
-}
-
-.safety-profile__progress-leg {
-  color: var(--gc-text-muted);
-}
-
-.safety-profile__progress-chunk {
-  margin: 0.35rem 0 0;
-  font-size: 0.78rem;
-  color: var(--gc-text-muted);
-}
-
 .safety-profile__map-panel {
   display: flex;
   flex-direction: column;
@@ -543,13 +475,25 @@
   scrollbar-width: thin;
 }
 
+.leg-tab-stack {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  max-width: 14rem;
+  min-width: 0;
+
+  &:has(.leg-tab__progress) .leg-tab {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+}
+
 .leg-tab {
   display: inline-flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 0.1rem;
-  flex-shrink: 0;
-  max-width: 14rem;
+  width: 100%;
   padding: 0.35rem 0.55rem;
   border: 1px solid var(--gc-border);
   border-radius: var(--gc-radius-sm);
@@ -603,6 +547,50 @@
 .leg-tab__dist {
   font-size: 0.65rem;
   color: var(--gc-text-muted);
+}
+
+.leg-tab__progress {
+  height: 0.2rem;
+  width: 100%;
+  border: 1px solid var(--gc-border);
+  border-top: none;
+  border-radius: 0 0 var(--gc-radius-sm) var(--gc-radius-sm);
+  background: color-mix(in srgb, var(--gc-border) 55%, var(--gc-bg));
+  overflow: hidden;
+}
+
+.leg-tab__progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--gc-primary);
+  transition: width 0.18s ease-out;
+}
+
+.leg-tab__progress--dem .leg-tab__progress-fill {
+  background: linear-gradient(90deg, #38bdf8, var(--gc-primary));
+}
+
+.leg-tab__progress--compute .leg-tab__progress-fill {
+  background: linear-gradient(90deg, #fbbf24, #f97316);
+  animation: leg-tab-progress-pulse 0.9s ease-in-out infinite alternate;
+}
+
+.leg-tab__progress--done .leg-tab__progress-fill {
+  background: #22c55e;
+}
+
+.leg-tab__progress--pending .leg-tab__progress-fill {
+  width: 0 !important;
+}
+
+@keyframes leg-tab-progress-pulse {
+  from {
+    opacity: 0.72;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .safety-profile__map-hint {
@@ -1082,8 +1070,9 @@
 
 .leg__warning {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.4rem 0.55rem;
   margin: 0;
   padding: 0.35rem 0.55rem;
   background: #fef3c7;
@@ -1092,4 +1081,35 @@
   color: #78350f;
   font-size: 0.78rem;
   flex-shrink: 0;
+}
+
+.leg__warning-text {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.leg__warning-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: inherit;
+  color: #78350f;
+  background: var(--gc-surface);
+  border: 1px solid #fcd34d;
+  border-radius: var(--gc-radius-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+
+  &:hover:not(:disabled) {
+    background: #fffbeb;
+    border-color: #f59e0b;
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
 }

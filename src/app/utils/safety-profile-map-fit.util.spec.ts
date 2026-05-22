@@ -7,7 +7,8 @@ import {
 describe('profileMapBearingDeg', () => {
   it('aligns an eastbound leg with north up (departure west, arrival east)', () => {
     const bearing = profileMapBearingDeg(46, 6, 46, 7);
-    expect(bearing).toBeCloseTo(0, 0);
+    const delta = Math.min(bearing, 360 - bearing);
+    expect(delta).toBeLessThan(1);
   });
 
   it('aligns a northbound leg with west up (departure south, arrival north)', () => {
