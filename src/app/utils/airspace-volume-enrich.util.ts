@@ -1,10 +1,15 @@
-import type { Feature, FeatureCollection, Geometry, Polygon } from 'geojson';
+import type { Feature, FeatureCollection, Geometry } from 'geojson';
 import type { Map as MaplibreMap } from 'maplibre-gl';
 import type { PoaffProperties } from '../services/airspace-layer.service';
 import {
   isAglLimitText,
   resolveExtrusionBounds
 } from './airspace-altitude.util';
+import {
+  fillTerrariumElevations,
+  type TerrainElevationSample,
+  type TerrariumFillProgress
+} from './terrain-dem-tile.util';
 
 export interface AirspaceVolumeProperties extends PoaffProperties {
   extrusionBaseM?: number;
@@ -12,7 +17,22 @@ export interface AirspaceVolumeProperties extends PoaffProperties {
   hasVolume?: boolean;
   verticalLabel?: string;
   needsDemGround?: boolean;
+  /** Relief minimal Terrarium (m MSL) sous le polygone. */
+  sampledGroundM?: number;
 }
+
+export interface AirspaceTerrariumEnrichProgress {
+  phase: 'prepare' | 'tiles' | 'enrich';
+  percent: number;
+  totalZones: number;
+  processedZones: number;
+  loadedTiles: number;
+  totalTiles: number;
+}
+
+export type AirspaceTerrariumEnrichProgressFn = (
+  progress: AirspaceTerrariumEnrichProgress
+) => void;
 
 function ringSamplePoints(ring: number[][]): [number, number][] {
   const pts: [number, number][] = [];
@@ -95,7 +115,8 @@ export function enrichAirspaceFeatureProperties(
   const enriched: AirspaceVolumeProperties = {
     ...props,
     needsDemGround: featureNeedsDemGround(props),
-    verticalLabel: bounds?.verticalLabel ?? [props.lower, props.upper].filter(Boolean).join(' → ')
+    verticalLabel: bounds?.verticalLabel ?? [props.lower, props.upper].filter(Boolean).join(' → '),
+    sampledGroundM: groundM ?? undefined
   };
 
   if (bounds?.hasVolume) {
@@ -119,16 +140,148 @@ export function enrichAirspaceCollection(
 ): FeatureCollection<Geometry, AirspaceVolumeProperties> {
   return {
     type: 'FeatureCollection',
-    features: collection.features.map(f => {
-      const id = f.properties?.id ?? f.properties?.GUId ?? '';
-      const groundM = id ? (groundByFeatureId.get(String(id)) ?? null) : null;
+    features: collection.features.map((f, i) => {
+      const id = airspaceFeatureKey(f.properties ?? undefined, i);
+      const groundM = groundByFeatureId.get(id) ?? null;
       return enrichAirspaceFeatureProperties(f, groundM);
     })
   };
 }
 
+export function airspaceFeatureKey(
+  props: PoaffProperties | undefined,
+  index: number
+): string {
+  return String(props?.id ?? props?.GUId ?? index);
+}
+
+function terrariumCoordKey(longitude: number, latitude: number): string {
+  return `${longitude.toFixed(6)},${latitude.toFixed(6)}`;
+}
+
 /**
- * Échantillonne le DEM pour les zones AGL / GND et retourne une collection enrichie.
+ * Échantillonne le relief Terrarium (Mapterhorn) pour toutes les zones POAFF,
+ * puis enrichit les propriétés d’extrusion 3D.
+ */
+export async function enrichAirspaceCollectionWithTerrarium(
+  collection: FeatureCollection<Geometry, PoaffProperties>,
+  options: {
+    onProgress?: AirspaceTerrariumEnrichProgressFn;
+  } = {}
+): Promise<FeatureCollection<Geometry, AirspaceVolumeProperties>> {
+  const totalZones = collection.features.length;
+  const report = (partial: Partial<AirspaceTerrariumEnrichProgress>): void => {
+    options.onProgress?.({
+      totalZones,
+      processedZones: 0,
+      loadedTiles: 0,
+      totalTiles: 0,
+      percent: 0,
+      phase: 'prepare',
+      ...partial
+    });
+  };
+
+  report({ phase: 'prepare', percent: 2, processedZones: 0 });
+
+  const featurePointKeys: { featureKey: string; coordKeys: string[] }[] = [];
+  const elevationByCoord = new Map<string, number>();
+  const uniqueSamples: TerrainElevationSample[] = [];
+  const coordToSample = new Map<string, TerrainElevationSample>();
+
+  for (let i = 0; i < collection.features.length; i++) {
+    const f = collection.features[i];
+    const featureKey = airspaceFeatureKey(f.properties ?? undefined, i);
+    const coordKeys: string[] = [];
+
+    for (const [lng, lat] of geometrySamplePoints(f.geometry)) {
+      const ck = terrariumCoordKey(lng, lat);
+      coordKeys.push(ck);
+      if (!coordToSample.has(ck)) {
+        const sample: TerrainElevationSample = {
+          longitude: lng,
+          latitude: lat,
+          elevationM: null
+        };
+        coordToSample.set(ck, sample);
+        uniqueSamples.push(sample);
+      }
+    }
+
+    featurePointKeys.push({ featureKey, coordKeys });
+    if (i > 0 && i % 200 === 0) {
+      report({
+        phase: 'prepare',
+        percent: 2 + Math.round((i / totalZones) * 8),
+        processedZones: i
+      });
+      await yieldToUi();
+    }
+  }
+
+  report({ phase: 'prepare', percent: 10, processedZones: totalZones });
+
+  await fillTerrariumElevations(uniqueSamples, undefined, (p: TerrariumFillProgress) => {
+    const tilePct = 10 + Math.round((p.loadedTiles / Math.max(1, p.totalTiles)) * 82);
+    report({
+      phase: 'tiles',
+      percent: tilePct,
+      loadedTiles: p.loadedTiles,
+      totalTiles: p.totalTiles,
+      processedZones: totalZones
+    });
+  });
+
+  for (const sample of uniqueSamples) {
+    if (sample.elevationM == null || !Number.isFinite(sample.elevationM)) continue;
+    elevationByCoord.set(
+      terrariumCoordKey(sample.longitude, sample.latitude),
+      sample.elevationM
+    );
+  }
+
+  const groundById = new Map<string, number>();
+  for (let i = 0; i < featurePointKeys.length; i++) {
+    const { featureKey, coordKeys } = featurePointKeys[i];
+    let min: number | null = null;
+    for (const ck of coordKeys) {
+      const elev = elevationByCoord.get(ck);
+      if (elev == null || !Number.isFinite(elev)) continue;
+      min = min == null ? elev : Math.min(min, elev);
+    }
+    if (min != null) {
+      groundById.set(featureKey, min);
+    }
+    if (i > 0 && i % 250 === 0) {
+      report({
+        phase: 'enrich',
+        percent: 92 + Math.round((i / totalZones) * 8),
+        processedZones: i,
+        loadedTiles: uniqueSamples.length > 0 ? 1 : 0,
+        totalTiles: 1
+      });
+      await yieldToUi();
+    }
+  }
+
+  report({
+    phase: 'enrich',
+    percent: 100,
+    processedZones: totalZones,
+    loadedTiles: 1,
+    totalTiles: 1
+  });
+
+  return enrichAirspaceCollection(collection, groundById);
+}
+
+function yieldToUi(): Promise<void> {
+  return new Promise(resolve => requestAnimationFrame(() => resolve()));
+}
+
+/**
+ * @deprecated Préférer {@link enrichAirspaceCollectionWithTerrarium}.
+ * Échantillonne le DEM MapLibre pour les zones AGL / GND uniquement.
  */
 export async function enrichAirspaceCollectionWithDem(
   map: MaplibreMap,

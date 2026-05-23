@@ -4,7 +4,7 @@ import { FL999_CEILING_M, flightLevelToMslM } from './airspace-altitude.util';
 import type { AirspaceVolumeProperties } from './airspace-volume-enrich.util';
 import {
   enrichAirspaceCollection,
-  enrichAirspaceCollectionWithDem
+  enrichAirspaceCollectionWithTerrarium
 } from './airspace-volume-enrich.util';
 import type { Map as MaplibreMap } from 'maplibre-gl';
 
@@ -378,8 +378,8 @@ export function enrichAirspaceDebugCollection(
   collection: FeatureCollection<Geometry, PoaffProperties>,
   options: { useDemGround: boolean; mockGroundM?: number }
 ): Promise<FeatureCollection<Geometry, AirspaceVolumeProperties>> {
-  if (options.useDemGround && map) {
-    return enrichAirspaceCollectionWithDem(map, collection, { chunkSize: 40 });
+  if (options.useDemGround) {
+    return enrichAirspaceCollectionWithTerrarium(collection);
   }
   const groundM = options.mockGroundM ?? AIRSPACE_DEBUG_MOCK_GROUND_M;
   const groundById = new Map<string, number>();

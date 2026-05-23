@@ -8,8 +8,9 @@ import {
 } from '../utils/airspace-map-layers.util';
 import { isMapStyleActive } from '../utils/map-runtime.util';
 import { getSerialQueue } from '../utils/serial-async-queue.util';
-import { enrichAirspaceCollectionWithDem } from '../utils/airspace-volume-enrich.util';
+import { enrichAirspaceCollectionWithTerrarium } from '../utils/airspace-volume-enrich.util';
 import type { AirspaceVolumeProperties } from '../utils/airspace-volume-enrich.util';
+import { AirspaceTerrariumProgressService } from './airspace-terrarium-progress.service';
 import {
   collectAirspaceFilterOptions,
   filterAirspaceFeatureCollection,
@@ -58,9 +59,12 @@ export class AirspaceMapDisplayService {
   private readonly airspaceLayer = inject(AirspaceLayerService);
   private readonly prefsService = inject(AirspaceScreenPrefsService);
   private readonly i18n = inject(TranslateService);
+  private readonly terrariumProgress = inject(AirspaceTerrariumProgressService);
 
   private popup: Popup | null = null;
-  private readonly cacheByScreen = new Map<AirspaceScreenId, ScreenAirspaceCache>();
+  /** Cache POAFF enrichi (Terrarium) partagé entre écrans pour une même région. */
+  private readonly cacheByRegion = new Map<string, ScreenAirspaceCache>();
+  private readonly regionQueueKeys = new Map<string, object>();
   /** Incrémenté à la destruction de carte pour abandonner les applies en cours. */
   private readonly invalidateEpochByMap = new WeakMap<MaplibreMap, number>();
 
@@ -73,19 +77,20 @@ export class AirspaceMapDisplayService {
   }
 
   getFilterOptions(screenId: AirspaceScreenId): AirspaceFilterFieldOptions | null {
-    const cached = this.cacheByScreen.get(screenId);
+    const cached = this.cacheByRegion.get(this.prefsService.get(screenId).regionId);
     if (!cached) return null;
     return collectAirspaceFilterOptions(cached.enriched);
   }
 
   clearScreenCache(screenId: AirspaceScreenId): void {
-    this.cacheByScreen.delete(screenId);
+    const regionId = this.prefsService.get(screenId).regionId;
+    this.cacheByRegion.delete(regionId);
   }
 
   getCachedEnriched(
     screenId: AirspaceScreenId
   ): FeatureCollection<Geometry, AirspaceVolumeProperties> | null {
-    return this.cacheByScreen.get(screenId)?.enriched ?? null;
+    return this.cacheByRegion.get(this.prefsService.get(screenId).regionId)?.enriched ?? null;
   }
 
   /** Retire les calques sans invalider les chargements async. */
@@ -116,8 +121,9 @@ export class AirspaceMapDisplayService {
     screenId: AirspaceScreenId,
     options: { forceReload?: boolean } = {}
   ): Promise<AirspaceMapApplyOutcome> {
-    return this.runOnMap(map, () =>
-      this.loadEnrichedCache(map, screenId, options.forceReload === true)
+    const regionId = this.prefsService.get(screenId).regionId;
+    return this.runForRegion(regionId, () =>
+      this.loadEnrichedCache(screenId, options.forceReload === true, map)
     );
   }
 
@@ -159,11 +165,17 @@ export class AirspaceMapDisplayService {
     );
   }
 
-  private runOnMap<T>(
-    map: MaplibreMap,
-    fn: () => Promise<T>
-  ): Promise<T> {
+  private runOnMap<T>(map: MaplibreMap, fn: () => Promise<T>): Promise<T> {
     return getSerialQueue(map).enqueue(fn);
+  }
+
+  private runForRegion<T>(regionId: string, fn: () => Promise<T>): Promise<T> {
+    let key = this.regionQueueKeys.get(regionId);
+    if (!key) {
+      key = {};
+      this.regionQueueKeys.set(regionId, key);
+    }
+    return getSerialQueue(key).enqueue(fn);
   }
 
   private bumpInvalidateEpoch(map: MaplibreMap): void {
@@ -203,9 +215,9 @@ export class AirspaceMapDisplayService {
     }
 
     const cacheOutcome = await this.loadEnrichedCache(
-      map,
       screenId,
-      options.forceReload === true
+      options.forceReload === true,
+      map
     );
     if (!cacheOutcome.ok) {
       return cacheOutcome;
@@ -229,30 +241,16 @@ export class AirspaceMapDisplayService {
   }
 
   private async loadEnrichedCache(
-    map: MaplibreMap,
     screenId: AirspaceScreenId,
-    forceReload: boolean
+    forceReload: boolean,
+    _map: MaplibreMap | null
   ): Promise<AirspaceMapApplyOutcome> {
     const prefs = this.prefsService.get(screenId);
 
-    if (!isMapStyleActive(map)) {
-      return STALE_OUTCOME;
-    }
-
     await this.airspaceLayer.ensureConfigLoaded();
 
-    if (!isMapStyleActive(map)) {
-      return STALE_OUTCOME;
-    }
-
-    await this.waitForTerrainReady(map);
-
-    if (!isMapStyleActive(map)) {
-      return STALE_OUTCOME;
-    }
-
-    const cached = this.cacheByScreen.get(screenId);
-    const cacheValid = cached && cached.regionId === prefs.regionId && !forceReload;
+    const cached = this.cacheByRegion.get(prefs.regionId);
+    const cacheValid = cached && !forceReload;
 
     let result: AirspaceLoadResult;
     let enriched: FeatureCollection<Geometry, AirspaceVolumeProperties>;
@@ -262,22 +260,37 @@ export class AirspaceMapDisplayService {
       enriched = cached.enriched;
     } else {
       const loaded = await this.airspaceLayer.loadPoaffWithDiagnostics(prefs.regionId);
-      if (!isMapStyleActive(map)) {
-        return STALE_OUTCOME;
-      }
       if (!loaded.result?.geojson) {
         this.clearScreenCache(screenId);
+        this.terrariumProgress.cancel();
         const msg = this.airspaceLayer.poaffFailureMessage(loaded.failure);
         return { ok: false, status: msg, volumeCount: 0, filterOptions: null };
       }
 
       result = loaded.result;
       const poaffFc = result.geojson as FeatureCollection<Geometry, PoaffProperties>;
-      enriched = await enrichAirspaceCollectionWithDem(map, poaffFc);
-      if (!isMapStyleActive(map)) {
-        return STALE_OUTCOME;
+      const regionLabel = result.label.replace(/^POAFF — /, '');
+      const zoneCount = poaffFc.features.length;
+
+      this.terrariumProgress.begin(regionLabel, zoneCount);
+
+      try {
+        enriched = await enrichAirspaceCollectionWithTerrarium(poaffFc, {
+          onProgress: p => {
+            if (p.phase === 'prepare') {
+              this.terrariumProgress.setPreparePercent(p.percent);
+            } else if (p.phase === 'tiles') {
+              this.terrariumProgress.setTileProgress(p.loadedTiles, p.totalTiles);
+            } else {
+              this.terrariumProgress.setEnrichProgress(p.processedZones, p.totalZones);
+            }
+          }
+        });
+      } finally {
+        this.terrariumProgress.complete();
       }
-      this.cacheByScreen.set(screenId, {
+
+      this.cacheByRegion.set(prefs.regionId, {
         regionId: prefs.regionId,
         result,
         enriched
@@ -300,7 +313,7 @@ export class AirspaceMapDisplayService {
     legDisplayZoneKeys: ReadonlySet<string> | undefined,
     epoch: number
   ): Promise<AirspaceMapApplyOutcome> {
-    const cached = this.cacheByScreen.get(screenId);
+    const cached = this.cacheByRegion.get(prefs.regionId);
     if (!cached) {
       return STALE_OUTCOME;
     }

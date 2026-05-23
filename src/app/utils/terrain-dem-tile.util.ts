@@ -27,10 +27,16 @@ export function tileCacheKey(z: number, x: number, y: number): string {
   return `${z}/${x}/${y}`;
 }
 
+export interface TerrariumFillProgress {
+  loadedTiles: number;
+  totalTiles: number;
+}
+
 /** Charge les altitudes manquantes en ne téléchargeant chaque tuile Terrarium qu'une fois. */
 export async function fillTerrariumElevations(
   samples: readonly TerrainElevationSample[],
-  zoom: number = DEM_SAMPLE_ZOOM
+  zoom: number = DEM_SAMPLE_ZOOM,
+  onProgress?: (progress: TerrariumFillProgress) => void
 ): Promise<void> {
   const pending = samples.filter(s => s.elevationM == null);
   if (pending.length === 0) return;
@@ -48,6 +54,10 @@ export async function fillTerrariumElevations(
   }
 
   const groups = [...byTile.entries()];
+  const totalTiles = groups.length;
+  let loadedTiles = 0;
+  onProgress?.({ loadedTiles: 0, totalTiles });
+
   await runWithConcurrency(groups, TILE_FETCH_CONCURRENCY, async ([key, pts]) => {
     const [zStr, xStr, yStr] = key.split('/');
     const z = Number(zStr);
@@ -76,6 +86,9 @@ export async function fillTerrariumElevations(
       );
       sample.demSampleQuality = quality;
     }
+
+    loadedTiles++;
+    onProgress?.({ loadedTiles, totalTiles });
   });
 }
 

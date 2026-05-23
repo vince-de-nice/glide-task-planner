@@ -173,6 +173,49 @@
   color: var(--gc-text-muted);
 }
 
+.app-airspace-progress {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 10rem;
+  max-width: min(24rem, 42vw);
+  flex-shrink: 1;
+}
+
+.app-airspace-progress__bar {
+  width: 100%;
+  height: 0.35rem;
+  border: none;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--gc-primary) 12%, var(--gc-border));
+
+  &::-webkit-progress-bar {
+    background: color-mix(in srgb, var(--gc-primary) 12%, var(--gc-border));
+    border-radius: 999px;
+  }
+
+  &::-webkit-progress-value {
+    background: var(--gc-primary);
+    border-radius: 999px;
+    transition: width 0.15s ease-out;
+  }
+
+  &::-moz-progress-bar {
+    background: var(--gc-primary);
+    border-radius: 999px;
+  }
+}
+
+.app-airspace-progress__label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--gc-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .app-activity {
   display: inline-flex;
   align-items: center;

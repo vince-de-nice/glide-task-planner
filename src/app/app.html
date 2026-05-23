@@ -31,7 +31,23 @@
           </a>
         }
       </nav>
-      @if (bgActivity.busy()) {
+      @if (airspaceTerrariumProgress.active()) {
+        <div
+          class="app-airspace-progress"
+          role="progressbar"
+          [attr.aria-valuenow]="airspaceTerrariumProgress.percent()"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          [attr.aria-label]="airspaceTerrariumProgress.label()"
+        >
+          <progress
+            class="app-airspace-progress__bar"
+            max="100"
+            [value]="airspaceTerrariumProgress.percent()"
+          ></progress>
+          <span class="app-airspace-progress__label">{{ airspaceTerrariumProgress.label() }}</span>
+        </div>
+      } @else if (bgActivity.busy()) {
         <div
           class="app-activity"
           role="status"
