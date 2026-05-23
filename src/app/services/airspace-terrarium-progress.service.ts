@@ -20,15 +20,28 @@ export class AirspaceTerrariumProgressService {
     const s = this.state();
     if (!s) return '';
     if (s.phase === 'prepare') {
-      return `${s.regionLabel} · préparation ${s.totalZones} zones`;
+      return `${s.regionLabel} · préparation ${s.totalZones} zones DEM`;
     }
     if (s.phase === 'tiles') {
-      return `${s.regionLabel} · DEM ${s.loadedTiles}/${s.totalTiles} tuiles · ${s.totalZones} zones`;
+      return `${s.regionLabel} · DEM ${s.loadedTiles}/${s.totalTiles} tuiles · ${s.totalZones} zones AGL/GND`;
     }
     if (s.phase === 'enrich') {
       return `${s.regionLabel} · enrichissement ${s.processedZones}/${s.totalZones}`;
     }
     return s.regionLabel;
+  });
+
+  /** Libellé court pour la pastille sur la carte. */
+  readonly compactLabel = computed(() => {
+    const s = this.state();
+    if (!s) return '';
+    if (s.phase === 'tiles' && s.totalTiles > 0) {
+      return `Espaces aériens · ${s.percent}% · tuiles ${s.loadedTiles}/${s.totalTiles}`;
+    }
+    if (s.totalZones > 0) {
+      return `Espaces aériens · ${s.percent}% · ${s.processedZones}/${s.totalZones} zones DEM`;
+    }
+    return `Espaces aériens · ${s.percent}%`;
   });
 
   readonly snapshot = computed(() => this.state());

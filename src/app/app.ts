@@ -10,7 +10,6 @@ import { TranslatePipe } from './i18n/translate.pipe';
 import { TranslateService } from './i18n/translate.service';
 import { LanguageSwitcherComponent } from './components/language-switcher/language-switcher.component';
 import { BackgroundActivityService } from './services/background-activity.service';
-import { AirspaceTerrariumProgressService } from './services/airspace-terrarium-progress.service';
 
 export interface AppNavItem {
   route: string;
@@ -39,8 +38,6 @@ export class App {
   private router = inject(Router);
   private i18n = inject(TranslateService);
   readonly bgActivity = inject(BackgroundActivityService);
-  readonly airspaceTerrariumProgress = inject(AirspaceTerrariumProgressService);
-
   currentYear = new Date().getFullYear();
   navDrawerVisible = signal(false);
   private currentPath = signal(this.pathFromUrl(this.router.url));

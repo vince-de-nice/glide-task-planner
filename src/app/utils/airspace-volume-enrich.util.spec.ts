@@ -83,7 +83,7 @@ describe('enrichAirspaceCollectionWithTerrarium', () => {
     const z1 = enriched.features[0].properties as AirspaceVolumeProperties;
     const z2 = enriched.features[1].properties as AirspaceVolumeProperties;
     expect(z1.sampledGroundM).toBe(420);
-    expect(z2.sampledGroundM).toBe(420);
+    expect(z2.sampledGroundM).toBeUndefined();
     expect(phases).toContain('prepare');
     expect(phases).toContain('tiles');
     expect(phases).toContain('enrich');

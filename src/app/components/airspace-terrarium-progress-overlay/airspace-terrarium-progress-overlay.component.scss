@@ -1,0 +1,44 @@
+:host {
+  display: contents;
+}
+
+.airspace-load-overlay {
+  position: absolute;
+  left: 0.5rem;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--gc-surface) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--gc-primary) 22%, var(--gc-border));
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 12px rgb(15 23 42 / 0.18);
+  pointer-events: none;
+}
+
+.airspace-load-overlay__track {
+  height: 0.28rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--gc-primary) 14%, var(--gc-border));
+}
+
+.airspace-load-overlay__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--gc-primary);
+  transition: width 0.15s ease-out;
+}
+
+.airspace-load-overlay__label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--gc-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

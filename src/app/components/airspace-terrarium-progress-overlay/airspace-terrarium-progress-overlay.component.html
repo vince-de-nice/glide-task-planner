@@ -1,0 +1,18 @@
+@if (progress.active()) {
+  <div
+    class="airspace-load-overlay"
+    role="progressbar"
+    [attr.aria-valuenow]="progress.percent()"
+    aria-valuemin="0"
+    aria-valuemax="100"
+    [attr.aria-label]="progress.label()"
+  >
+    <div class="airspace-load-overlay__track">
+      <div
+        class="airspace-load-overlay__fill"
+        [style.width.%]="progress.percent()"
+      ></div>
+    </div>
+    <span class="airspace-load-overlay__label">{{ progress.compactLabel() }}</span>
+  </div>
+}

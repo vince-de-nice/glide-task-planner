@@ -38,9 +38,9 @@ import { WaypointService } from '../../services/waypoint.service';
 import { TaskStateService } from '../../services/task-state.service';
 import { DistanceService } from '../../services/distance.service';
 import { AirspaceZoneFiltersComponent } from '../airspace-zone-filters/airspace-zone-filters.component';
+import { AirspaceTerrariumProgressOverlayComponent } from '../airspace-terrarium-progress-overlay/airspace-terrarium-progress-overlay.component';
 import { AirspaceLayerService } from '../../services/airspace-layer.service';
 import { AirspaceMapDisplayService } from '../../services/airspace-map-display.service';
-import { BackgroundActivityService } from '../../services/background-activity.service';
 import {
   DEFAULT_AIRSPACE_ZONE_FILTERS,
   type AirspaceFilterFieldOptions,
@@ -125,7 +125,8 @@ export interface MapContextMenuState {
     ToggleSwitch,
     Tooltip,
     TranslatePipe,
-    AirspaceZoneFiltersComponent
+    AirspaceZoneFiltersComponent,
+    AirspaceTerrariumProgressOverlayComponent
   ],
   templateUrl: './map-view.component.html',
   styleUrls: ['./map-view.component.scss'],
@@ -140,7 +141,6 @@ export class MapViewComponent implements OnInit {
   private mapFocus = inject(MapFocusService);
   readonly airspaceLayerService = inject(AirspaceLayerService);
   private readonly airspaceMapDisplay = inject(AirspaceMapDisplayService);
-  private readonly bgActivity = inject(BackgroundActivityService);
   private readonly airspaceScreenId = 'task-map' as const;
 
   compact = input(false);
@@ -432,7 +432,6 @@ export class MapViewComponent implements OnInit {
     }
 
     this.airspaceLoading.set(true);
-    this.bgActivity.start('map-airspace', 'Espaces aériens');
     this.airspaceStatus.set(this.i18n.t('map.airspaceLoading'));
 
     const forceReload = this.airspaceMapDisplay.getFilterOptions(this.airspaceScreenId) == null;
@@ -444,7 +443,6 @@ export class MapViewComponent implements OnInit {
     );
 
     this.airspaceLoading.set(false);
-    this.bgActivity.end('map-airspace');
     this.airspaceFilterOptions.set(outcome.filterOptions);
     this.airspaceZoneFilters.set(
       this.airspaceMapDisplay.readPrefs(this.airspaceScreenId).zoneFilters

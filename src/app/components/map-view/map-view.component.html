@@ -1,5 +1,6 @@
 <div class="map-panel" [class.compact]="compact()">
   <div class="map-container">
+    <app-airspace-terrarium-progress-overlay />
     <mgl-map
       [mapStyle]="mapStyle"
       [center]="mapCenter()"

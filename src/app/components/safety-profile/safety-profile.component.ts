@@ -78,6 +78,7 @@ import {
   LegProfileChartComponent
 } from './leg-profile-chart.component';
 import { SafetyProfileParamsDrawerComponent } from './safety-profile-params-drawer.component';
+import { AirspaceTerrariumProgressOverlayComponent } from '../airspace-terrarium-progress-overlay/airspace-terrarium-progress-overlay.component';
 import type { LegSafetyOutgoingPatch } from '../../services/task-state.service';
 import { resolveLegElevationM } from '../../utils/elevation.util';
 import type { LegTerrainCache } from '../../models/leg-terrain-cache.model';
@@ -185,6 +186,7 @@ type LegPair = SafetyLegPair;
     MapComponent,
     LegProfileChartComponent,
     SafetyProfileParamsDrawerComponent,
+    AirspaceTerrariumProgressOverlayComponent,
     TranslatePipe
   ],
   templateUrl: './safety-profile.component.html',
@@ -624,7 +626,6 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     }
 
     this.airspaceLoading.set(true);
-    this.bgActivity.start('airspace-load', 'Espaces aériens POAFF');
     try {
       const cacheOutcome = await this.airspaceMapDisplay.ensureEnrichedCache(
         map,
@@ -661,7 +662,6 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       if (this.isMapSessionActive(session, map)) {
         this.airspaceLoading.set(false);
       }
-      this.bgActivity.end('airspace-load');
     }
   }
 

@@ -82,7 +82,8 @@ export function samplePolygonMinGroundElevationM(
   return min;
 }
 
-function featureNeedsDemGround(props: PoaffProperties): boolean {
+/** Zone dont le plancher ou le plafond dépend du relief (AGL, GND, SFC…). */
+export function featureNeedsDemGround(props: PoaffProperties): boolean {
   const lower = (props.lower ?? '').toUpperCase();
   const upper = (props.upper ?? '').toUpperCase();
   return (
@@ -160,8 +161,8 @@ function terrariumCoordKey(longitude: number, latitude: number): string {
 }
 
 /**
- * Échantillonne le relief Terrarium (Mapterhorn) pour toutes les zones POAFF,
- * puis enrichit les propriétés d’extrusion 3D.
+ * Échantillonne le relief Terrarium (Mapterhorn) uniquement pour les zones
+ * AGL / GND / SFC, puis enrichit toute la collection.
  */
 export async function enrichAirspaceCollectionWithTerrarium(
   collection: FeatureCollection<Geometry, PoaffProperties>,
@@ -169,10 +170,17 @@ export async function enrichAirspaceCollectionWithTerrarium(
     onProgress?: AirspaceTerrariumEnrichProgressFn;
   } = {}
 ): Promise<FeatureCollection<Geometry, AirspaceVolumeProperties>> {
-  const totalZones = collection.features.length;
+  const demZoneIndices: number[] = [];
+  for (let i = 0; i < collection.features.length; i++) {
+    const props = collection.features[i].properties ?? {};
+    if (featureNeedsDemGround(props)) {
+      demZoneIndices.push(i);
+    }
+  }
+  const demZoneCount = demZoneIndices.length;
   const report = (partial: Partial<AirspaceTerrariumEnrichProgress>): void => {
     options.onProgress?.({
-      totalZones,
+      totalZones: demZoneCount,
       processedZones: 0,
       loadedTiles: 0,
       totalTiles: 0,
@@ -189,7 +197,13 @@ export async function enrichAirspaceCollectionWithTerrarium(
   const uniqueSamples: TerrainElevationSample[] = [];
   const coordToSample = new Map<string, TerrainElevationSample>();
 
-  for (let i = 0; i < collection.features.length; i++) {
+  if (demZoneCount === 0) {
+    report({ phase: 'enrich', percent: 100, processedZones: 0 });
+    return enrichAirspaceCollection(collection, new Map());
+  }
+
+  let prepareDone = 0;
+  for (const i of demZoneIndices) {
     const f = collection.features[i];
     const featureKey = airspaceFeatureKey(f.properties ?? undefined, i);
     const coordKeys: string[] = [];
@@ -209,17 +223,18 @@ export async function enrichAirspaceCollectionWithTerrarium(
     }
 
     featurePointKeys.push({ featureKey, coordKeys });
-    if (i > 0 && i % 200 === 0) {
+    prepareDone++;
+    if (prepareDone % 200 === 0) {
       report({
         phase: 'prepare',
-        percent: 2 + Math.round((i / totalZones) * 8),
-        processedZones: i
+        percent: 2 + Math.round((prepareDone / demZoneCount) * 8),
+        processedZones: prepareDone
       });
       await yieldToUi();
     }
   }
 
-  report({ phase: 'prepare', percent: 10, processedZones: totalZones });
+  report({ phase: 'prepare', percent: 10, processedZones: demZoneCount });
 
   await fillTerrariumElevations(uniqueSamples, undefined, (p: TerrariumFillProgress) => {
     const tilePct = 10 + Math.round((p.loadedTiles / Math.max(1, p.totalTiles)) * 82);
@@ -228,7 +243,7 @@ export async function enrichAirspaceCollectionWithTerrarium(
       percent: tilePct,
       loadedTiles: p.loadedTiles,
       totalTiles: p.totalTiles,
-      processedZones: totalZones
+      processedZones: demZoneCount
     });
   });
 
@@ -255,7 +270,7 @@ export async function enrichAirspaceCollectionWithTerrarium(
     if (i > 0 && i % 250 === 0) {
       report({
         phase: 'enrich',
-        percent: 92 + Math.round((i / totalZones) * 8),
+        percent: 92 + Math.round((i / featurePointKeys.length) * 8),
         processedZones: i,
         loadedTiles: uniqueSamples.length > 0 ? 1 : 0,
         totalTiles: 1
@@ -267,7 +282,7 @@ export async function enrichAirspaceCollectionWithTerrarium(
   report({
     phase: 'enrich',
     percent: 100,
-    processedZones: totalZones,
+    processedZones: demZoneCount,
     loadedTiles: 1,
     totalTiles: 1
   });

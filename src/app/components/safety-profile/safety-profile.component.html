@@ -68,6 +68,7 @@
         >
       <section class="safety-profile__map-panel" [attr.aria-label]="'safetyProfile.mapAria' | translate">
         <div class="safety-profile__map-frame">
+          <app-airspace-terrarium-progress-overlay />
           <mgl-map
             class="safety-profile__map"
             [mapStyle]="mapStyle"
