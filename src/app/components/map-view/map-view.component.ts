@@ -241,6 +241,9 @@ export class MapViewComponent implements OnInit {
   });
 
   private map: MaplibreMap | null = null;
+  /** Annule les applies airspace obsolètes (effets / resize / changement de source). */
+  private airspaceReloadGen = 0;
+  private airspaceReloadCoalesce = false;
   private terrainElevationRaf = 0;
   /** Première couche métier (ancrage pour changement de fond). */
   private dataLayerAnchorId: string | null = null;
@@ -293,9 +296,21 @@ export class MapViewComponent implements OnInit {
 
     effect(() => {
       this.airspaceDataSource.revision();
+      this.airspaceVisible();
+      this.mapReady();
       if (this.airspaceVisible() && this.mapReady()) {
-        void this.reloadAirspaceLayer();
+        this.scheduleReloadAirspaceLayer();
       }
+    });
+  }
+
+  /** Fusionne les déclencheurs rapprochés (effet + resize) en un seul apply. */
+  private scheduleReloadAirspaceLayer(): void {
+    if (this.airspaceReloadCoalesce) return;
+    this.airspaceReloadCoalesce = true;
+    queueMicrotask(() => {
+      this.airspaceReloadCoalesce = false;
+      void this.reloadAirspaceLayer();
     });
   }
 
@@ -434,22 +449,36 @@ export class MapViewComponent implements OnInit {
       return;
     }
 
-    this.airspaceLoading.set(true);
-    this.airspaceStatus.set(this.i18n.t('map.airspaceLoading'));
+    this.persistAirspacePrefs();
 
-    const forceReload = this.airspaceMapDisplay.getFilterOptions(this.airspaceScreenId) == null;
+    const reloadGen = ++this.airspaceReloadGen;
+    const cacheCold =
+      this.airspaceMapDisplay.getFilterOptions(this.airspaceScreenId) == null;
+
+    if (cacheCold) {
+      this.airspaceLoading.set(true);
+      this.airspaceStatus.set(this.i18n.t('map.airspaceLoading'));
+    }
+
     const outcome = await this.airspaceMapDisplay.applyToMap(
       map,
       this.airspaceScreenId,
       MAP_LAYER.OBS_FILL,
-      { forceReload }
+      { forceReload: cacheCold }
     );
+
+    if (reloadGen !== this.airspaceReloadGen) {
+      return;
+    }
 
     this.airspaceLoading.set(false);
     this.airspaceFilterOptions.set(outcome.filterOptions);
-    this.airspaceZoneFilters.set(
-      this.airspaceMapDisplay.readPrefs(this.airspaceScreenId).zoneFilters
-    );
+
+    const zoneFilters = this.airspaceMapDisplay.readPrefs(this.airspaceScreenId).zoneFilters;
+    if (JSON.stringify(zoneFilters) !== JSON.stringify(this.airspaceZoneFilters())) {
+      this.airspaceZoneFilters.set(zoneFilters);
+    }
+
     this.airspaceStatus.set(outcome.ok ? outcome.status : outcome.status);
   }
 
@@ -526,9 +555,6 @@ export class MapViewComponent implements OnInit {
       map.resize();
       this.updateWaypointsSource();
       this.updateObsZones();
-      if (this.airspaceVisible()) {
-        void this.reloadAirspaceLayer();
-      }
     });
   }
 

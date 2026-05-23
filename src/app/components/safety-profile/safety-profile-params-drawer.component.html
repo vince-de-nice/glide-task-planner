@@ -8,89 +8,114 @@
   <aside class="safety-profile__drawer" aria-labelledby="safety-params-heading">
     <header class="safety-profile__drawer-header">
       <h2 id="safety-params-heading">{{ 'safetyProfile.paramsTitle' | translate }}</h2>
-      <button type="button" class="safety-profile__drawer-close" (click)="closePanel.emit()">
+      <button
+        type="button"
+        class="safety-profile__drawer-close"
+        [attr.aria-label]="'safetyProfile.closeParams' | translate"
+        (click)="closePanel.emit()"
+      >
         <i class="pi pi-times" aria-hidden="true"></i>
       </button>
     </header>
     <div class="safety-profile__drawer-body">
-      <div class="safety-profile__params-grid">
-        <label class="param">
-          <span class="param__label">{{ 'safetyProfile.params.glideRatio' | translate }}</span>
-          <p-inputnumber
-            [ngModel]="glideRatio()"
-            (ngModelChange)="glideRatioChange.emit($event)"
-            [min]="bounds.glideRatio.min"
-            [max]="bounds.glideRatio.max"
-            [step]="1"
-            [showButtons]="true"
-            buttonLayout="horizontal"
-            incrementButtonIcon="pi pi-plus"
-            decrementButtonIcon="pi pi-minus"
-            inputStyleClass="param__input"
-          />
-          <span class="param__hint">{{ 'safetyProfile.params.glideRatioHint' | translate }}</span>
-        </label>
+      <section class="safety-profile__params-section" aria-labelledby="safety-params-fields-heading">
+        <h3 id="safety-params-fields-heading" class="safety-profile__section-title">
+          {{ 'safetyProfile.params.sectionCalculation' | translate }}
+        </h3>
+        <div class="safety-profile__params-grid">
+          <div class="param">
+            <label class="param__label" for="safety-param-glide-ratio">
+              {{ 'safetyProfile.params.glideRatio' | translate }}
+            </label>
+            <p-inputnumber
+              inputId="safety-param-glide-ratio"
+              [ngModel]="glideRatio()"
+              (ngModelChange)="glideRatioChange.emit($event)"
+              [min]="bounds.glideRatio.min"
+              [max]="bounds.glideRatio.max"
+              [step]="1"
+              [showButtons]="true"
+              buttonLayout="horizontal"
+              incrementButtonIcon="pi pi-plus"
+              decrementButtonIcon="pi pi-minus"
+            />
+            <p class="param__hint">{{ 'safetyProfile.params.glideRatioHint' | translate }}</p>
+          </div>
 
-        <label class="param">
-          <span class="param__label">{{ 'safetyProfile.params.arrivalMargin' | translate }}</span>
-          <p-inputnumber
-            [ngModel]="arrivalMarginM()"
-            (ngModelChange)="arrivalMarginChange.emit($event)"
-            [min]="bounds.arrivalMarginM.min"
-            [max]="bounds.arrivalMarginM.max"
-            [step]="10"
-            [suffix]="' m'"
-            [showButtons]="true"
-            buttonLayout="horizontal"
-            incrementButtonIcon="pi pi-plus"
-            decrementButtonIcon="pi pi-minus"
-            inputStyleClass="param__input"
-          />
-          <span class="param__hint">{{ 'safetyProfile.params.arrivalMarginHint' | translate }}</span>
-        </label>
+          <div class="param">
+            <label class="param__label" for="safety-param-arrival-margin">
+              {{ 'safetyProfile.params.arrivalMargin' | translate }}
+            </label>
+            <p-inputnumber
+              inputId="safety-param-arrival-margin"
+              [ngModel]="arrivalMarginM()"
+              (ngModelChange)="arrivalMarginChange.emit($event)"
+              [min]="bounds.arrivalMarginM.min"
+              [max]="bounds.arrivalMarginM.max"
+              [step]="10"
+              [suffix]="' m'"
+              [showButtons]="true"
+              buttonLayout="horizontal"
+              incrementButtonIcon="pi pi-plus"
+              decrementButtonIcon="pi pi-minus"
+            />
+            <p class="param__hint">{{ 'safetyProfile.params.arrivalMarginHint' | translate }}</p>
+          </div>
 
-        <label class="param">
-          <span class="param__label">{{ 'safetyProfile.params.groundMargin' | translate }}</span>
-          <p-inputnumber
-            [ngModel]="groundMarginM()"
-            (ngModelChange)="groundMarginChange.emit($event)"
-            [min]="bounds.groundMarginM.min"
-            [max]="bounds.groundMarginM.max"
-            [step]="10"
-            [suffix]="' m'"
-            [showButtons]="true"
-            buttonLayout="horizontal"
-            incrementButtonIcon="pi pi-plus"
-            decrementButtonIcon="pi pi-minus"
-            inputStyleClass="param__input"
-          />
-          <span class="param__hint">{{ 'safetyProfile.params.groundMarginHint' | translate }}</span>
-        </label>
+          <div class="param">
+            <label class="param__label" for="safety-param-ground-margin">
+              {{ 'safetyProfile.params.groundMargin' | translate }}
+            </label>
+            <p-inputnumber
+              inputId="safety-param-ground-margin"
+              [ngModel]="groundMarginM()"
+              (ngModelChange)="groundMarginChange.emit($event)"
+              [min]="bounds.groundMarginM.min"
+              [max]="bounds.groundMarginM.max"
+              [step]="10"
+              [suffix]="' m'"
+              [showButtons]="true"
+              buttonLayout="horizontal"
+              incrementButtonIcon="pi pi-plus"
+              decrementButtonIcon="pi pi-minus"
+            />
+            <p class="param__hint">{{ 'safetyProfile.params.groundMarginHint' | translate }}</p>
+          </div>
 
-        <div class="param param--reset">
-          <p-button
-            icon="pi pi-refresh"
-            severity="secondary"
-            [outlined]="true"
-            size="small"
-            [label]="'safetyProfile.resetDefaults' | translate"
-            (onClick)="resetDefaults.emit()"
-          />
+          <div class="param param--reset">
+            <p-button
+              icon="pi pi-refresh"
+              severity="secondary"
+              [outlined]="true"
+              size="small"
+              [label]="'safetyProfile.resetDefaults' | translate"
+              (onClick)="resetDefaults.emit()"
+            />
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div class="safety-profile__legend">
-        <span class="legend-item legend-item--terrain">{{ chartLabels().terrain }}</span>
-        <span class="legend-item legend-item--ground">{{ chartLabels().groundClearance }}</span>
-        <span class="legend-item legend-item--landables">{{ chartLabels().landableColors }}</span>
-        <span class="legend-item legend-item--below-min">{{ chartLabels().landableConeBelowMin }}</span>
-        <span class="legend-item legend-item--intersection">{{ chartLabels().coneIntersectionAltitude }}</span>
-        <span
-          class="legend-item legend-item--cone"
-          [class.legend-item--muted]="noLandables()"
-        >{{ chartLabels().glideCone }}</span>
-        <span class="legend-item legend-item--safety">{{ chartLabels().safety }}</span>
-      </div>
+      <section class="safety-profile__legend-section" aria-labelledby="safety-params-legend-heading">
+        <h3 id="safety-params-legend-heading" class="safety-profile__section-title">
+          {{ 'safetyProfile.params.sectionLegend' | translate }}
+        </h3>
+        <ul class="safety-profile__legend">
+          <li class="legend-item legend-item--terrain">{{ chartLabels().terrain }}</li>
+          <li class="legend-item legend-item--ground">{{ chartLabels().groundClearance }}</li>
+          <li class="legend-item legend-item--landables">{{ chartLabels().landableColors }}</li>
+          <li class="legend-item legend-item--below-min">{{ chartLabels().landableConeBelowMin }}</li>
+          <li class="legend-item legend-item--intersection">
+            {{ chartLabels().coneIntersectionAltitude }}
+          </li>
+          <li
+            class="legend-item legend-item--cone"
+            [class.legend-item--muted]="noLandables()"
+          >
+            {{ chartLabels().glideCone }}
+          </li>
+          <li class="legend-item legend-item--safety">{{ chartLabels().safety }}</li>
+        </ul>
+      </section>
     </div>
   </aside>
 }

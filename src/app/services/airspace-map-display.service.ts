@@ -217,9 +217,10 @@ export class AirspaceMapDisplayService {
     const prefs = this.prefsService.get(screenId);
     const legScoped =
       screenId === 'safety-profile' || options.legDisplayZoneKeys != null;
-    if (!prefs.visible && !legScoped) {
+    /** Carte circuit : visible piloté par l’appelant (reload uniquement si couche activée). */
+    const taskMapApply = screenId === 'task-map';
+    if (!taskMapApply && !prefs.visible && !legScoped) {
       this.clearLayersFromMap(map);
-      this.clearScreenCache(screenId);
       return { ok: true, status: null, volumeCount: 0, filterOptions: null };
     }
 

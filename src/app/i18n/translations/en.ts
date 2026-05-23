@@ -878,6 +878,8 @@ export const en = {
     landableTypeAirfield: 'AD',
     legHeader: 'Leg {{index}}',
     params: {
+      sectionCalculation: 'Envelope calculation',
+      sectionLegend: 'Cross-section legend',
       glideRatio: 'Glider glide ratio',
       glideRatioHint:
         '1 m of altitude lost = N m of distance. Safety cones use half the glide ratio (N ÷ 2).',

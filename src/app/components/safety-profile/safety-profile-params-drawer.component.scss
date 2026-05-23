@@ -1,3 +1,254 @@
 :host {
   display: contents;
 }
+
+.safety-profile__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: rgb(15 23 42 / 0.35);
+  cursor: pointer;
+}
+
+.safety-profile__drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  width: min(26rem, 94vw);
+  height: 100%;
+  background: var(--gc-surface);
+  border-left: 1px solid var(--gc-border-strong);
+  box-shadow: -4px 0 24px rgb(15 23 42 / 0.12);
+}
+
+.safety-profile__drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-shrink: 0;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--gc-border);
+
+  h2 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--gc-text);
+    line-height: 1.3;
+  }
+}
+
+.safety-profile__drawer-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--gc-radius-sm);
+  background: transparent;
+  color: var(--gc-text-muted);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--gc-bg);
+    color: var(--gc-text);
+  }
+}
+
+.safety-profile__drawer-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.safety-profile__section-title {
+  margin: 0 0 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--gc-text-muted);
+}
+
+.safety-profile__params-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.param {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.4rem;
+  min-width: 0;
+
+  &--reset {
+    padding-top: 0.15rem;
+  }
+}
+
+.param__label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--gc-text);
+  line-height: 1.25;
+}
+
+.param__hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--gc-text-muted);
+  line-height: 1.45;
+}
+
+:host ::ng-deep .param .p-inputnumber {
+  display: flex;
+  width: 100%;
+  max-width: 12rem;
+
+  .p-inputnumber-input {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+.safety-profile__legend-section {
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--gc-border);
+}
+
+.safety-profile__legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  font-size: 0.78rem;
+  color: var(--gc-text-secondary);
+}
+
+.legend-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  line-height: 1.35;
+  min-width: 0;
+
+  &::before {
+    content: '';
+    width: 14px;
+    height: 3px;
+    margin-top: 0.45em;
+    border-radius: 2px;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+
+  &--terrain {
+    color: #78350f;
+  }
+
+  &--ground {
+    color: #b45309;
+
+    &::before {
+      background: repeating-linear-gradient(
+        to right,
+        currentColor 0,
+        currentColor 4px,
+        transparent 4px,
+        transparent 7px
+      );
+    }
+  }
+
+  &--landables {
+    color: var(--gc-text-secondary);
+
+    &::before {
+      background: linear-gradient(
+        90deg,
+        hsl(35 75% 42%),
+        hsl(85 70% 38%),
+        hsl(145 68% 36%),
+        hsl(195 72% 40%),
+        hsl(245 70% 45%),
+        hsl(295 65% 42%),
+        hsl(330 60% 44%)
+      );
+      height: 4px;
+    }
+  }
+
+  &--below-min {
+    color: var(--gc-text-muted);
+
+    &::before {
+      background: repeating-linear-gradient(
+        to right,
+        currentColor 0,
+        currentColor 4px,
+        transparent 4px,
+        transparent 7px
+      );
+    }
+  }
+
+  &--intersection {
+    color: var(--gc-text-secondary);
+
+    &::before {
+      width: 8px;
+      height: 8px;
+      margin-top: 0.35em;
+      border-radius: 50%;
+      background: currentColor;
+    }
+  }
+
+  &--cone {
+    color: #64748b;
+
+    &::before {
+      background: repeating-linear-gradient(
+        to right,
+        currentColor 0,
+        currentColor 3px,
+        transparent 3px,
+        transparent 5px
+      );
+    }
+  }
+
+  &--safety {
+    color: #dc2626;
+
+    &::before {
+      height: 4px;
+      background: #dc2626;
+    }
+  }
+
+  &--muted {
+    opacity: 0.45;
+
+    &::before {
+      opacity: 0.5;
+    }
+  }
+}

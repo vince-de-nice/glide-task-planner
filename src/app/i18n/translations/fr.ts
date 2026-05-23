@@ -828,6 +828,8 @@ export const fr = {
     landableTypeAirfield: 'AD',
     legHeader: 'Branche {{index}}',
     params: {
+      sectionCalculation: 'Calcul des enveloppes',
+      sectionLegend: 'Légende de la coupe',
       glideRatio: 'Finesse planeur',
       glideRatioHint:
         '1 m d’altitude perdue = N m parcourus. Les cônes de sécurité utilisent la demi-finesse (N ÷ 2).',
