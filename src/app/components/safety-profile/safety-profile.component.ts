@@ -118,6 +118,12 @@ type LegRender = SafetyLegRender;
 
 const EMPTY_FC: FeatureCollection = { type: 'FeatureCollection', features: [] };
 
+const PROFILE_SHARE_STORAGE_KEY = 'gc-safety-profile-share';
+const PROFILE_SHARE_MIN = 16;
+const PROFILE_SHARE_MAX = 72;
+const PROFILE_SHARE_DEFAULT = 52;
+const PROFILE_SHARE_STEP = 6;
+
 /** Sources / calques carte dédiés à l’écran profil de sécurité. */
 const PROFILE_MAP_SOURCE = {
   BRANCHES: 'safety-profile-branches',
@@ -201,6 +207,10 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   /** Liste défilable des terrains (colonne droite de la coupe). */
   private readonly landablesChipsScroll =
     viewChild<ElementRef<HTMLElement>>('landablesChipsScroll');
+  private readonly visualsHost = viewChild<ElementRef<HTMLElement>>('visualsHost');
+
+  /** Hauteur de la coupe (% de la colonne carte+coupe). */
+  readonly profileSharePercent = signal(PROFILE_SHARE_DEFAULT);
 
   readonly bounds = SAFETY_PARAMS_BOUNDS;
   readonly defaultsParams = DEFAULT_SAFETY_PARAMS;
@@ -250,6 +260,12 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   private landableLeaveHandler: (() => void) | null = null;
   private safetyConesLayer: SafetyConeThreeCustomLayer | null = null;
   private safetyMinAltitudeLayer: SafetyMinAltitudeThreeCustomLayer | null = null;
+  private profileSplitPointerId: number | null = null;
+  private profileSplitStartY = 0;
+  private profileSplitStartShare = PROFILE_SHARE_DEFAULT;
+  private profileSplitMoveHandler: ((e: PointerEvent) => void) | null = null;
+  private profileSplitUpHandler: ((e: PointerEvent) => void) | null = null;
+
   private lookPadPointerId: number | null = null;
   private lookPadLastX = 0;
   private lookPadLastY = 0;
@@ -482,9 +498,18 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     this.airspaceVolume3d.set(airPrefs.volume3d);
     this.airspaceRegionId.set(airPrefs.regionId);
     this.persistAirspacePrefs();
+
+    const storedShare = localStorage.getItem(PROFILE_SHARE_STORAGE_KEY);
+    if (storedShare != null) {
+      const parsed = Number(storedShare);
+      if (Number.isFinite(parsed)) {
+        this.setProfileSharePercent(parsed, false);
+      }
+    }
   }
 
   ngOnDestroy(): void {
+    this.endProfileSplitResize();
     this.profileMapCursor.set(null);
     this.hoveredLandableId.set(null);
     this.selectedLandableId.set(null);
@@ -677,6 +702,88 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     this.syncAllLegAirspaceCatalogs();
     this.syncLegAirspaceCatalogForIndex(legIndex);
     return this.enabledAirspaceKeysForLeg(legIndex);
+  }
+
+  onProfileSplitPointerDown(event: PointerEvent): void {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    this.profileSplitPointerId = event.pointerId;
+    this.profileSplitStartY = event.clientY;
+    this.profileSplitStartShare = this.profileSharePercent();
+
+    const target = event.currentTarget as HTMLElement;
+    target.setPointerCapture(event.pointerId);
+
+    this.profileSplitMoveHandler = (e: PointerEvent) => {
+      if (e.pointerId !== this.profileSplitPointerId) return;
+      this.applyProfileSplitDrag(e.clientY);
+    };
+    this.profileSplitUpHandler = (e: PointerEvent) => {
+      if (e.pointerId !== this.profileSplitPointerId) return;
+      this.endProfileSplitResize();
+      try {
+        target.releasePointerCapture(e.pointerId);
+      } catch {
+        /* déjà libéré */
+      }
+    };
+
+    document.addEventListener('pointermove', this.profileSplitMoveHandler);
+    document.addEventListener('pointerup', this.profileSplitUpHandler);
+    document.addEventListener('pointercancel', this.profileSplitUpHandler);
+  }
+
+  nudgeProfileShare(deltaPercent: number = PROFILE_SHARE_STEP, event?: Event): void {
+    event?.stopPropagation();
+    this.setProfileSharePercent(this.profileSharePercent() + deltaPercent);
+    this.scheduleMapResize();
+  }
+
+  private applyProfileSplitDrag(clientY: number): void {
+    const host = this.visualsHost()?.nativeElement;
+    if (!host) return;
+    const rect = host.getBoundingClientRect();
+    if (rect.height < 1) return;
+    const deltaPercent = ((clientY - this.profileSplitStartY) / rect.height) * 100;
+    this.setProfileSharePercent(this.profileSplitStartShare - deltaPercent, false);
+  }
+
+  private setProfileSharePercent(percent: number, persist = true): void {
+    const clamped = Math.min(
+      PROFILE_SHARE_MAX,
+      Math.max(PROFILE_SHARE_MIN, Math.round(percent))
+    );
+    this.profileSharePercent.set(clamped);
+    if (persist) {
+      localStorage.setItem(PROFILE_SHARE_STORAGE_KEY, String(clamped));
+    }
+  }
+
+  private endProfileSplitResize(): void {
+    if (this.profileSplitMoveHandler) {
+      document.removeEventListener('pointermove', this.profileSplitMoveHandler);
+      this.profileSplitMoveHandler = null;
+    }
+    if (this.profileSplitUpHandler) {
+      document.removeEventListener('pointerup', this.profileSplitUpHandler);
+      document.removeEventListener('pointercancel', this.profileSplitUpHandler);
+      this.profileSplitUpHandler = null;
+    }
+    if (this.profileSplitPointerId != null) {
+      this.profileSplitPointerId = null;
+      this.setProfileSharePercent(this.profileSharePercent());
+      this.scheduleMapResize();
+    }
+  }
+
+  private scheduleMapResize(): void {
+    requestAnimationFrame(() => {
+      try {
+        this.map?.resize();
+      } catch {
+        /* carte absente */
+      }
+    });
   }
 
   onLookPadPointerDown(event: PointerEvent): void {

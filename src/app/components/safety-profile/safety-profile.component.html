@@ -61,7 +61,11 @@
 
     <div class="safety-profile__workspace">
       <div class="safety-profile__content">
-        <div class="safety-profile__visuals">
+        <div
+          #visualsHost
+          class="safety-profile__visuals"
+          [style.--safety-profile-share]="profileSharePercent() + '%'"
+        >
       <section class="safety-profile__map-panel" [attr.aria-label]="'safetyProfile.mapAria' | translate">
         <div class="safety-profile__map-frame">
           <mgl-map
@@ -250,6 +254,37 @@
         <p class="safety-profile__map-hint">{{ 'safetyProfile.mapHint' | translate }}</p>
       </section>
 
+      <div
+        class="safety-profile__splitter"
+        role="separator"
+        aria-orientation="horizontal"
+        [attr.aria-valuenow]="profileSharePercent()"
+        aria-valuemin="16"
+        aria-valuemax="72"
+        [attr.aria-label]="'safetyProfile.profileResizeHandle' | translate"
+        (pointerdown)="onProfileSplitPointerDown($event)"
+      >
+        <button
+          type="button"
+          class="safety-profile__splitter-btn"
+          [attr.aria-label]="'safetyProfile.profileExpand' | translate"
+          [title]="'safetyProfile.profileExpand' | translate"
+          (click)="nudgeProfileShare(6, $event)"
+        >
+          <i class="pi pi-chevron-up" aria-hidden="true"></i>
+        </button>
+        <span class="safety-profile__splitter-grip" aria-hidden="true"></span>
+        <button
+          type="button"
+          class="safety-profile__splitter-btn"
+          [attr.aria-label]="'safetyProfile.profileShrink' | translate"
+          [title]="'safetyProfile.profileShrink' | translate"
+          (click)="nudgeProfileShare(-6, $event)"
+        >
+          <i class="pi pi-chevron-down" aria-hidden="true"></i>
+        </button>
+      </div>
+
       <section class="safety-profile__profile-panel" [attr.aria-label]="'safetyProfile.profilePanelAria' | translate">
         @if (activeLegRender(); as leg) {
           <header class="safety-profile__profile-header">
@@ -262,6 +297,26 @@
               <strong>{{ leg.toWaypoint.name }}</strong>
             </span>
             <span class="safety-profile__profile-distance">{{ leg.distanceKm | number: '1.1-1' }} km</span>
+            <span class="safety-profile__profile-size-actions">
+              <button
+                type="button"
+                class="safety-profile__profile-size-btn"
+                [attr.aria-label]="'safetyProfile.profileShrink' | translate"
+                [title]="'safetyProfile.profileShrink' | translate"
+                (click)="nudgeProfileShare(-6)"
+              >
+                <i class="pi pi-window-minimize" aria-hidden="true"></i>
+              </button>
+              <button
+                type="button"
+                class="safety-profile__profile-size-btn"
+                [attr.aria-label]="'safetyProfile.profileExpand' | translate"
+                [title]="'safetyProfile.profileExpand' | translate"
+                (click)="nudgeProfileShare(6)"
+              >
+                <i class="pi pi-window-maximize" aria-hidden="true"></i>
+              </button>
+            </span>
           </header>
 
           <div class="safety-profile__profile-main">
