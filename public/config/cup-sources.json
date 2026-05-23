@@ -1,10 +1,3 @@
 {
-  "disclaimer": "Données non officielles. Vérifiez toujours les documents de la compétition avant le vol.",
-  "sources": [
-    {
-      "id": "embedded-default",
-      "label": "Base par défaut (fichier livré)",
-      "url": "/assets/cup/default.cup"
-    }
-  ]
+  "disclaimer": "Données non officielles. Vérifiez toujours les documents de la compétition avant le vol."
 }

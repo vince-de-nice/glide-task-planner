@@ -3,7 +3,10 @@ import { isAllowedCupFetchUrl } from './cup-url.util';
 
 describe('cup-url.util', () => {
   it('allows relative asset paths', () => {
-    expect(isAllowedCupFetchUrl('/assets/cup/default.cup')).toBe(true);
+    expect(isAllowedCupFetchUrl('/assets/cup/Vinon2026-V2.cup')).toBe(true);
+    expect(
+      isAllowedCupFetchUrl('/assets/cup/aapca%20waypoints%2011%20juin%202025.cup')
+    ).toBe(true);
   });
 
   it('allows https URLs', () => {

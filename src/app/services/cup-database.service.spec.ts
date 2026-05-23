@@ -59,7 +59,9 @@ describe('CupDatabaseService', () => {
         arrayBuffer: async () => new TextEncoder().encode(SAMPLE_CUP).buffer
       })
     );
-    const count = await service.fetchAndApply('/assets/cup/default.cup');
+    const count = await service.fetchAndApply(
+      '/assets/cup/aapca%20waypoints%2011%20juin%202025.cup'
+    );
     expect(count).toBe(1);
   });
 });

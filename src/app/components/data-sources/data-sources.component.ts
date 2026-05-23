@@ -9,8 +9,9 @@ import {
   ElementRef
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Button } from 'primeng/button';
-import { CupToolbarComponent } from '../declaration/cup-toolbar/cup-toolbar.component';
+import { InputText } from 'primeng/inputtext';
 import { CupDatabaseService } from '../../services/cup-database.service';
 import { CupSourcesConfigService } from '../../services/cup-sources-config.service';
 import { CupLoaderService } from '../../services/cup-loader.service';
@@ -22,11 +23,18 @@ import { TranslatePipe } from '../../i18n/translate.pipe';
 import { CupSourceEntry } from '../../models/cup-sources.model';
 import { AirspaceDataSourceService } from '../../services/airspace-data-source.service';
 import { AirspaceMapDisplayService } from '../../services/airspace-map-display.service';
+import { CupImportedSourceService } from '../../services/cup-imported-source.service';
 
 @Component({
   selector: 'app-data-sources',
   standalone: true,
-  imports: [CommonModule, Button, CupToolbarComponent, TranslatePipe],
+  imports: [
+    CommonModule,
+    FormsModule,
+    Button,
+    InputText,
+    TranslatePipe
+  ],
   templateUrl: './data-sources.component.html',
   styleUrl: './data-sources.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -40,8 +48,10 @@ export class DataSourcesComponent implements OnInit {
   private uiFeedback = inject(UiFeedbackService);
   private i18n = inject(TranslateService);
   readonly airspaceSources = inject(AirspaceDataSourceService);
+  readonly cupImported = inject(CupImportedSourceService);
   private readonly airspaceMapDisplay = inject(AirspaceMapDisplayService);
 
+  private readonly cupFileInput = viewChild<ElementRef<HTMLInputElement>>('cupFileInput');
   private readonly geoJsonInput = viewChild<ElementRef<HTMLInputElement>>('geoJsonInput');
 
   cupMeta = this.cupDatabase.meta;
@@ -49,10 +59,12 @@ export class DataSourcesComponent implements OnInit {
   selectedWaypointIds = this.taskState.selectedWaypointIds;
 
   configSources = signal<CupSourceEntry[]>([]);
-  recentUrls = signal<string[]>([]);
   configError = signal<string | null>(null);
+  cupDisclaimer = signal('');
   loadingSource = signal(false);
+  cupImporting = signal(false);
   airspaceImporting = signal(false);
+  cupUrlInput = signal('');
 
   readonly activeAirspaceLabel = computed(() => this.airspaceSources.activeLabel());
 
@@ -73,27 +85,115 @@ export class DataSourcesComponent implements OnInit {
     void this.refreshLists();
   }
 
-  onDatabaseLoaded(): void {
-    this.refreshLists();
-  }
-
   refreshLists(): void {
-    this.recentUrls.set(this.cupDatabase.getRecentUrls());
     void this.cupSourcesConfig.loadConfig().then(
       config => {
         this.configSources.set(config.sources);
+        this.cupDisclaimer.set(config.disclaimer);
         this.configError.set(null);
       },
       () => this.configError.set(this.i18n.t('cup.configError'))
     );
   }
 
-  isActiveSource(url: string): boolean {
+  isActiveCupSource(url: string): boolean {
     return this.cupDatabase.isFromUrl(url);
+  }
+
+  isActiveCupImport(importId: string): boolean {
+    return this.cupImported.isActiveImport(importId);
   }
 
   isActiveAirspaceSource(sourceId: string): boolean {
     return this.airspaceSources.activeSourceId() === sourceId;
+  }
+
+  triggerCupImport(): void {
+    this.cupFileInput()?.nativeElement.click();
+  }
+
+  async onCupFileSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+
+    if (this.waypoints().length > 0) {
+      const ok = await this.uiFeedback.confirm({
+        header: this.i18n.t('cup.replaceHeader'),
+        message: this.i18n.t('cup.replaceFileMessage', { name: file.name })
+      });
+      if (!ok) return;
+    }
+
+    this.cupImporting.set(true);
+    try {
+      await this.runCupLoad(async () => {
+        const id = await this.cupImported.importFile(file);
+        if (!id) return 0;
+        this.taskState.clearSelection();
+        this.taskState.resetTaskNameToToday();
+        return this.waypoints().length;
+      });
+    } finally {
+      this.cupImporting.set(false);
+    }
+  }
+
+  exportCup(): void {
+    const content = this.cupDatabase.exportCup();
+    const label =
+      this.cupDatabase.getSourceLabel().replace(/[^\w.-]+/g, '_') || 'circuit-export';
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${label}.cup`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
+
+  async loadFromUrlInput(): Promise<void> {
+    const url = this.cupUrlInput().trim();
+    if (!url) return;
+    await this.loadUrl(url);
+  }
+
+  async loadSource(entry: CupSourceEntry): Promise<void> {
+    await this.loadUrl(entry.url, entry.label);
+  }
+
+  async activateCupImport(importId: string): Promise<void> {
+    if (this.isActiveCupImport(importId)) return;
+    if (this.waypoints().length > 0) {
+      const meta = this.cupImported.imports().find(m => m.id === importId);
+      const ok = await this.uiFeedback.confirm({
+        header: this.i18n.t('cup.replaceHeader'),
+        message: this.i18n.t('cup.replaceFileMessage', {
+          name: meta?.label ?? 'CUP'
+        })
+      });
+      if (!ok) return;
+    }
+    await this.runCupLoad(async () => {
+      const count = await this.cupImported.activateImport(importId);
+      if (count > 0) {
+        this.taskState.clearSelection();
+        this.taskState.resetTaskNameToToday();
+      }
+      return count;
+    });
+  }
+
+  async removeCupImport(importId: string): Promise<void> {
+    const meta = this.cupImported.imports().find(m => m.id === importId);
+    if (!meta) return;
+    const ok = await this.uiFeedback.confirm({
+      header: this.i18n.t('dataSources.cup.removeImportedHeader'),
+      message: this.i18n.t('dataSources.cup.removeImportedMessage', { label: meta.label }),
+      acceptButtonStyleClass: 'p-button-danger'
+    });
+    if (!ok) return;
+    await this.cupImported.removeImport(importId);
   }
 
   async activateAirspaceSource(sourceId: string): Promise<void> {
@@ -147,12 +247,19 @@ export class DataSourcesComponent implements OnInit {
     this.airspaceMapDisplay.invalidateActiveSourceCache();
   }
 
-  async loadSource(entry: CupSourceEntry): Promise<void> {
-    await this.loadUrl(entry.url, entry.label);
-  }
-
-  async loadRecent(url: string): Promise<void> {
-    await this.loadUrl(url);
+  async clearDatabase(): Promise<void> {
+    if (this.waypoints().length === 0) return;
+    const ok = await this.uiFeedback.confirm({
+      header: this.i18n.t('dataSources.cup.clearDbHeader'),
+      message: this.i18n.t('dataSources.cup.clearDbMessage'),
+      acceptLabel: this.i18n.t('dataSources.cup.clearDbAccept'),
+      acceptButtonStyleClass: 'p-button-danger'
+    });
+    if (!ok) return;
+    this.waypointService.clearWaypoints();
+    this.taskState.clearSelection();
+    this.refreshLists();
+    this.uiFeedback.success(this.i18n.t('dataSources.cup.cleared'));
   }
 
   private async loadUrl(url: string, label?: string): Promise<void> {
@@ -163,9 +270,14 @@ export class DataSourcesComponent implements OnInit {
       });
       if (!ok) return;
     }
+    await this.runCupLoad(() => this.cupLoader.loadFromUrl(url, label, true));
+    this.cupUrlInput.set(url);
+  }
+
+  private async runCupLoad(loader: () => Promise<number>): Promise<void> {
     this.loadingSource.set(true);
     try {
-      const count = await this.cupLoader.loadFromUrl(url, label, true);
+      const count = await loader();
       if (count === 0) {
         this.uiFeedback.warn(this.i18n.t('cup.noWaypoints'));
       } else {
@@ -184,34 +296,4 @@ export class DataSourcesComponent implements OnInit {
     }
   }
 
-  removeRecent(url: string): void {
-    this.cupDatabase.removeRecentUrl(url);
-    this.refreshLists();
-  }
-
-  async clearRecents(): Promise<void> {
-    if (this.recentUrls().length === 0) return;
-    const ok = await this.uiFeedback.confirm({
-      header: this.i18n.t('dataSources.clearRecentsHeader'),
-      message: this.i18n.t('dataSources.clearRecentsMessage')
-    });
-    if (!ok) return;
-    this.cupDatabase.clearRecentUrls();
-    this.refreshLists();
-  }
-
-  async clearDatabase(): Promise<void> {
-    if (this.waypoints().length === 0) return;
-    const ok = await this.uiFeedback.confirm({
-      header: this.i18n.t('dataSources.clearDbHeader'),
-      message: this.i18n.t('dataSources.clearDbMessage'),
-      acceptLabel: this.i18n.t('dataSources.clearDbAccept'),
-      acceptButtonStyleClass: 'p-button-danger'
-    });
-    if (!ok) return;
-    this.waypointService.clearWaypoints();
-    this.taskState.clearSelection();
-    this.refreshLists();
-    this.uiFeedback.success(this.i18n.t('dataSources.cleared'));
-  }
 }

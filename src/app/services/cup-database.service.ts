@@ -15,6 +15,7 @@ import { decodeCupFileBytes } from '../utils/cup-text-encoding.util';
 import { isAllowedCupFetchUrl } from '../utils/cup-url.util';
 import { TranslateService } from '../i18n/translate.service';
 import { readMigratedLocalStorage } from '../utils/local-storage-migrate.util';
+import { CupSourcesConfigService } from './cup-sources-config.service';
 
 const STORAGE_KEY = 'gc_cup_database';
 const LEGACY_STORAGE_KEYS = ['vav_cup_database'];
@@ -25,9 +26,6 @@ const MAX_RECENT_URLS = 8;
 const DEFAULT_HEADER =
   'name,code,country,lat,lon,elev,style,rwdir,rwlen,rwwidth,freq,desc,userdata,pics';
 
-/** CUP livré avec l’app (URL relative, même origine — pas de CORS). */
-export const DEFAULT_EMBEDDED_CUP_URL = '/assets/cup/default.cup';
-
 @Injectable({
   providedIn: 'root'
 })
@@ -37,6 +35,7 @@ export class CupDatabaseService {
   private cupTaskWriter = inject(CupTaskWriterService);
   private taskResolver = inject(TaskDeclarationResolver);
   private i18n = inject(TranslateService);
+  private cupSourcesConfig = inject(CupSourcesConfigService);
 
   private sourceUrl = signal<string | null>(null);
   private sourceLabel = signal<string>(this.i18n.t('cupUrl.noBaseLabel'));
@@ -110,12 +109,18 @@ export class CupDatabaseService {
       return;
     }
 
-    // Aucun ?cup= : charger le CUP embarqué si la base locale est encore vide
+    // Aucun ?cup= : premier .cup intégré (manifeste généré depuis public/assets/cup/)
     if (this.waypoints().length > 0) return;
-    if (this.isFromUrl(DEFAULT_EMBEDDED_CUP_URL)) return;
 
     try {
-      await this.fetchAndApply(DEFAULT_EMBEDDED_CUP_URL, this.i18n.t('cupUrl.defaultBase'));
+      const config = await this.cupSourcesConfig.loadConfig();
+      const defaultUrl = config.defaultUrl;
+      if (!defaultUrl) return;
+      if (this.isFromUrl(defaultUrl)) return;
+
+      const label =
+        config.defaultLabel ?? this.i18n.t('cupUrl.defaultBase');
+      await this.fetchAndApply(defaultUrl, label);
     } catch {
       /* Fichier absent ou invalide — l’utilisateur peut importer */
     }

@@ -26,7 +26,7 @@ npm run build     # production build → dist/glide-task-planner/browser
 
 ## Default CUP database
 
-The bundled file `public/assets/cup/default.cup` is about **500 KB**. It loads automatically on first visit when no database is stored in the browser. Enable **gzip/brotli** on your host for faster delivery (see [install.md](install.md)).
+Place integrated `.cup` files in `public/assets/cup/`. Run `npm run cup:manifest` (also runs before `npm start` / `npm build`) to regenerate `public/config/cup-integrated.json`. The first file in alphabetical order is the default database on first visit.
 
 ## Features
 

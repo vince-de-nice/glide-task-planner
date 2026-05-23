@@ -1,189 +1,127 @@
 <div class="data-sources-page gc-page">
+  @if (cupDisclaimer(); as disclaimer) {
+    <aside
+      class="ds-disclaimer gc-card"
+      role="note"
+      [attr.aria-label]="'common.disclaimerData' | translate"
+    >
+      <div class="ds-disclaimer__head">
+        <i class="pi pi-exclamation-triangle ds-disclaimer__icon" aria-hidden="true"></i>
+        <h2 class="ds-disclaimer__title">{{ 'common.disclaimerData' | translate }}</h2>
+      </div>
+      <p class="ds-disclaimer__text">{{ disclaimer }}</p>
+    </aside>
+  }
+
   <p class="gc-page-intro">{{ 'dataSources.intro' | translate }}</p>
 
-  <section class="ds-hero gc-card" [attr.aria-label]="'dataSources.statusAria' | translate">
-    <div class="ds-hero__icon" aria-hidden="true">
-      <i class="pi pi-database"></i>
-    </div>
-    <div class="ds-hero__main">
-      @if (waypoints().length > 0) {
-        <p class="ds-hero__badge">{{ 'dataSources.activeBadge' | translate }}</p>
-        <h2 class="ds-hero__name">{{ cupMeta().sourceLabel || ('common.noBase' | translate) }}</h2>
-        @if (cupMeta().sourceUrl; as url) {
-          <p class="ds-hero__url" [title]="url">{{ url }}</p>
+  <!-- ——— CUP ——— -->
+  <div class="ds-block">
+    <h2 class="ds-block__heading">{{ 'dataSources.cup.sectionTitle' | translate }}</h2>
+
+    <section class="ds-hero gc-card" [attr.aria-label]="'dataSources.cup.statusAria' | translate">
+      <div class="ds-hero__icon" aria-hidden="true">
+        <i class="pi pi-database"></i>
+      </div>
+      <div class="ds-hero__main">
+        @if (waypoints().length > 0) {
+          <p class="ds-hero__badge">{{ 'dataSources.cup.activeBadge' | translate }}</p>
+          <h3 class="ds-hero__name">{{ cupMeta().sourceLabel || ('common.noBase' | translate) }}</h3>
+          @if (cupMeta().sourceUrl; as url) {
+            <p class="ds-hero__url" [title]="url">{{ url }}</p>
+          }
+          @if (loadedAtLabel(); as loaded) {
+            <p class="ds-hero__meta">{{ 'dataSources.cup.loadedAt' | translate: { date: loaded } }}</p>
+          }
+        } @else {
+          <h3 class="ds-hero__name ds-hero__name--empty">{{ 'dataSources.cup.activeEmpty' | translate }}</h3>
+          <p class="ds-hero__meta">{{ 'dataSources.cup.activeEmptyHint' | translate }}</p>
         }
-        @if (loadedAtLabel(); as loaded) {
-          <p class="ds-hero__meta">{{ 'dataSources.loadedAt' | translate: { date: loaded } }}</p>
+        <p class="ds-hero__kind">{{ 'dataSources.cup.statusSubtitle' | translate }}</p>
+      </div>
+      <div class="ds-hero__aside">
+        @if (waypoints().length > 0) {
+          <div class="ds-hero__stats">
+            <span class="ds-stat ds-stat--pts">{{ 'common.pts' | translate: { count: waypoints().length } }}</span>
+            @if (selectedWaypointIds().length > 0) {
+              <span class="ds-stat ds-stat--task">{{
+                'common.inTask' | translate: { count: selectedWaypointIds().length }
+              }}</span>
+            }
+          </div>
         }
-      } @else {
-        <h2 class="ds-hero__name ds-hero__name--empty">{{ 'dataSources.activeEmpty' | translate }}</h2>
-        <p class="ds-hero__meta">{{ 'dataSources.activeEmptyHint' | translate }}</p>
-      }
-    </div>
-    <div class="ds-hero__aside">
-      @if (waypoints().length > 0) {
-        <div class="ds-hero__stats">
-          <span class="ds-stat ds-stat--pts">{{ 'common.pts' | translate: { count: waypoints().length } }}</span>
-          @if (selectedWaypointIds().length > 0) {
-            <span class="ds-stat ds-stat--task">{{
-              'common.inTask' | translate: { count: selectedWaypointIds().length }
-            }}</span>
+        <div class="ds-hero__actions">
+          <input
+            #cupFileInput
+            type="file"
+            accept=".cup"
+            class="ds-hidden-input"
+            (change)="onCupFileSelected($event)"
+          />
+          <p-button
+            [label]="'dataSources.cup.import' | translate"
+            icon="pi pi-upload"
+            size="small"
+            [outlined]="true"
+            [loading]="cupImporting()"
+            [disabled]="loadingSource() || cupImporting()"
+            (onClick)="triggerCupImport()"
+          />
+          @if (waypoints().length > 0) {
+            <p-button
+              [label]="'dataSources.cup.export' | translate"
+              icon="pi pi-file-export"
+              size="small"
+              [outlined]="true"
+              [disabled]="loadingSource()"
+              (onClick)="exportCup()"
+            />
+            <p-button
+              [label]="'dataSources.cup.clearDb' | translate"
+              icon="pi pi-trash"
+              size="small"
+              severity="danger"
+              [outlined]="true"
+              [disabled]="loadingSource()"
+              (onClick)="clearDatabase()"
+            />
           }
         </div>
-      }
-      <p-button
-        [label]="'dataSources.clearDb' | translate"
-        icon="pi pi-trash"
-        size="small"
-        severity="danger"
-        [outlined]="true"
-        [disabled]="waypoints().length === 0"
-        (onClick)="clearDatabase()"
-      />
-    </div>
-  </section>
-
-  <section class="ds-hero ds-hero--airspace gc-card" [attr.aria-label]="'dataSources.airspace.statusAria' | translate">
-    <div class="ds-hero__icon" aria-hidden="true">
-      <i class="pi pi-globe"></i>
-    </div>
-    <div class="ds-hero__main">
-      <p class="ds-hero__badge">{{ 'dataSources.airspace.activeBadge' | translate }}</p>
-      <h2 class="ds-hero__name">{{ activeAirspaceLabel() }}</h2>
-      <p class="ds-hero__meta">{{ 'dataSources.airspace.statusTitle' | translate }}</p>
-    </div>
-    <div class="ds-hero__aside">
-      <input
-        #geoJsonInput
-        type="file"
-        accept=".geojson,.json,application/geo+json,application/json"
-        class="ds-hidden-input"
-        (change)="onAirspaceFileSelected($event)"
-      />
-      <p-button
-        [label]="'dataSources.airspace.import' | translate"
-        icon="pi pi-upload"
-        size="small"
-        [outlined]="true"
-        [loading]="airspaceImporting()"
-        [disabled]="airspaceImporting()"
-        (onClick)="triggerAirspaceImport()"
-      />
-    </div>
-  </section>
-
-  <div class="ds-airspace-grid">
-    <section class="ds-panel gc-card" [attr.aria-label]="'dataSources.airspace.builtinAria' | translate">
-      <header class="gc-panel-head">
-        <h2 class="gc-panel-title">{{ 'dataSources.airspace.builtinTitle' | translate }}</h2>
-      </header>
-      <p class="gc-panel-hint">{{ 'dataSources.airspace.builtinHint' | translate }}</p>
-      <ul class="ds-source-list">
-        @for (source of airspaceSources.builtinSources; track source.id) {
-          <li class="ds-source" [class.ds-source--active]="isActiveAirspaceSource(source.id)">
-            <div class="ds-source__info">
-              <span class="ds-source__label">{{ source.label }}</span>
-              <span class="ds-source__url">POAFF / SIA</span>
-            </div>
-            <p-button
-              [label]="
-                isActiveAirspaceSource(source.id)
-                  ? ('dataSources.airspace.active' | translate)
-                  : ('dataSources.airspace.activate' | translate)
-              "
-              [icon]="isActiveAirspaceSource(source.id) ? 'pi pi-check' : 'pi pi-map'"
-              size="small"
-              [outlined]="!isActiveAirspaceSource(source.id)"
-              [severity]="isActiveAirspaceSource(source.id) ? 'success' : undefined"
-              [disabled]="isActiveAirspaceSource(source.id)"
-              (onClick)="activateAirspaceSource(source.id)"
-            />
-          </li>
-        }
-      </ul>
+      </div>
     </section>
 
-    <section class="ds-panel gc-card" [attr.aria-label]="'dataSources.airspace.customAria' | translate">
-      <header class="gc-panel-head">
-        <h2 class="gc-panel-title">{{ 'dataSources.airspace.customTitle' | translate }}</h2>
-      </header>
-      <p class="gc-panel-hint">{{ 'dataSources.airspace.customHint' | translate }}</p>
-      @if (airspaceSources.customSources().length === 0) {
-        <p class="ds-msg">{{ 'dataSources.airspace.noCustom' | translate }}</p>
-      } @else {
-        <ul class="ds-source-list">
-          @for (source of airspaceSources.customSources(); track source.id) {
-            <li class="ds-source" [class.ds-source--active]="isActiveAirspaceSource(source.id)">
-              <div class="ds-source__info">
-                <span class="ds-source__label">{{ source.label }}</span>
-                <span class="ds-source__url">{{
-                  'dataSources.airspace.featureCount' | translate: { count: source.featureCount }
-                }}</span>
-              </div>
-              <div class="ds-source__actions">
-                <p-button
-                  [label]="
-                    isActiveAirspaceSource(source.id)
-                      ? ('dataSources.airspace.active' | translate)
-                      : ('dataSources.airspace.activate' | translate)
-                  "
-                  [icon]="isActiveAirspaceSource(source.id) ? 'pi pi-check' : 'pi pi-map'"
-                  size="small"
-                  [outlined]="!isActiveAirspaceSource(source.id)"
-                  [severity]="isActiveAirspaceSource(source.id) ? 'success' : undefined"
-                  [disabled]="isActiveAirspaceSource(source.id)"
-                  (onClick)="activateAirspaceSource(source.id)"
-                />
-                <p-button
-                  icon="pi pi-trash"
-                  size="small"
-                  severity="danger"
-                  [text]="true"
-                  [attr.aria-label]="'dataSources.airspace.removeCustom' | translate"
-                  (onClick)="removeCustomAirspace(source.id)"
-                />
-              </div>
-            </li>
-          }
-        </ul>
-      }
-    </section>
-  </div>
-
-  <div class="ds-layout">
-    <section class="ds-layout__primary gc-card" [attr.aria-label]="'cup.panelAria' | translate">
-      <header class="gc-panel-head">
-        <h2 class="gc-panel-title">{{ 'dataSources.loadTitle' | translate }}</h2>
-      </header>
-      <app-cup-toolbar [standalone]="true" (databaseLoaded)="onDatabaseLoaded()" />
-    </section>
-
-    <aside class="ds-layout__aside">
-      <section class="ds-panel gc-card" [attr.aria-label]="'dataSources.knownAria' | translate">
+    <div class="ds-grid">
+      <section class="ds-panel gc-card" [attr.aria-label]="'dataSources.cup.integratedAria' | translate">
         <header class="gc-panel-head">
-          <h2 class="gc-panel-title">{{ 'dataSources.knownTitle' | translate }}</h2>
+          <h3 class="gc-panel-title">{{ 'dataSources.cup.integratedTitle' | translate }}</h3>
         </header>
-        <p class="gc-panel-hint">{{ 'dataSources.knownHint' | translate }}</p>
+        <p class="gc-panel-hint">{{ 'dataSources.cup.integratedHint' | translate }}</p>
         @if (configError(); as err) {
           <p class="ds-msg ds-msg--error">{{ err }}</p>
         } @else if (configSources().length === 0) {
-          <p class="ds-msg">{{ 'dataSources.noKnown' | translate }}</p>
+          <p class="ds-msg">{{ 'dataSources.cup.noIntegrated' | translate }}</p>
         } @else {
           <ul class="ds-source-list">
             @for (source of configSources(); track source.id) {
-              <li class="ds-source" [class.ds-source--active]="isActiveSource(source.url)">
+              <li class="ds-source" [class.ds-source--active]="isActiveCupSource(source.url)">
                 <div class="ds-source__info">
                   <span class="ds-source__label">{{ source.label }}</span>
-                  <span class="ds-source__url" [title]="source.url">{{ source.url }}</span>
+                  <span class="ds-source__url" [title]="source.url">{{
+                    'dataSources.cup.integratedKind' | translate
+                  }}</span>
                 </div>
                 <p-button
-                  [label]="isActiveSource(source.url) ? ('dataSources.loaded' | translate) : ('cup.load' | translate)"
-                  [icon]="isActiveSource(source.url) ? 'pi pi-check' : 'pi pi-download'"
+                  [label]="
+                    isActiveCupSource(source.url)
+                      ? ('dataSources.cup.active' | translate)
+                      : ('dataSources.cup.activate' | translate)
+                  "
+                  [icon]="isActiveCupSource(source.url) ? 'pi pi-check' : 'pi pi-download'"
                   size="small"
-                  [outlined]="!isActiveSource(source.url)"
-                  [severity]="isActiveSource(source.url) ? 'success' : undefined"
+                  [outlined]="!isActiveCupSource(source.url)"
+                  [severity]="isActiveCupSource(source.url) ? 'success' : undefined"
                   [loading]="loadingSource()"
-                  [disabled]="loadingSource() || isActiveSource(source.url)"
+                  [disabled]="loadingSource() || isActiveCupSource(source.url)"
                   (onClick)="loadSource(source)"
                 />
               </li>
@@ -192,48 +130,45 @@
         }
       </section>
 
-      <section class="ds-panel gc-card" [attr.aria-label]="'dataSources.recentsAria' | translate">
+      <section class="ds-panel gc-card" [attr.aria-label]="'dataSources.cup.importedAria' | translate">
         <header class="gc-panel-head">
-          <h2 class="gc-panel-title">{{ 'dataSources.recentsTitle' | translate }}</h2>
-          @if (recentUrls().length > 0) {
-            <p-button
-              [label]="'dataSources.clearRecents' | translate"
-              icon="pi pi-times"
-              size="small"
-              [text]="true"
-              severity="secondary"
-              (onClick)="clearRecents()"
-            />
-          }
+          <h3 class="gc-panel-title">{{ 'dataSources.cup.importedTitle' | translate }}</h3>
         </header>
-        @if (recentUrls().length === 0) {
-          <p class="ds-msg">{{ 'dataSources.noRecents' | translate }}</p>
+        <p class="gc-panel-hint">{{ 'dataSources.cup.importedHint' | translate }}</p>
+        @if (cupImported.imports().length === 0) {
+          <p class="ds-msg">{{ 'dataSources.cup.noImported' | translate }}</p>
         } @else {
           <ul class="ds-source-list">
-            @for (url of recentUrls(); track url) {
-              <li class="ds-source" [class.ds-source--active]="isActiveSource(url)">
+            @for (source of cupImported.imports(); track source.id) {
+              <li class="ds-source" [class.ds-source--active]="isActiveCupImport(source.id)">
                 <div class="ds-source__info">
-                  <span class="ds-source__label">{{ 'dataSources.recentLabel' | translate }}</span>
-                  <span class="ds-source__url" [title]="url">{{ url }}</span>
+                  <span class="ds-source__label">{{ source.label }}</span>
+                  <span class="ds-source__url">{{
+                    'dataSources.cup.waypointCount' | translate: { count: source.waypointCount }
+                  }}</span>
                 </div>
                 <div class="ds-source__actions">
                   <p-button
-                    [label]="isActiveSource(url) ? ('dataSources.loaded' | translate) : ('cup.load' | translate)"
-                    [icon]="isActiveSource(url) ? 'pi pi-check' : 'pi pi-download'"
+                    [label]="
+                      isActiveCupImport(source.id)
+                        ? ('dataSources.cup.active' | translate)
+                        : ('dataSources.cup.activate' | translate)
+                    "
+                    [icon]="isActiveCupImport(source.id) ? 'pi pi-check' : 'pi pi-map'"
                     size="small"
-                    [outlined]="!isActiveSource(url)"
-                    [severity]="isActiveSource(url) ? 'success' : undefined"
+                    [outlined]="!isActiveCupImport(source.id)"
+                    [severity]="isActiveCupImport(source.id) ? 'success' : undefined"
                     [loading]="loadingSource()"
-                    [disabled]="loadingSource() || isActiveSource(url)"
-                    (onClick)="loadRecent(url)"
+                    [disabled]="loadingSource() || isActiveCupImport(source.id)"
+                    (onClick)="activateCupImport(source.id)"
                   />
                   <p-button
                     icon="pi pi-trash"
                     size="small"
                     severity="danger"
                     [text]="true"
-                    [attr.aria-label]="'dataSources.removeRecent' | translate"
-                    (onClick)="removeRecent(url)"
+                    [attr.aria-label]="'dataSources.cup.removeImported' | translate"
+                    (onClick)="removeCupImport(source.id)"
                   />
                 </div>
               </li>
@@ -241,6 +176,146 @@
           </ul>
         }
       </section>
-    </aside>
+    </div>
+
+    <section class="ds-url-bar gc-card" [attr.aria-label]="'dataSources.cup.urlAria' | translate">
+      <span class="gc-field-label">{{ 'dataSources.cup.urlTitle' | translate }}</span>
+      <div class="ds-url-bar__row">
+        <input
+          pInputText
+          fluid
+          pSize="small"
+          class="ds-url-bar__input"
+          type="url"
+          [placeholder]="'dataSources.cup.urlPlaceholder' | translate"
+          [ngModel]="cupUrlInput()"
+          (ngModelChange)="cupUrlInput.set($event)"
+          [disabled]="loadingSource()"
+        />
+        <p-button
+          [label]="'dataSources.cup.urlLoad' | translate"
+          icon="pi pi-download"
+          size="small"
+          [loading]="loadingSource()"
+          [disabled]="loadingSource() || !cupUrlInput().trim()"
+          (onClick)="loadFromUrlInput()"
+        />
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ——— Espaces aériens ——— -->
+  <div class="ds-block">
+    <h2 class="ds-block__heading">{{ 'dataSources.airspace.sectionTitle' | translate }}</h2>
+
+    <section class="ds-hero gc-card" [attr.aria-label]="'dataSources.airspace.statusAria' | translate">
+      <div class="ds-hero__icon" aria-hidden="true">
+        <i class="pi pi-globe"></i>
+      </div>
+      <div class="ds-hero__main">
+        <p class="ds-hero__badge">{{ 'dataSources.airspace.activeBadge' | translate }}</p>
+        <h3 class="ds-hero__name">{{ activeAirspaceLabel() }}</h3>
+        <p class="ds-hero__kind">{{ 'dataSources.airspace.statusTitle' | translate }}</p>
+      </div>
+      <div class="ds-hero__aside">
+        <div class="ds-hero__actions">
+          <input
+            #geoJsonInput
+            type="file"
+            accept=".geojson,.json,application/geo+json,application/json"
+            class="ds-hidden-input"
+            (change)="onAirspaceFileSelected($event)"
+          />
+          <p-button
+            [label]="'dataSources.airspace.import' | translate"
+            icon="pi pi-upload"
+            size="small"
+            [outlined]="true"
+            [loading]="airspaceImporting()"
+            [disabled]="airspaceImporting()"
+            (onClick)="triggerAirspaceImport()"
+          />
+        </div>
+      </div>
+    </section>
+
+    <div class="ds-grid">
+      <section class="ds-panel gc-card" [attr.aria-label]="'dataSources.airspace.builtinAria' | translate">
+        <header class="gc-panel-head">
+          <h3 class="gc-panel-title">{{ 'dataSources.airspace.builtinTitle' | translate }}</h3>
+        </header>
+        <p class="gc-panel-hint">{{ 'dataSources.airspace.builtinHint' | translate }}</p>
+        <ul class="ds-source-list">
+          @for (source of airspaceSources.builtinSources; track source.id) {
+            <li class="ds-source" [class.ds-source--active]="isActiveAirspaceSource(source.id)">
+              <div class="ds-source__info">
+                <span class="ds-source__label">{{ source.label }}</span>
+                <span class="ds-source__url">POAFF / SIA</span>
+              </div>
+              <p-button
+                [label]="
+                  isActiveAirspaceSource(source.id)
+                    ? ('dataSources.airspace.active' | translate)
+                    : ('dataSources.airspace.activate' | translate)
+                "
+                [icon]="isActiveAirspaceSource(source.id) ? 'pi pi-check' : 'pi pi-map'"
+                size="small"
+                [outlined]="!isActiveAirspaceSource(source.id)"
+                [severity]="isActiveAirspaceSource(source.id) ? 'success' : undefined"
+                [disabled]="isActiveAirspaceSource(source.id)"
+                (onClick)="activateAirspaceSource(source.id)"
+              />
+            </li>
+          }
+        </ul>
+      </section>
+
+      <section class="ds-panel gc-card" [attr.aria-label]="'dataSources.airspace.customAria' | translate">
+        <header class="gc-panel-head">
+          <h3 class="gc-panel-title">{{ 'dataSources.airspace.customTitle' | translate }}</h3>
+        </header>
+        <p class="gc-panel-hint">{{ 'dataSources.airspace.customHint' | translate }}</p>
+        @if (airspaceSources.customSources().length === 0) {
+          <p class="ds-msg">{{ 'dataSources.airspace.noCustom' | translate }}</p>
+        } @else {
+          <ul class="ds-source-list">
+            @for (source of airspaceSources.customSources(); track source.id) {
+              <li class="ds-source" [class.ds-source--active]="isActiveAirspaceSource(source.id)">
+                <div class="ds-source__info">
+                  <span class="ds-source__label">{{ source.label }}</span>
+                  <span class="ds-source__url">{{
+                    'dataSources.airspace.featureCount' | translate: { count: source.featureCount }
+                  }}</span>
+                </div>
+                <div class="ds-source__actions">
+                  <p-button
+                    [label]="
+                      isActiveAirspaceSource(source.id)
+                        ? ('dataSources.airspace.active' | translate)
+                        : ('dataSources.airspace.activate' | translate)
+                    "
+                    [icon]="isActiveAirspaceSource(source.id) ? 'pi pi-check' : 'pi pi-map'"
+                    size="small"
+                    [outlined]="!isActiveAirspaceSource(source.id)"
+                    [severity]="isActiveAirspaceSource(source.id) ? 'success' : undefined"
+                    [disabled]="isActiveAirspaceSource(source.id)"
+                    (onClick)="activateAirspaceSource(source.id)"
+                  />
+                  <p-button
+                    icon="pi pi-trash"
+                    size="small"
+                    severity="danger"
+                    [text]="true"
+                    [attr.aria-label]="'dataSources.airspace.removeCustom' | translate"
+                    (onClick)="removeCustomAirspace(source.id)"
+                  />
+                </div>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+    </div>
   </div>
 </div>

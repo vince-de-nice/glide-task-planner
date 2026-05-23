@@ -1,0 +1,18 @@
+{
+  "generatedAt": "2026-05-23T13:09:37.780Z",
+  "cupDir": "/assets/cup",
+  "defaultUrl": "/assets/cup/aapca%20waypoints%2011%20juin%202025.cup",
+  "defaultLabel": "aapca waypoints 11 juin 2025",
+  "sources": [
+    {
+      "id": "aapca-waypoints-11-juin-2025",
+      "label": "aapca waypoints 11 juin 2025",
+      "url": "/assets/cup/aapca%20waypoints%2011%20juin%202025.cup"
+    },
+    {
+      "id": "vinon2026-v2",
+      "label": "Vinon2026-V2",
+      "url": "/assets/cup/Vinon2026-V2.cup"
+    }
+  ]
+}

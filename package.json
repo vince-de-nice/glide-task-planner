@@ -5,8 +5,11 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
+    "cup:manifest": "node scripts/generate-cup-integrated-manifest.mjs",
+    "prestart": "npm run cup:manifest",
     "airspace:fetch": "node scripts/fetch-poaff-airspace.mjs",
     "build": "ng build",
+    "prebuild": "npm run cup:manifest",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "lint": "ng lint",
