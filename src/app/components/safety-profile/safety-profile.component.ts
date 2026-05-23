@@ -7,6 +7,7 @@ import {
   ElementRef,
   inject,
   Injector,
+  NgZone,
   OnDestroy,
   OnInit,
   signal,
@@ -107,7 +108,15 @@ import {
   type SafetyConeMeshSpec,
   type SafetyConeThreeCustomLayer
 } from '../../utils/safety-cone-three-layer.util';
-import { buildConeRingLabelsGeoJson } from '../../utils/safety-cone-ring-labels.util';
+import { buildConeRingLabelSpecs } from '../../utils/safety-cone-ring-labels.util';
+import {
+  buildSafetyMinAltitudeCrossingLabelSpecs,
+  collectActiveConeCrossings
+} from '../../utils/safety-cone-crossings.util';
+import {
+  projectMap3dLabelsToScreen,
+  type Map3dLabelSpec
+} from '../../utils/map-3d-labels.util';
 import { computeProfileLegCameraFit } from '../../utils/safety-profile-map-fit.util';
 import { formatAirspaceVerticalRange } from '../../utils/airspace-altitude.util';
 import { ensureMapterhornGrayProtocolRegistered } from '../../utils/map-basemap.util';
@@ -135,7 +144,6 @@ const PROFILE_MAP_SOURCE = {
   BRANCHES: 'safety-profile-branches',
   POINTS: 'safety-profile-points',
   LANDABLE_HIGHLIGHT: 'safety-profile-landable-highlight',
-  CONE_RING_LABELS: 'safety-profile-cone-ring-labels',
   CURSOR: 'safety-profile-cursor',
   CURSOR_TRACK: 'safety-profile-cursor-track',
   AIRSPACE_HOVER_FILL: 'safety-profile-airspace-hover-fill',
@@ -150,7 +158,6 @@ const PROFILE_MAP_LAYER = {
   LANDABLE_HIGHLIGHT_RING: 'safety-profile-landable-highlight-ring',
   LANDABLE_HIGHLIGHT: 'safety-profile-landable-highlight',
   LANDABLE_HIGHLIGHT_LABEL: 'safety-profile-landable-highlight-label',
-  CONE_RING_LABELS: 'safety-profile-cone-ring-labels',
   CURSOR_TRACK: 'safety-profile-cursor-track',
   CURSOR_POINT: 'safety-profile-cursor-point',
   AIRSPACE_HOVER_FILL: 'safety-profile-airspace-hover-fill',
@@ -168,7 +175,6 @@ const PROFILE_LAYER_STACK: readonly string[] = [
   PROFILE_MAP_LAYER.LANDABLE_HIGHLIGHT_RING,
   PROFILE_MAP_LAYER.LANDABLE_HIGHLIGHT,
   PROFILE_MAP_LAYER.LANDABLE_HIGHLIGHT_LABEL,
-  PROFILE_MAP_LAYER.CONE_RING_LABELS,
   PROFILE_MAP_LAYER.CURSOR_TRACK,
   PROFILE_MAP_LAYER.CURSOR_POINT,
   PROFILE_MAP_LAYER.AIRSPACE_HOVER_FILL,
@@ -210,6 +216,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   private readonly airspaceMapDisplay = inject(AirspaceMapDisplayService);
   private readonly airspaceDataSource = inject(AirspaceDataSourceService);
   private readonly bgActivity = inject(BackgroundActivityService);
+  private readonly ngZone = inject(NgZone);
   private readonly airspaceScreenId = 'safety-profile' as const;
 
   /** Liste défilable des terrains (colonne droite de la coupe). */
@@ -304,6 +311,12 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   readonly selectedLandableId = signal<string | null>(null);
   /** Zone espace aérien survolée dans la liste. */
   readonly hoveredAirspaceZoneKey = signal<string | null>(null);
+  /** Libellés 3D projetés (croisements + anneaux cônes), face caméra. */
+  readonly mapLabelScreens = signal<
+    ReturnType<typeof projectMap3dLabelsToScreen>
+  >([]);
+  private map3dLabelSpecs: Map3dLabelSpec[] = [];
+  private mapLabelRenderHandler: (() => void) | null = null;
 
   readonly activeLegAirspaceToggles = computed(() => {
     const legIdx = this.selectedLegIndex();
@@ -541,6 +554,15 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     if (!map) {
       return;
     }
+
+    if (this.mapLabelRenderHandler) {
+      try {
+        map.off('render', this.mapLabelRenderHandler);
+      } catch { /* */ }
+      this.mapLabelRenderHandler = null;
+    }
+    this.map3dLabelSpecs = [];
+    this.mapLabelScreens.set([]);
 
     this.airspaceMapDisplay.invalidateAndClearFromMap(map);
 
@@ -1004,6 +1026,8 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     map.addLayer(this.safetyConesLayer);
     this.safetyMinAltitudeLayer = createSafetyMinAltitudeCustomLayer();
     map.addLayer(this.safetyMinAltitudeLayer);
+    this.mapLabelRenderHandler = () => this.syncMapLabelScreens();
+    map.on('render', this.mapLabelRenderHandler);
 
     map.addSource(PROFILE_MAP_SOURCE.POINTS, { type: 'geojson', data: EMPTY_FC });
     map.addLayer({
@@ -1143,33 +1167,6 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
         'line-color': '#b45309',
         'line-width': 3,
         'line-opacity': 0.95
-      }
-    });
-
-    map.addSource(PROFILE_MAP_SOURCE.CONE_RING_LABELS, {
-      type: 'geojson',
-      data: EMPTY_FC
-    });
-    map.addLayer({
-      id: PROFILE_MAP_LAYER.CONE_RING_LABELS,
-      type: 'symbol',
-      source: PROFILE_MAP_SOURCE.CONE_RING_LABELS,
-      layout: {
-        'text-field': ['get', 'label'],
-        'text-font': [...MAP_TEXT_FONT_BOLD],
-        'text-size': 11,
-        'text-anchor': 'center',
-        'text-rotation-alignment': 'viewport',
-        'text-pitch-alignment': 'viewport',
-        'text-rotate': 0,
-        'text-allow-overlap': true,
-        'text-ignore-placement': true,
-        'text-optional': false
-      },
-      paint: {
-        'text-color': ['get', 'color'],
-        'text-halo-color': '#ffffff',
-        'text-halo-width': 2
       }
     });
 
@@ -1970,14 +1967,76 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     if (!leg) {
       layer.setPath([]);
       layer.setVisible(false);
+      this.updateSafetyMinAltitudeCrossingLabels();
       return;
     }
 
     const path = buildSafetyMinAltitudePath(leg.envelope.samples);
     layer.setPath(path);
     layer.setVisible(path.length >= 2);
+    this.updateSafetyMinAltitudeCrossingLabels();
     this.repositionProfileMapLayers();
     this.map?.triggerRepaint();
+  }
+
+  private updateSafetyMinAltitudeCrossingLabels(): void {
+    const layer = this.safetyMinAltitudeLayer;
+    if (!layer) return;
+
+    const leg = this.activeLegRender();
+    const pathVisible =
+      leg != null && leg.envelope.samples.length >= 2;
+
+    if (!pathVisible) {
+      layer.setCrossingLabels([]);
+      this.refreshMap3dLabelSpecs([], undefined);
+      return;
+    }
+
+    const colorById = new Map(
+      leg!.landableToggles.map(t => [t.id, t.color] as const)
+    );
+    const hits = collectActiveConeCrossings(
+      leg!.envelope.landableCones,
+      leg!.envelope.samples,
+      id => colorById.get(id) ?? landableColorFromId(id)
+    );
+    const crossingSpecs = buildSafetyMinAltitudeCrossingLabelSpecs(
+      hits,
+      leg!.envelope.samples
+    );
+    layer.setCrossingLabels(crossingSpecs);
+    this.refreshMap3dLabelSpecs(crossingSpecs, undefined);
+  }
+
+  private refreshMap3dLabelSpecs(
+    crossingSpecs: readonly Map3dLabelSpec[],
+    coneRingSpecs: readonly Map3dLabelSpec[] | undefined
+  ): void {
+    const ringSpecs =
+      coneRingSpecs ??
+      this.map3dLabelSpecs.filter(s => s.key.startsWith('ring-'));
+    this.map3dLabelSpecs = [...crossingSpecs, ...ringSpecs];
+    this.syncMapLabelScreens();
+    this.map?.triggerRepaint();
+  }
+
+  private syncMapLabelScreens(): void {
+    const map = this.map;
+    const matrix =
+      this.safetyMinAltitudeLayer?.getLastProjectionMatrix() ??
+      this.safetyConesLayer?.getLastProjectionMatrix();
+    if (!map || !matrix || this.map3dLabelSpecs.length === 0) {
+      this.ngZone.run(() => this.mapLabelScreens.set([]));
+      return;
+    }
+
+    const screens = projectMap3dLabelsToScreen(
+      this.map3dLabelSpecs,
+      matrix,
+      map.getCanvas()
+    );
+    this.ngZone.run(() => this.mapLabelScreens.set(screens));
   }
 
   private updateSafetyCones3d(): void {
@@ -2025,26 +2084,18 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     layer.setPartVisibility(showVolumes, showRings);
     layer.setVisible(specs.length > 0);
     this.updateConeRingLabels(specs);
+    this.updateSafetyMinAltitudeCrossingLabels();
     this.repositionProfileMapLayers();
     this.map?.triggerRepaint();
   }
 
   private updateConeRingLabels(specs: readonly SafetyConeMeshSpec[]): void {
-    const map = this.map;
-    if (!map) return;
-    const source = map.getSource(PROFILE_MAP_SOURCE.CONE_RING_LABELS);
-    if (!source || source.type !== 'geojson') return;
-
     const visible = this.coneDistanceRingsVisible() && specs.length > 0;
-    const fc = visible ? buildConeRingLabelsGeoJson(specs) : EMPTY_FC;
-    (source as GeoJSONSource).setData(fc);
-    if (map.getLayer(PROFILE_MAP_LAYER.CONE_RING_LABELS)) {
-      map.setLayoutProperty(
-        PROFILE_MAP_LAYER.CONE_RING_LABELS,
-        'visibility',
-        visible ? 'visible' : 'none'
-      );
-    }
+    const ringSpecs = visible ? buildConeRingLabelSpecs(specs) : [];
+    const crossingSpecs = this.map3dLabelSpecs.filter(
+      s => !s.key.startsWith('ring-')
+    );
+    this.refreshMap3dLabelSpecs(crossingSpecs, ringSpecs);
   }
 
   private fitToActiveLeg(): void {

@@ -1,6 +1,6 @@
-import type { Feature, FeatureCollection, Point } from 'geojson';
 import { formatMetersDisplay } from './airspace-altitude.util';
 import { destinationPoint } from './obs-zone-map.util';
+import type { Map3dLabelSpec } from './map-3d-labels.util';
 import { landableMapLabelColorFromHex } from './safety-profile-palette.util';
 import {
   coneSurfaceRingDiametersKm,
@@ -9,6 +9,9 @@ import {
 
 /** Cap vers l'est (axe O–E) pour placer le libellé sur le cercle. */
 const LABEL_BEARING_EAST_DEG = 90;
+
+/** Décalage MSL au-dessus de l’anneau pour lisibilité. */
+const CONE_RING_LABEL_OFFSET_M = 40;
 
 /** Arrondi à la cinquantaine de mètres supérieure (ex. 2430 → 2450). */
 export function roundAltitudeToUpper50M(altitudeM: number): number {
@@ -35,11 +38,11 @@ export function coneSafetyAltitudeAtRingDiameterM(
   return tipAltitudeM + ySliceM;
 }
 
-/** Points de libellé (côté est de chaque anneau de distance du cône). */
-export function buildConeRingLabelsGeoJson(
+/** Libellés 3D sur les anneaux de distance des cônes (altitude réelle MSL). */
+export function buildConeRingLabelSpecs(
   specs: readonly SafetyConeMeshSpec[]
-): FeatureCollection<Point> {
-  const features: Feature<Point>[] = [];
+): Map3dLabelSpec[] {
+  const labels: Map3dLabelSpec[] = [];
 
   for (const spec of specs) {
     for (const diameterKm of coneSurfaceRingDiametersKm(spec.mapDisplayRadiusKm)) {
@@ -59,21 +62,16 @@ export function buildConeRingLabelsGeoJson(
         radiusM
       );
 
-      features.push({
-        type: 'Feature',
-        properties: {
-          label: formatConeRingAltitudeLabel(altitudeM),
-          color: landableMapLabelColorFromHex(spec.color),
-          coneId: spec.id,
-          diameterKm: String(diameterKm)
-        },
-        geometry: {
-          type: 'Point',
-          coordinates: [lon, lat]
-        }
+      labels.push({
+        key: `ring-${spec.id}-${diameterKm}`,
+        longitude: lon,
+        latitude: lat,
+        altitudeM: altitudeM + CONE_RING_LABEL_OFFSET_M,
+        label: formatConeRingAltitudeLabel(altitudeM),
+        color: landableMapLabelColorFromHex(spec.color)
       });
     }
   }
 
-  return { type: 'FeatureCollection', features };
+  return labels;
 }

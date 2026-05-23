@@ -184,6 +184,30 @@
   position: relative;
 }
 
+.safety-profile__map-labels {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.safety-profile__map-label {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--gc-font, system-ui, sans-serif);
+  line-height: 1.1;
+  white-space: nowrap;
+  text-shadow:
+    -1px -1px 0 #fff,
+    1px -1px 0 #fff,
+    -1px 1px 0 #fff,
+    1px 1px 0 #fff,
+    0 0 2px #fff;
+}
+
 .safety-profile__map-controls {
   position: absolute;
   top: 0.5rem;

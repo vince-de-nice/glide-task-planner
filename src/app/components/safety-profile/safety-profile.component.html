@@ -83,6 +83,18 @@
             [keyboard]="true"
             (mapLoad)="onMapLoad($event)"
           />
+          @if (mapLabelScreens().length > 0) {
+            <div class="safety-profile__map-labels" aria-hidden="true">
+              @for (item of mapLabelScreens(); track item.key) {
+                <span
+                  class="safety-profile__map-label"
+                  [style.left.px]="item.x"
+                  [style.top.px]="item.y"
+                  [style.color]="item.color"
+                >{{ item.label }}</span>
+              }
+            </div>
+          }
           <div class="safety-profile__map-controls">
             @if (basemapPanelExpanded()) {
               <div

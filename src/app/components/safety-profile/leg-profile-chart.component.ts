@@ -16,7 +16,10 @@ import type {
   LandableConeSample,
   LandableConeVisual
 } from '../../services/glide-envelope.service';
-import { findCurvePairCrossings } from '../../utils/landable-cone-intersection.util';
+import {
+  collectActiveConeCrossings,
+  interpolateSafetyM
+} from '../../utils/safety-cone-crossings.util';
 import { landableColorFromId } from '../../utils/safety-profile-palette.util';
 import {
   buildQualityAreaPath,
@@ -512,42 +515,16 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
     const yM = (m: number): number =>
       g.padding.top + plotH - ((m - g.yMin) / (g.yMax - g.yMin)) * plotH;
 
-    const raw: Omit<ConeIntersectionMark, 'labelY'>[] = [];
-
-    for (const cone of cones) {
-      const color = this.landableColor(cone.id);
-      const safetyHits = findCurveLineCrossings(
-        cone.curve,
-        data,
-        distKm => interpolateSafetyM(data, distKm),
-        xKm,
-        yM
-      );
-      for (let i = 0; i < safetyHits.length; i++) {
-        raw.push({
-          key: `safety-${cone.id}-${i}`,
-          x: safetyHits[i].x,
-          y: safetyHits[i].y,
-          text: `${Math.round(safetyHits[i].altM)} m`,
-          color
-        });
-      }
-    }
-
-    for (let a = 0; a < cones.length; a++) {
-      for (let b = a + 1; b < cones.length; b++) {
-        const hits = findCurvePairCrossings(cones[a].curve, cones[b].curve);
-        for (let i = 0; i < hits.length; i++) {
-          raw.push({
-            key: `pair-${cones[a].id}-${cones[b].id}-${i}`,
-            x: xKm(hits[i].distanceKm),
-            y: yM(hits[i].altitudeM),
-            text: `${Math.round(hits[i].altitudeM)} m`,
-            color: this.landableColor(cones[a].id)
-          });
-        }
-      }
-    }
+    const hits = collectActiveConeCrossings(cones, data, id =>
+      this.landableColor(id)
+    );
+    const raw: Omit<ConeIntersectionMark, 'labelY'>[] = hits.map(hit => ({
+      key: hit.key,
+      x: xKm(hit.distanceKm),
+      y: yM(hit.altitudeM),
+      text: formatMetersDisplay(Math.round(hit.altitudeM)),
+      color: hit.color
+    }));
 
     return dedupeIntersectionMarks(raw, g.padding.top);
   });
@@ -863,47 +840,6 @@ function crossingWithSafety(
   };
 }
 
-interface CurveCrossHit {
-  distKm: number;
-  altM: number;
-  x: number;
-  y: number;
-}
-
-function findCurveLineCrossings(
-  curve: LandableConeSample[],
-  samples: EnvelopeSample[],
-  lineAltAt: (distKm: number) => number | null,
-  xKm: (km: number) => number,
-  yM: (m: number) => number
-): CurveCrossHit[] {
-  const hits: CurveCrossHit[] = [];
-  for (let i = 1; i < curve.length; i++) {
-    const a = curve[i - 1];
-    const b = curve[i];
-    const lineA = lineAltAt(a.distanceKm);
-    const lineB = lineAltAt(b.distanceKm);
-    if (lineA == null || lineB == null) continue;
-    const fa = a.altitudeM - lineA;
-    const fb = b.altitudeM - lineB;
-    if (fa * fb >= 0) continue;
-    const t = fa / (fa - fb);
-    const distKm = a.distanceKm + t * (b.distanceKm - a.distanceKm);
-    const coneAlt = a.altitudeM + t * (b.altitudeM - a.altitudeM);
-    const lineAlt =
-      interpolateSafetyM(samples, distKm) ??
-      lineA + t * (lineB - lineA);
-    const altM = (coneAlt + lineAlt) / 2;
-    hits.push({
-      distKm,
-      altM,
-      x: xKm(distKm),
-      y: yM(altM)
-    });
-  }
-  return hits;
-}
-
 function dedupeIntersectionMarks(
   marks: Omit<ConeIntersectionMark, 'labelY'>[],
   plotTop: number
@@ -924,26 +860,6 @@ function dedupeIntersectionMarks(
     });
   }
   return kept;
-}
-
-function interpolateSafetyM(
-  samples: EnvelopeSample[],
-  alongKm: number
-): number | null {
-  if (samples.length === 0) return null;
-  if (alongKm <= samples[0].distanceKm) return samples[0].safetyM;
-  const last = samples[samples.length - 1];
-  if (alongKm >= last.distanceKm) return last.safetyM;
-  for (let i = 0; i < samples.length - 1; i++) {
-    const a = samples[i];
-    const b = samples[i + 1];
-    if (alongKm >= a.distanceKm && alongKm <= b.distanceKm) {
-      if (a.safetyM == null || b.safetyM == null) return a.safetyM ?? b.safetyM;
-      const t = (alongKm - a.distanceKm) / (b.distanceKm - a.distanceKm);
-      return a.safetyM + t * (b.safetyM - a.safetyM);
-    }
-  }
-  return null;
 }
 
 function interpolateTerrainM(

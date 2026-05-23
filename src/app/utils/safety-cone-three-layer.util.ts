@@ -118,6 +118,7 @@ export class SafetyConeThreeCustomLayer implements CustomLayerInterface {
   private readonly meshes: THREE.Object3D[] = [];
   private specs: SafetyConeMeshSpec[] = [];
   private visible = false;
+  private lastProjectionMatrix: ArrayLike<number> | null = null;
   private showConeVolumes = true;
   private showDistanceRings = true;
 
@@ -130,6 +131,10 @@ export class SafetyConeThreeCustomLayer implements CustomLayerInterface {
   setVisible(visible: boolean): void {
     this.visible = visible;
     this.map?.triggerRepaint();
+  }
+
+  getLastProjectionMatrix(): ArrayLike<number> | null {
+    return this.lastProjectionMatrix;
   }
 
   /** Affichage indépendant des volumes et des anneaux de distance sur le cône. */
@@ -167,7 +172,10 @@ export class SafetyConeThreeCustomLayer implements CustomLayerInterface {
   }
 
   render(_gl: WebGLRenderingContext | WebGL2RenderingContext, args: CustomRenderMethodInput): void {
-    if (!this.renderer || !this.visible || this.meshes.length === 0) return;
+    if (!this.renderer) return;
+
+    this.lastProjectionMatrix = args.defaultProjectionData.mainMatrix;
+    if (!this.visible || this.meshes.length === 0) return;
 
     const projection = new THREE.Matrix4().fromArray(
       args.defaultProjectionData.mainMatrix

@@ -9,6 +9,7 @@ import {
   type Map as MaplibreMap
 } from 'maplibre-gl';
 import type { EnvelopeSample } from '../services/glide-envelope.service';
+import type { SafetyMinAltitudeCrossingLabelSpec } from './safety-cone-crossings.util';
 import { SAFETY_PROFILE_SEMANTIC } from './safety-profile-palette.util';
 
 export const SAFETY_MIN_ALTITUDE_LAYER_ID = 'safety-profile-min-altitude-3d';
@@ -66,6 +67,8 @@ export class SafetyMinAltitudeThreeCustomLayer implements CustomLayerInterface {
     side: THREE.DoubleSide
   });
   private path: SafetyMinAltitudePoint[] = [];
+  private crossingLabels: SafetyMinAltitudeCrossingLabelSpec[] = [];
+  private lastProjectionMatrix: ArrayLike<number> | null = null;
   private visible = false;
   private positionsDirty = true;
 
@@ -74,6 +77,15 @@ export class SafetyMinAltitudeThreeCustomLayer implements CustomLayerInterface {
     this.positionsDirty = true;
     this.rebuildRibbon();
     this.map?.triggerRepaint();
+  }
+
+  setCrossingLabels(labels: SafetyMinAltitudeCrossingLabelSpec[]): void {
+    this.crossingLabels = labels;
+    this.map?.triggerRepaint();
+  }
+
+  getLastProjectionMatrix(): ArrayLike<number> | null {
+    return this.lastProjectionMatrix;
   }
 
   setVisible(visible: boolean): void {
@@ -100,6 +112,7 @@ export class SafetyMinAltitudeThreeCustomLayer implements CustomLayerInterface {
     }
     cancelAnimationFrame(this.mapChangeRaf);
     this.disposeMesh();
+    this.lastProjectionMatrix = null;
     this.renderer = null;
     this.map = null;
   }
@@ -114,7 +127,12 @@ export class SafetyMinAltitudeThreeCustomLayer implements CustomLayerInterface {
   };
 
   render(_gl: WebGLRenderingContext | WebGL2RenderingContext, args: CustomRenderMethodInput): void {
-    if (!this.renderer || !this.visible || !this.mesh || this.path.length < 2) return;
+    if (!this.renderer) return;
+
+    this.lastProjectionMatrix = args.defaultProjectionData.mainMatrix;
+
+    const showRibbon = this.visible && this.mesh != null && this.path.length >= 2;
+    if (!showRibbon) return;
 
     if (this.positionsDirty) {
       this.syncRibbonPositions();
@@ -124,9 +142,10 @@ export class SafetyMinAltitudeThreeCustomLayer implements CustomLayerInterface {
     const projection = new THREE.Matrix4().fromArray(
       args.defaultProjectionData.mainMatrix
     );
+
     this.renderer.resetState();
     this.camera.projectionMatrix = projection;
-    this.renderer.render(this.mesh, this.camera);
+    this.renderer.render(this.mesh!, this.camera);
   }
 
   private rebuildRibbon(): void {
