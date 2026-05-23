@@ -195,10 +195,10 @@ export class SafetyConeThreeCustomLayer implements CustomLayerInterface {
       /*
        * ConeGeometry (Three.js) : apex en +Y par défaut.
        * Sommet (terrain posable) à l’origine locale, base large vers −Y (altitude croissante
-       * après transform MapLibre — pointe vers le bas sur la carte).
-       */
+         */
       const geometry = new THREE.ConeGeometry(radiusM, heightM, 48, 1, false);
       geometry.translate(0, -heightM / 2, 0);
+      geometry.rotateX(Math.PI);
 
       /* BasicMaterial : la couleur ne dépend pas de l'éclairage (incompatible avec la caméra custom). */
       const material = new THREE.MeshBasicMaterial({
@@ -338,7 +338,7 @@ function buildConeSurfaceRingTubeGeometry(
     path.push(
       new THREE.Vector3(
         circleRadiusM * Math.cos(t),
-        -ySliceM,
+        ySliceM,
         circleRadiusM * Math.sin(t)
       )
     );
