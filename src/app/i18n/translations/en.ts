@@ -182,7 +182,7 @@ export const en = {
       pilotEmpty: 'Not set — required for a complete FLARM export',
       sectionFormats: 'File formats',
       flarmHint: 'FLARM: restart the device after copying to SD/USB.',
-      sectionLibrary: 'Library',
+      sectionActions: 'Actions',
       taskMeta: '{{task}} km task',
       taskMetaTotal: ' · {{total}} km total',
       taskMetaPoints: ' · {{count}} waypoint(s)',

@@ -130,7 +130,7 @@ export const fr = {
       pilotEmpty: 'Non renseigné — requis pour un export FLARM complet',
       sectionFormats: 'Formats de fichier',
       flarmHint: 'FLARM : redémarrer l’appareil après copie sur SD/USB.',
-      sectionLibrary: 'Bibliothèque',
+      sectionActions: 'Actions',
       taskMeta: '{{task}} km tâche',
       taskMetaTotal: ' · {{total}} km total',
       taskMetaPoints: ' · {{count}} point(s)',

@@ -159,7 +159,6 @@
             [distanceResult]="distanceResult()"
             (goToRegulation)="goToRegulationSection()"
             (openPilot)="openPilotDialog()"
-            (openCircuits)="openCircuitsDialog()"
             (openPreview)="openPreviewDialog()"
             (requestClearTask)="clearTaskWithConfirm()"
             (downloadFlarm)="downloadFlarm()"
@@ -197,13 +196,4 @@
   [defaultRadiusM]="legZoneDefaultRadiusM()"
   [allowedPresetIds]="allowedPresetsForLeg(legZoneEditIndex())"
   (saved)="onLegZoneSaved($event)"
-/>
-
-<app-circuits-library-dialog
-  [visible]="circuitsDialogOpen()"
-  (visibleChange)="onCircuitsDialogVisible($event)"
-  [canSave]="canSaveCircuit()"
-  [selectedCircuitId]="activeCircuitId()"
-  (saveRequested)="onCircuitSaveRequest($event)"
-  (circuitLoaded)="onCircuitLoaded($event)"
 />

@@ -39,7 +39,6 @@ export class CircuitExportPanelComponent {
 
   goToRegulation = output<void>();
   openPilot = output<void>();
-  openCircuits = output<void>();
   openPreview = output<void>();
   requestClearTask = output<void>();
   exportFormat = output<TaskExportFormat>();

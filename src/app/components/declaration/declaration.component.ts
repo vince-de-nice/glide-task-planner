@@ -30,8 +30,6 @@ import { CupSourceShortcutComponent } from './cup-source-shortcut/cup-source-sho
 import { WaypointPickerDrawerComponent } from './waypoint-picker-drawer/waypoint-picker-drawer.component';
 import { PilotProfileDialogComponent } from './pilot-profile-dialog/pilot-profile-dialog.component';
 import { TaskExportPreviewDialogComponent } from './task-export-preview-dialog/task-export-preview-dialog.component';
-import { CircuitsLibraryDialogComponent } from './circuits-library-dialog/circuits-library-dialog.component';
-import { SavedCircuitService } from '../../services/saved-circuit.service';
 import { FlarmDeclaration } from '../../models/flarm-profile.model';
 import { Waypoint } from '../../models/waypoint.model';
 import { FlarmProfileService } from '../../services/flarm-profile.service';
@@ -66,7 +64,6 @@ const LEGACY_CIRCUIT_TAB_KEY = 'gc_circuit_tab';
     WaypointPickerDrawerComponent,
     PilotProfileDialogComponent,
     TaskExportPreviewDialogComponent,
-    CircuitsLibraryDialogComponent,
     SelectButton,
     CircuitLegZoneDialogComponent,
     TaskRegulationPanelComponent,
@@ -77,7 +74,6 @@ const LEGACY_CIRCUIT_TAB_KEY = 'gc_circuit_tab';
 })
 export class DeclarationComponent implements OnInit, AfterViewInit {
   @ViewChild(CircuitMapShellComponent) mapShell?: CircuitMapShellComponent;
-  @ViewChild(CircuitsLibraryDialogComponent) circuitsDialog?: CircuitsLibraryDialogComponent;
 
   private waypointService = inject(WaypointService);
   private taskState = inject(TaskStateService);
@@ -85,14 +81,12 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   private distanceService = inject(DistanceService);
   private taskExportService = inject(TaskExportService);
   private flarmProfileService = inject(FlarmProfileService);
-  private savedCircuitService = inject(SavedCircuitService);
   private uiFeedback = inject(UiFeedbackService);
   private ruleEngine = inject(TaskRuleEngineService);
   private i18n = inject(TranslateService);
   readonly mapFocus = inject(MapFocusService);
 
   waypoints = this.waypointService.waypoints;
-  activeCircuitId = this.savedCircuitService.activeCircuitId;
   selectedWaypointIds = this.taskState.selectedWaypointIds;
   circuitLegs = this.taskState.circuitLegs;
   taskName = this.taskState.taskName;
@@ -104,7 +98,6 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
   waypointDialogOpen = signal(false);
   pilotDialogOpen = signal(false);
   previewDialogOpen = signal(false);
-  circuitsDialogOpen = signal(false);
   distanceResult = signal<DistanceResult | null>(null);
   circuitMessage = signal<string | null>(null);
   legZoneDialogOpen = signal(false);
@@ -226,8 +219,6 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
       : this.i18n.t('circuit.circuitPanelAria');
   });
 
-  canSaveCircuit = computed(() => this.circuitLegs().length >= 2);
-
   constructor() {
     effect(() => {
       this.circuitLegs();
@@ -276,8 +267,6 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
       this.previewDialogOpen.set(false);
     } else if (this.pilotDialogOpen()) {
       this.pilotDialogOpen.set(false);
-    } else if (this.circuitsDialogOpen()) {
-      this.circuitsDialogOpen.set(false);
     }
   }
 
@@ -305,10 +294,6 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     this.previewDialogOpen.set(true);
   }
 
-  openCircuitsDialog(): void {
-    this.circuitsDialogOpen.set(true);
-  }
-
   onWaypointDrawerVisible(v: boolean): void {
     if (!v && this.waypointDialogOpen()) {
       this.closeWaypointDialog();
@@ -321,10 +306,6 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
 
   onPreviewDialogVisible(v: boolean): void {
     this.previewDialogOpen.set(v);
-  }
-
-  onCircuitsDialogVisible(v: boolean): void {
-    this.circuitsDialogOpen.set(v);
   }
 
   showAddToast(message: string): void {
@@ -426,39 +407,6 @@ export class DeclarationComponent implements OnInit, AfterViewInit {
     } else {
       this.uiFeedback.success(this.i18n.t('circuit.exportDone'));
     }
-  }
-
-  onCircuitSaveRequest(event: { label: string; notes: string; updateId: string | null }): void {
-    try {
-      this.savedCircuitService.saveCircuit({
-        label: event.label || this.taskName(),
-        taskName: this.taskName(),
-        profile: this.flarmProfile(),
-        circuitLegs: this.circuitLegs(),
-        regulation: this.taskState.regulation(),
-        sourceUrl: this.cupDatabase.getSourceUrl(),
-        notes: event.notes,
-        updateId: event.updateId ?? undefined
-      });
-      const msg = event.updateId
-        ? this.i18n.t('circuit.circuitUpdated')
-        : this.i18n.t('circuit.circuitSaved');
-      this.circuitMessage.set(msg);
-      this.uiFeedback.success(msg);
-      this.circuitsDialog?.clearSaveForm();
-    } catch (e) {
-      this.circuitMessage.set(e instanceof Error ? e.message : 'Enregistrement impossible.');
-    }
-  }
-
-  onCircuitLoaded(_circuitId: string): void {
-    this.calculateDistance();
-    this.circuitsDialogOpen.set(false);
-    this.setWorkspaceTab('circuit');
-    const msg = this.i18n.t('circuit.circuitLoaded');
-    this.circuitMessage.set(msg);
-    this.uiFeedback.info(msg);
-    setTimeout(() => this.circuitMessage.set(null), 5000);
   }
 
   setWorkspaceTab(tab: WorkspaceTab): void {
