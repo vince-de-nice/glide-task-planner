@@ -151,11 +151,10 @@ export const CATALOG_CLUSTER_MAX_ZOOM = 10;
 /** Pastilles catalogue visibles à partir de ce zoom (sous le seuil cluster). */
 export const CATALOG_DOT_MIN_ZOOM = 8;
 
-export const MAP_TERRAIN_HILLSHADE_KEY = 'gc-map-terrain-hillshade';
-
 export const MAP_SOURCE = {
   BASE_IMAGERY: 'base-imagery',
   BASE_LABELS: 'base-labels',
+  /** DEM pour le relief 3D (terrain) et l’altitude au curseur. */
   TERRAIN_DEM: 'terrain-dem',
   WAYPOINTS_TASK: 'waypoints-task',
   WAYPOINTS_CATALOG: 'waypoints-catalog',
@@ -170,7 +169,6 @@ export const MAP_SOURCE = {
 export const MAP_LAYER = {
   BASE_IMAGERY: 'base-imagery',
   BASE_LABELS: 'base-labels',
-  TERRAIN_HILLSHADE: 'terrain-hillshade',
   AIRSPACE_FILL: 'airspace-fill',
   AIRSPACE_HIT_FILL: 'airspace-hit-fill',
   AIRSPACE_LINE_HALO: 'airspace-line-halo',
@@ -231,8 +229,7 @@ function terrainDemSourceSpec(): {
 }
 
 export function buildBaseMapStyle(
-  basemapId: BasemapId = DEFAULT_BASEMAP_ID,
-  hillshadeVisible = false
+  basemapId: BasemapId = DEFAULT_BASEMAP_ID
 ): StyleSpecification {
   const preset = getBasemapPreset(basemapId);
   const sources: StyleSpecification['sources'] = {
@@ -244,18 +241,6 @@ export function buildBaseMapStyle(
       id: MAP_LAYER.BASE_IMAGERY,
       type: 'raster',
       source: MAP_SOURCE.BASE_IMAGERY
-    },
-    {
-      id: MAP_LAYER.TERRAIN_HILLSHADE,
-      type: 'hillshade',
-      source: MAP_SOURCE.TERRAIN_DEM,
-      layout: { visibility: hillshadeVisible ? 'visible' : 'none' },
-      paint: {
-        'hillshade-method': 'igor',
-        'hillshade-exaggeration': 0.35,
-        'hillshade-highlight-color': 'rgb(255, 255, 228)',
-        'hillshade-shadow-color': 'rgb(71, 59, 36)'
-      }
     }
   ];
 
@@ -278,18 +263,6 @@ export function buildBaseMapStyle(
       exaggeration: 1
     }
   };
-}
-
-/** Affiche ou masque l’ombrage du relief (la source DEM reste active pour l’altitude au curseur). */
-export function setTerrainHillshadeVisible(map: MaplibreMap, visible: boolean): void {
-  if (!map.getLayer(MAP_LAYER.TERRAIN_HILLSHADE)) {
-    return;
-  }
-  map.setLayoutProperty(
-    MAP_LAYER.TERRAIN_HILLSHADE,
-    'visibility',
-    visible ? 'visible' : 'none'
-  );
 }
 
 export function removeBasemapFromMap(map: MaplibreMap): void {
@@ -344,7 +317,6 @@ export function applyBasemapToMap(
 
 /** Calques vecteur / symboles à garder au-dessus du fond (sous les labels Esri si présents). */
 const LAYERS_ABOVE_BASE_IMAGERY: readonly string[] = [
-  MAP_LAYER.TERRAIN_HILLSHADE,
   MAP_LAYER.OPENAIP_RASTER,
   MAP_LAYER.AIRSPACE_FILL,
   MAP_LAYER.AIRSPACE_EXTRUSION,

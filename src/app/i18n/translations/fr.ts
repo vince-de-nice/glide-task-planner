@@ -289,10 +289,8 @@ export const fr = {
     filtersAria: 'Afficher sur la carte',
     helpTitle: 'Aide carte',
     helpTooltip:
-      'Zones tâche : cylindres/secteurs/lignes en mètres réels · espaces aériens POAFF/OpenAIP · altitude terrain au survol (DEM Mapterhorn) · relief ombré (bouton barres) · tâche toujours visible (numéros de leg) · catalogue : grappes sous zoom 10 · double-clic : point · clic : menu',
+      'Zones tâche : cylindres/secteurs/lignes en mètres réels · espaces aériens POAFF/OpenAIP · altitude terrain au survol (DEM Mapterhorn) · tâche toujours visible (numéros de leg) · catalogue : grappes sous zoom 10 · double-clic : point · clic : menu',
     terrain: {
-      hillshade: 'Relief terrain',
-      hillshadeTooltip: 'Ombrage du relief (DEM Mapterhorn)',
       cursorElevation: 'Terrain : {{value}}',
       attributionShort: 'DEM © Mapterhorn'
     },
@@ -664,7 +662,6 @@ export const fr = {
     display: 'Affichage',
     volume3d: 'Volumes 3D (fil de fer)',
     useDem: 'Relief DEM (sinon sol fictif 1800 m)',
-    hillshade: 'Ombrage relief',
     basemap: 'Fond de carte',
     camera: 'Caméra',
     cameraOblique: 'Oblique',

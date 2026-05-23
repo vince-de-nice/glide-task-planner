@@ -9,6 +9,7 @@ import { filter } from 'rxjs';
 import { TranslatePipe } from './i18n/translate.pipe';
 import { TranslateService } from './i18n/translate.service';
 import { LanguageSwitcherComponent } from './components/language-switcher/language-switcher.component';
+import { BackgroundActivityService } from './services/background-activity.service';
 
 export interface AppNavItem {
   route: string;
@@ -36,6 +37,7 @@ export interface AppNavItem {
 export class App {
   private router = inject(Router);
   private i18n = inject(TranslateService);
+  readonly bgActivity = inject(BackgroundActivityService);
 
   currentYear = new Date().getFullYear();
   navDrawerVisible = signal(false);

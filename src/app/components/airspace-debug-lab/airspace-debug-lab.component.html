@@ -37,13 +37,6 @@
           (ngModelChange)="useDemGround.set($event); onDisplayOptionChange()"
         />
       </label>
-      <label class="debug-lab__row">
-        <span>{{ 'airspaceDebug.hillshade' | translate }}</span>
-        <p-toggleswitch
-          [ngModel]="hillshadeVisible()"
-          (ngModelChange)="onHillshadeChange($event)"
-        />
-      </label>
       <label class="debug-lab__field">
         <span>{{ 'airspaceDebug.basemap' | translate }}</span>
         <p-select

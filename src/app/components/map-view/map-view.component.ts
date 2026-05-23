@@ -28,6 +28,7 @@ import {
 } from 'maplibre-gl';
 import type { Feature, FeatureCollection, Geometry, Point } from 'geojson';
 import { extendBoundsWithShape } from '../../utils/obs-zone-map.util';
+import { geoJsonFlagEq } from '../../utils/map-expression.util';
 import {
   buildObsZoneShapesForCircuit,
   buildObsZonesGeoJson
@@ -39,6 +40,7 @@ import { DistanceService } from '../../services/distance.service';
 import { AirspaceZoneFiltersComponent } from '../airspace-zone-filters/airspace-zone-filters.component';
 import { AirspaceLayerService } from '../../services/airspace-layer.service';
 import { AirspaceMapDisplayService } from '../../services/airspace-map-display.service';
+import { BackgroundActivityService } from '../../services/background-activity.service';
 import {
   DEFAULT_AIRSPACE_ZONE_FILTERS,
   type AirspaceFilterFieldOptions,
@@ -80,9 +82,7 @@ import {
   MAP_SOURCE,
   MAP_TEXT_FONT_BOLD,
   MAP_TEXT_FONT_REGULAR,
-  MAP_TERRAIN_HILLSHADE_KEY,
   reorderMapOverlayLayers,
-  setTerrainHillshadeVisible,
   southWestNorthEastToLngLatBounds,
   type BasemapId
 } from './map-style.constants';
@@ -140,6 +140,7 @@ export class MapViewComponent implements OnInit {
   private mapFocus = inject(MapFocusService);
   readonly airspaceLayerService = inject(AirspaceLayerService);
   private readonly airspaceMapDisplay = inject(AirspaceMapDisplayService);
+  private readonly bgActivity = inject(BackgroundActivityService);
   private readonly airspaceScreenId = 'task-map' as const;
 
   compact = input(false);
@@ -184,7 +185,6 @@ export class MapViewComponent implements OnInit {
   showFullCatalog = signal(false);
   basemapPanelExpanded = signal(false);
   /** Ombrage relief Mapterhorn (DEM reste actif pour l’altitude au curseur). */
-  terrainHillshadeVisible = signal(false);
   cursorTerrainElevM = signal<number | null>(null);
 
   readonly mapLegendItems = computed(() => {
@@ -306,16 +306,6 @@ export class MapViewComponent implements OnInit {
     this.basemapPanelExpanded.update(v => !v);
     if (this.basemapPanelExpanded()) {
       this.filtersExpanded.set(false);
-    }
-  }
-
-  toggleTerrainHillshade(): void {
-    const next = !this.terrainHillshadeVisible();
-    this.terrainHillshadeVisible.set(next);
-    localStorage.setItem(MAP_TERRAIN_HILLSHADE_KEY, next ? '1' : '0');
-    const map = this.map;
-    if (map) {
-      setTerrainHillshadeVisible(map, next);
     }
   }
 
@@ -442,6 +432,7 @@ export class MapViewComponent implements OnInit {
     }
 
     this.airspaceLoading.set(true);
+    this.bgActivity.start('map-airspace', 'Espaces aériens');
     this.airspaceStatus.set(this.i18n.t('map.airspaceLoading'));
 
     const forceReload = this.airspaceMapDisplay.getFilterOptions(this.airspaceScreenId) == null;
@@ -453,6 +444,7 @@ export class MapViewComponent implements OnInit {
     );
 
     this.airspaceLoading.set(false);
+    this.bgActivity.end('map-airspace');
     this.airspaceFilterOptions.set(outcome.filterOptions);
     this.airspaceZoneFilters.set(
       this.airspaceMapDisplay.readPrefs(this.airspaceScreenId).zoneFilters
@@ -477,10 +469,7 @@ export class MapViewComponent implements OnInit {
       this.basemapId.set(storedBasemap);
     }
 
-    const storedHillshade = localStorage.getItem(MAP_TERRAIN_HILLSHADE_KEY);
-    const hillshadeOn = storedHillshade === '1';
-    this.terrainHillshadeVisible.set(hillshadeOn);
-    this.mapStyle = buildBaseMapStyle(this.basemapId(), hillshadeOn);
+    this.mapStyle = buildBaseMapStyle(this.basemapId());
 
     const storedCatalog = localStorage.getItem(SHOW_FULL_CATALOG_KEY);
     if (storedCatalog === '1') {
@@ -542,8 +531,6 @@ export class MapViewComponent implements OnInit {
     map.on('move', () => this.repositionContextMenu());
     map.on('mousemove', e => this.onMapMouseMove(e));
     map.on('mouseout', () => this.cursorTerrainElevM.set(null));
-    setTerrainHillshadeVisible(map, this.terrainHillshadeVisible());
-
     requestAnimationFrame(() => {
       map.resize();
       this.updateWaypointsSource();
@@ -564,10 +551,15 @@ export class MapViewComponent implements OnInit {
     this.terrainElevationRaf = requestAnimationFrame(() => {
       const raw = map.queryTerrainElevation([lng, lat]);
       if (raw == null || !Number.isFinite(raw)) {
-        this.cursorTerrainElevM.set(null);
+        if (this.cursorTerrainElevM() !== null) {
+          this.cursorTerrainElevM.set(null);
+        }
         return;
       }
-      this.cursorTerrainElevM.set(Math.round(raw));
+      const rounded = Math.round(raw);
+      if (rounded !== this.cursorTerrainElevM()) {
+        this.cursorTerrainElevM.set(rounded);
+      }
     });
   }
 
@@ -619,7 +611,7 @@ export class MapViewComponent implements OnInit {
       source: MAP_SOURCE.OBS_ZONES,
       paint: {
         'line-color': ['get', 'stroke'],
-        'line-width': ['case', ['get', 'isLine'], 4, 2],
+        'line-width': ['case', geoJsonFlagEq('isLine'), 4, 2],
         'line-opacity': 0.9
       }
     });
@@ -629,17 +621,12 @@ export class MapViewComponent implements OnInit {
       type: 'line',
       source: MAP_SOURCE.TASK_LINES,
       paint: {
-        'line-color': [
-          'case',
-          ['==', ['get', 'counted'], true],
-          '#fbbf24',
-          '#94a3b8'
-        ],
-        'line-width': ['case', ['==', ['get', 'counted'], true], 5, 3],
-        'line-opacity': ['case', ['==', ['get', 'counted'], true], 0.95, 0.7],
+        'line-color': ['case', geoJsonFlagEq('counted'), '#fbbf24', '#94a3b8'],
+        'line-width': ['case', geoJsonFlagEq('counted'), 5, 3],
+        'line-opacity': ['case', geoJsonFlagEq('counted'), 0.95, 0.7],
         'line-dasharray': [
           'case',
-          ['==', ['get', 'counted'], true],
+          geoJsonFlagEq('counted'),
           ['literal', [1, 0]],
           ['literal', [7, 6]]
         ]

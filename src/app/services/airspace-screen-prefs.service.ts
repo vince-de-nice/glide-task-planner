@@ -18,31 +18,44 @@ export interface AirspaceScreenPrefs {
 
 const STORAGE_PREFIX = 'gc-airspace-prefs-';
 
-const DEFAULT_PREFS: AirspaceScreenPrefs = {
-  visible: false,
-  volume3d: true,
-  regionId: DEFAULT_POAFF_REGION_ID,
-  zoneFilters: DEFAULT_AIRSPACE_ZONE_FILTERS
+const DEFAULT_PREFS_BY_SCREEN: Record<AirspaceScreenId, AirspaceScreenPrefs> = {
+  'task-map': {
+    visible: false,
+    volume3d: true,
+    regionId: DEFAULT_POAFF_REGION_ID,
+    zoneFilters: DEFAULT_AIRSPACE_ZONE_FILTERS
+  },
+  /** Affichage piloté par les zones activées sur la branche (pas de toggle global). */
+  'safety-profile': {
+    visible: true,
+    volume3d: true,
+    regionId: DEFAULT_POAFF_REGION_ID,
+    zoneFilters: DEFAULT_AIRSPACE_ZONE_FILTERS
+  }
 };
 
 @Injectable({ providedIn: 'root' })
 export class AirspaceScreenPrefsService {
   get(screenId: AirspaceScreenId): AirspaceScreenPrefs {
+    const defaults = { ...DEFAULT_PREFS_BY_SCREEN[screenId] };
     try {
       const raw = localStorage.getItem(STORAGE_PREFIX + screenId);
-      if (!raw) return { ...DEFAULT_PREFS };
+      if (!raw) return defaults;
       const parsed = JSON.parse(raw) as Partial<AirspaceScreenPrefs>;
       return {
-        visible: parsed.visible === true,
+        visible:
+          screenId === 'safety-profile'
+            ? parsed.visible !== false
+            : parsed.visible === true,
         volume3d: parsed.volume3d !== false,
         regionId:
           typeof parsed.regionId === 'string' && parsed.regionId.length > 0
             ? parsed.regionId
-            : DEFAULT_POAFF_REGION_ID,
+            : defaults.regionId,
         zoneFilters: normalizeAirspaceZoneFilters(parsed.zoneFilters)
       };
     } catch {
-      return { ...DEFAULT_PREFS };
+      return defaults;
     }
   }
 

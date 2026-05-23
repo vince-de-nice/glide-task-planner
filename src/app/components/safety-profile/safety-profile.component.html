@@ -60,6 +60,8 @@
     }
 
     <div class="safety-profile__workspace">
+      <div class="safety-profile__content">
+        <div class="safety-profile__visuals">
       <section class="safety-profile__map-panel" [attr.aria-label]="'safetyProfile.mapAria' | translate">
         <div class="safety-profile__map-frame">
           <mgl-map
@@ -262,8 +264,7 @@
             <span class="safety-profile__profile-distance">{{ leg.distanceKm | number: '1.1-1' }} km</span>
           </header>
 
-          <div class="safety-profile__profile-body">
-            <div class="safety-profile__profile-main">
+          <div class="safety-profile__profile-main">
               @if (leg.envelope.hasTerrainGaps) {
                 <div class="leg__warning" role="alert">
                   <i class="pi pi-exclamation-circle" aria-hidden="true"></i>
@@ -299,8 +300,12 @@
                   (sampleHover)="onChartSampleHover(leg.index, $event)"
                 />
               </div>
-            </div>
+          </div>
+        }
+      </section>
+        </div>
 
+        @if (activeLegRender(); as leg) {
             <aside
               class="safety-profile__profile-sidebar"
               [attr.aria-label]="'safetyProfile.profileSidebarAria' | translate"
@@ -449,9 +454,8 @@
                 }
               </div>
             </aside>
-          </div>
         }
-      </section>
+      </div>
     </div>
   }
 </section>

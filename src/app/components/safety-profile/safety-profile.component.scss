@@ -168,11 +168,28 @@
   position: relative;
 }
 
+.safety-profile__content {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: row;
+  align-items: stretch;
+  min-height: 0;
+  min-width: 0;
+}
+
+.safety-profile__visuals {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
 .safety-profile__map-panel {
   display: flex;
   flex-direction: column;
-  flex: 1 1 50%;
-  min-height: 12rem;
+  flex: 1 1 48%;
+  min-height: 10rem;
   min-width: 0;
   border-bottom: 1px solid var(--gc-border);
 }
@@ -606,19 +623,12 @@
 .safety-profile__profile-panel {
   display: flex;
   flex-direction: column;
-  flex: 1 1 45%;
-  min-height: 14rem;
+  flex: 1 1 52%;
+  min-height: 12rem;
   min-width: 0;
   overflow: hidden;
-  padding: 0.5rem 0 0.5rem 0.6rem;
+  padding: 0.5rem 0.6rem;
   gap: 0.35rem;
-}
-
-.safety-profile__profile-body {
-  display: flex;
-  flex: 1 1 auto;
-  min-height: 0;
-  gap: 0;
 }
 
 .safety-profile__profile-main {
@@ -628,7 +638,6 @@
   min-width: 0;
   min-height: 0;
   gap: 0.35rem;
-  padding-right: 0.5rem;
   overflow: hidden;
 }
 
@@ -645,11 +654,11 @@
 .safety-profile__profile-sidebar {
   display: flex;
   flex-direction: column;
-  flex: 0 0 min(20rem, 40vw);
-  width: min(20rem, 40vw);
+  flex: 0 0 min(22rem, 32vw);
+  width: min(22rem, 32vw);
   min-height: 0;
   gap: 0;
-  padding: 0 0.6rem 0 0.65rem;
+  padding: 0.5rem 0.65rem 0.5rem 0.7rem;
   border-left: 1px solid var(--gc-border);
   background: color-mix(in srgb, var(--gc-bg) 55%, var(--gc-surface));
   overflow: hidden;
@@ -660,11 +669,9 @@
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
-  gap: 0.5rem;
-  overflow-x: hidden;
-  overflow-y: auto;
-  padding: 0.15rem 0 0.5rem;
-  -webkit-overflow-scrolling: touch;
+  gap: 0.55rem;
+  overflow: hidden;
+  padding: 0.1rem 0 0.45rem;
 }
 
 .safety-profile__profile-header {
@@ -673,7 +680,6 @@
   align-items: center;
   gap: 0.4rem 0.65rem;
   flex-shrink: 0;
-  padding-right: 0.6rem;
 }
 
 .safety-profile__profile-badge {
@@ -915,12 +921,27 @@
 .leg__sidebar-panel {
   display: flex;
   flex-direction: column;
-  flex: 0 0 auto;
+  flex: 1 1 0;
+  min-height: 0;
   padding: 0.5rem 0.45rem;
   background: var(--gc-surface);
   border: 1px solid var(--gc-border);
   border-radius: var(--gc-radius-sm);
   box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  overflow: hidden;
+}
+
+.safety-profile__sidebar-scroll:has(.leg__sidebar-panel--airspace) {
+  .leg__sidebar-panel--landables,
+  .leg__sidebar-panel--airspace {
+    flex: 1 1 0;
+  }
+}
+
+.safety-profile__sidebar-scroll:not(:has(.leg__sidebar-panel--airspace)) {
+  .leg__sidebar-panel--landables {
+    flex: 1 1 auto;
+  }
 }
 
 .leg__panel-head {
@@ -982,7 +1003,8 @@
   flex-direction: column;
   align-items: stretch;
   gap: 0.3rem;
-  max-height: min(11.5rem, 24vh);
+  flex: 1 1 auto;
+  min-height: 3.5rem;
   margin-top: 0.35rem;
   padding: 0.4rem 0.05rem 0.1rem;
   overflow-x: hidden;
@@ -990,10 +1012,6 @@
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
   border-top: 1px solid var(--gc-border);
-}
-
-.safety-profile__sidebar-scroll:not(:has(.leg__sidebar-panel--airspace)) .leg__panel-chips {
-  max-height: min(16rem, 34vh);
 }
 
 .leg__panel-chips--airspace .leg__airspace-chip {
@@ -1205,5 +1223,27 @@
   &:disabled {
     opacity: 0.55;
     cursor: not-allowed;
+  }
+}
+
+@media (max-width: 900px) {
+  .safety-profile__content {
+    flex-direction: column;
+  }
+
+  .safety-profile__profile-sidebar {
+    flex: 0 0 auto;
+    width: 100%;
+    max-height: min(42vh, 28rem);
+    border-left: none;
+    border-top: 1px solid var(--gc-border);
+  }
+
+  .safety-profile__map-panel {
+    flex: 1 1 40%;
+  }
+
+  .safety-profile__profile-panel {
+    flex: 1 1 35%;
   }
 }

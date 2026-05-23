@@ -31,6 +31,21 @@
           </a>
         }
       </nav>
+      @if (bgActivity.busy()) {
+        <div
+          class="app-activity"
+          role="status"
+          [attr.aria-label]="bgActivity.activeCount() + ' tâche(s) en cours'"
+          [title]="bgActivity.activeTasks() | json"
+        >
+          <span class="app-activity__spinner" aria-hidden="true"></span>
+          <span class="app-activity__label">
+            @for (task of bgActivity.activeTasks(); track task.id; let last = $last) {
+              {{ task.label }}@if (!last) {<span class="app-activity__sep"> · </span>}
+            }
+          </span>
+        </div>
+      }
       <app-language-switcher />
     </div>
   </header>

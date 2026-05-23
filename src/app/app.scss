@@ -173,6 +173,50 @@
   color: var(--gc-text-muted);
 }
 
+.app-activity {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--gc-primary) 10%, var(--gc-surface));
+  border: 1px solid color-mix(in srgb, var(--gc-primary) 25%, var(--gc-border));
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--gc-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  max-width: min(22rem, 40vw);
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.app-activity__spinner {
+  display: block;
+  width: 0.75rem;
+  height: 0.75rem;
+  border: 2px solid color-mix(in srgb, var(--gc-primary) 25%, transparent);
+  border-top-color: var(--gc-primary);
+  border-radius: 50%;
+  animation: app-activity-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes app-activity-spin {
+  to { transform: rotate(360deg); }
+}
+
+.app-activity__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.app-activity__sep {
+  opacity: 0.5;
+}
+
 .app-main {
   flex: 1;
   min-height: 0;

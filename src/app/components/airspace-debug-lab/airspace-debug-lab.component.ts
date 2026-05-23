@@ -48,7 +48,6 @@ import {
   buildBaseMapStyle,
   DEFAULT_BASEMAP_ID,
   MAP_LAYER,
-  setTerrainHillshadeVisible,
   type BasemapId
 } from '../map-view/map-style.constants';
 import {
@@ -97,11 +96,8 @@ export class AirspaceDebugLabComponent implements OnDestroy {
     }));
   });
 
-  mapStyle = signal<StyleSpecification>(
-    buildBaseMapStyle(DEFAULT_BASEMAP_ID, true)
-  );
+  mapStyle = signal<StyleSpecification>(buildBaseMapStyle(DEFAULT_BASEMAP_ID));
   basemapId = signal<BasemapId>(DEFAULT_BASEMAP_ID);
-  hillshadeVisible = signal(true);
   volume3d = signal(true);
   useDemGround = signal(true);
   showAllZones = signal(true);
@@ -161,23 +157,12 @@ export class AirspaceDebugLabComponent implements OnDestroy {
     this.basemapId.set(id);
     const map = this.map;
     if (!map) {
-      this.mapStyle.set(buildBaseMapStyle(id, this.hillshadeVisible()));
+      this.mapStyle.set(buildBaseMapStyle(id));
       return;
     }
     const before = this.firstOverlayLayerId(map);
     applyBasemapToMap(map, id, before);
-    setTerrainHillshadeVisible(map, this.hillshadeVisible());
     await this.refreshLayers();
-  }
-
-  onHillshadeChange(visible: boolean): void {
-    this.hillshadeVisible.set(visible);
-    const map = this.map;
-    if (map) {
-      setTerrainHillshadeVisible(map, visible);
-    } else {
-      this.mapStyle.set(buildBaseMapStyle(this.basemapId(), visible));
-    }
   }
 
   async onDisplayOptionChange(): Promise<void> {
@@ -312,9 +297,10 @@ export class AirspaceDebugLabComponent implements OnDestroy {
   private firstOverlayLayerId(map: MaplibreMap): string {
     const layers = map.getStyle()?.layers ?? [];
     const first = layers.find(
-      l => l.id !== MAP_LAYER.BASE_IMAGERY && l.id !== MAP_LAYER.TERRAIN_HILLSHADE
+      l =>
+        l.id !== MAP_LAYER.BASE_IMAGERY && l.id !== MAP_LAYER.BASE_LABELS
     );
-    return first?.id ?? MAP_LAYER.TERRAIN_HILLSHADE;
+    return first?.id ?? MAP_LAYER.BASE_LABELS;
   }
 
   private async refreshLayers(): Promise<void> {

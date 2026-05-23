@@ -67,9 +67,11 @@ export class SafetyMinAltitudeThreeCustomLayer implements CustomLayerInterface {
   });
   private path: SafetyMinAltitudePoint[] = [];
   private visible = false;
+  private positionsDirty = true;
 
   setPath(path: SafetyMinAltitudePoint[]): void {
     this.path = path;
+    this.positionsDirty = true;
     this.rebuildRibbon();
     this.map?.triggerRepaint();
   }
@@ -87,20 +89,37 @@ export class SafetyMinAltitudeThreeCustomLayer implements CustomLayerInterface {
       antialias: true
     });
     this.renderer.autoClear = false;
+    this.positionsDirty = true;
+    map.on('moveend', this.onMapChange);
     this.rebuildRibbon();
   }
 
   onRemove(): void {
+    if (this.map) {
+      try { this.map.off('moveend', this.onMapChange); } catch { /* */ }
+    }
+    cancelAnimationFrame(this.mapChangeRaf);
     this.disposeMesh();
-    // Ne pas appeler renderer.dispose() : contexte WebGL partagé avec MapLibre.
     this.renderer = null;
     this.map = null;
   }
 
+  private mapChangeRaf = 0;
+  private readonly onMapChange = (): void => {
+    cancelAnimationFrame(this.mapChangeRaf);
+    this.mapChangeRaf = requestAnimationFrame(() => {
+      this.positionsDirty = true;
+      this.map?.triggerRepaint();
+    });
+  };
+
   render(_gl: WebGLRenderingContext | WebGL2RenderingContext, args: CustomRenderMethodInput): void {
     if (!this.renderer || !this.visible || !this.mesh || this.path.length < 2) return;
 
-    this.syncRibbonPositions();
+    if (this.positionsDirty) {
+      this.syncRibbonPositions();
+      this.positionsDirty = false;
+    }
 
     const projection = new THREE.Matrix4().fromArray(
       args.defaultProjectionData.mainMatrix

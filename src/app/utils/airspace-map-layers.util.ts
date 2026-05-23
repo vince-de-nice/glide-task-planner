@@ -19,10 +19,17 @@ import {
   AIRSPACE_WIREFRAME_LAYER_ID,
   buildAirspaceWireframeSpecs
 } from './airspace-wireframe.util';
+import { geoJsonFlagEq } from './map-expression.util';
+import {
+  isMapStyleActive,
+  registerMapTeardown,
+  withActiveMap
+} from './map-runtime.util';
 
 type AirspaceWireframeLayer = import('./airspace-wireframe-three-layer.util').AirspaceWireframeThreeCustomLayer;
 
 const wireframeLayersByMap = new WeakMap<MaplibreMap, AirspaceWireframeLayer>();
+const airspaceTeardownRegistered = new WeakSet<MaplibreMap>();
 const fullAirspaceByMap = new WeakMap<
   MaplibreMap,
   FeatureCollection<Geometry, AirspaceVolumeProperties>
@@ -67,15 +74,41 @@ let clickHandler: ((e: MapLayerMouseEvent) => void) | null = null;
 let enterHandler: (() => void) | null = null;
 let leaveHandler: (() => void) | null = null;
 
+/** Libère le calque Three.js sans appeler l’API carte (carte déjà détruite). */
+function detachAirspaceWireframeState(map: MaplibreMap): void {
+  const layer = wireframeLayersByMap.get(map);
+  if (!layer) return;
+  wireframeLayersByMap.delete(map);
+  layer.dispose();
+}
+
 function removeAirspaceWireframeLayer(map: MaplibreMap): void {
   const layer = wireframeLayersByMap.get(map);
-  if (layer) {
-    layer.setVisible(false);
-    layer.setSpecs([]);
-    if (map.getLayer(AIRSPACE_WIREFRAME_LAYER_ID)) {
-      map.removeLayer(AIRSPACE_WIREFRAME_LAYER_ID);
+  if (!layer) return;
+
+  layer.setVisible(false);
+  wireframeLayersByMap.delete(map);
+
+  const removed = withActiveMap(map, active => {
+    if (active.getLayer(AIRSPACE_WIREFRAME_LAYER_ID)) {
+      active.removeLayer(AIRSPACE_WIREFRAME_LAYER_ID);
+      return true;
     }
-    wireframeLayersByMap.delete(map);
+    return false;
+  });
+
+  if (!removed) {
+    layer.dispose();
+  }
+}
+
+function detachAirspaceMapState(map: MaplibreMap): void {
+  unbindAirspaceClickHandlers(map);
+  unbindAirspaceViewportSync(map);
+  if (isMapStyleActive(map)) {
+    removeAirspaceWireframeLayer(map);
+  } else {
+    detachAirspaceWireframeState(map);
   }
 }
 
@@ -96,14 +129,15 @@ async function applyAirspaceWireframeLayer(
   }
 
   if (!layer) {
+    if (map.getLayer(AIRSPACE_WIREFRAME_LAYER_ID)) {
+      map.removeLayer(AIRSPACE_WIREFRAME_LAYER_ID);
+    }
     const { createAirspaceWireframeCustomLayer } = await import(
       './airspace-wireframe-three-layer.util'
     );
     layer = createAirspaceWireframeCustomLayer();
     wireframeLayersByMap.set(map, layer);
-    if (!map.getLayer(AIRSPACE_WIREFRAME_LAYER_ID)) {
-      map.addLayer(layer, beforeLayerId);
-    }
+    map.addLayer(layer, beforeLayerId);
   }
 
   layer.setSpecs(specs);
@@ -121,6 +155,7 @@ function viewportAirspaceCollection(
 }
 
 function refreshAirspaceViewportData(map: MaplibreMap): void {
+  if (!isMapStyleActive(map)) return;
   const full = fullAirspaceByMap.get(map);
   if (!full) return;
 
@@ -145,50 +180,75 @@ function refreshAirspaceViewportData(map: MaplibreMap): void {
 }
 
 function bindAirspaceViewportSync(map: MaplibreMap): void {
-  if (viewportSyncHandlerByMap.has(map)) return;
+  if (!isMapStyleActive(map) || viewportSyncHandlerByMap.has(map)) return;
 
   let raf = 0;
+  let lastBoundsKey = '';
   const handler = (): void => {
     cancelAnimationFrame(raf);
-    raf = requestAnimationFrame(() => refreshAirspaceViewportData(map));
+    raf = requestAnimationFrame(() => {
+      const b = map.getBounds();
+      const key = b
+        ? `${b.getWest().toFixed(5)},${b.getSouth().toFixed(5)},${b.getEast().toFixed(5)},${b.getNorth().toFixed(5)},${map.getZoom().toFixed(2)}`
+        : '';
+      if (key === lastBoundsKey) return;
+      lastBoundsKey = key;
+      refreshAirspaceViewportData(map);
+    });
   };
   viewportSyncHandlerByMap.set(map, handler);
   map.on('moveend', handler);
-  map.on('idle', handler);
 }
 
 function unbindAirspaceViewportSync(map: MaplibreMap): void {
   const handler = viewportSyncHandlerByMap.get(map);
   if (handler) {
-    map.off('moveend', handler);
-    map.off('idle', handler);
+    try {
+      map.off('moveend', handler);
+    } catch {
+      /* carte détruite */
+    }
     viewportSyncHandlerByMap.delete(map);
   }
   fullAirspaceByMap.delete(map);
 }
 
-export function removeAirspaceLayersFromMap(map: MaplibreMap): void {
-  unbindAirspaceClickHandlers(map);
-  unbindAirspaceViewportSync(map);
-  removeAirspaceWireframeLayer(map);
+/** Retire les calques et libère l’état interne ; tolère une carte déjà détruite. */
+export function removeAirspaceLayersFromMap(map: MaplibreMap | null | undefined): void {
+  if (!map) return;
 
-  for (const layerId of [
-    MAP_LAYER.AIRSPACE_EXTRUSION,
-    MAP_LAYER.AIRSPACE_HIT_FILL,
-    MAP_LAYER.AIRSPACE_FILL,
-    MAP_LAYER.AIRSPACE_LINE,
-    MAP_LAYER.AIRSPACE_LINE_HALO,
-    MAP_LAYER.OPENAIP_RASTER
-  ]) {
-    if (map.getLayer(layerId)) map.removeLayer(layerId);
-  }
-  for (const sourceId of [
-    MAP_SOURCE.AIRSPACE,
-    MAP_SOURCE.AIRSPACE_EDGES,
-    MAP_SOURCE.OPENAIP
-  ]) {
-    if (map.getSource(sourceId)) map.removeSource(sourceId);
-  }
+  detachAirspaceMapState(map);
+
+  if (!isMapStyleActive(map)) return;
+
+  withActiveMap(map, active => {
+    for (const layerId of [
+      MAP_LAYER.AIRSPACE_EXTRUSION,
+      MAP_LAYER.AIRSPACE_HIT_FILL,
+      MAP_LAYER.AIRSPACE_FILL,
+      MAP_LAYER.AIRSPACE_LINE,
+      MAP_LAYER.AIRSPACE_LINE_HALO,
+      MAP_LAYER.OPENAIP_RASTER
+    ]) {
+      if (active.getLayer(layerId)) active.removeLayer(layerId);
+    }
+    for (const sourceId of [
+      MAP_SOURCE.AIRSPACE,
+      MAP_SOURCE.AIRSPACE_EDGES,
+      MAP_SOURCE.OPENAIP
+    ]) {
+      if (active.getSource(sourceId)) active.removeSource(sourceId);
+    }
+  });
+}
+
+export function registerAirspaceMapTeardown(map: MaplibreMap): void {
+  if (airspaceTeardownRegistered.has(map)) return;
+  airspaceTeardownRegistered.add(map);
+  registerMapTeardown(map, () => {
+    airspaceTeardownRegistered.delete(map);
+    detachAirspaceMapState(map);
+  });
 }
 
 function addAirspaceEdgeLayers(
@@ -241,6 +301,7 @@ export async function applyAirspaceLayersToMap(
   }
 ): Promise<void> {
   removeAirspaceLayersFromMap(map);
+  registerAirspaceMapTeardown(map);
 
   if (!options.volume3d && result.source === 'openaip' && result.rasterTileUrl) {
     map.addSource(MAP_SOURCE.OPENAIP, {
@@ -278,7 +339,7 @@ export async function applyAirspaceLayersToMap(
         id: MAP_LAYER.AIRSPACE_HIT_FILL,
         type: 'fill',
         source: MAP_SOURCE.AIRSPACE,
-        filter: ['==', ['get', 'hasVolume'], true],
+        filter: geoJsonFlagEq('hasVolume'),
         paint: {
           'fill-color': '#000000',
           'fill-opacity': 0

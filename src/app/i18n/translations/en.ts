@@ -340,10 +340,8 @@ export const en = {
     filtersAria: 'Map layers',
     helpTitle: 'Map help',
     helpTooltip:
-      'Task zones: cylinders/sectors/lines in real meters · POAFF/OpenAIP airspace · terrain elevation on hover (Mapterhorn DEM) · hillshade relief (bar button) · task always visible (leg numbers) · catalog: clusters below zoom 10 · double-click: waypoint · click: menu',
+      'Task zones: cylinders/sectors/lines in real meters · POAFF/OpenAIP airspace · terrain elevation on hover (Mapterhorn DEM) · task always visible (leg numbers) · catalog: clusters below zoom 10 · double-click: waypoint · click: menu',
     terrain: {
-      hillshade: 'Terrain relief',
-      hillshadeTooltip: 'Hillshade relief (Mapterhorn DEM)',
       cursorElevation: 'Terrain: {{value}}',
       attributionShort: 'DEM © Mapterhorn'
     },
@@ -714,7 +712,6 @@ export const en = {
     display: 'Display',
     volume3d: '3D volumes (wireframe)',
     useDem: 'DEM terrain (else fixed 1800 m ground)',
-    hillshade: 'Terrain hillshade',
     basemap: 'Basemap',
     camera: 'Camera',
     cameraOblique: 'Oblique',

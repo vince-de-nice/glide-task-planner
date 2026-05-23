@@ -49,15 +49,29 @@ export class AirspaceWireframeThreeCustomLayer implements CustomLayerInterface {
   private positionsDirty = true;
 
   private mapChangeRaf = 0;
+  private lastViewportKey = '';
 
   private readonly onMapChange = (): void => {
     cancelAnimationFrame(this.mapChangeRaf);
     this.mapChangeRaf = requestAnimationFrame(() => {
+      const key = this.viewportKey();
+      if (key === this.lastViewportKey) return;
+      this.lastViewportKey = key;
       this.positionsDirty = true;
       this.rebuildBundles();
       this.map?.triggerRepaint();
     });
   };
+
+  private viewportKey(): string {
+    const map = this.map;
+    if (!map) return '';
+    const c = map.getCenter();
+    const z = map.getZoom();
+    const p = map.getPitch();
+    const b = map.getBearing();
+    return `${c.lng.toFixed(5)},${c.lat.toFixed(5)},${z.toFixed(2)},${p.toFixed(1)},${b.toFixed(1)}`;
+  }
 
   setSpecs(specs: AirspaceWireframeVolumeSpec[]): void {
     this.allSpecs = specs;
@@ -80,25 +94,36 @@ export class AirspaceWireframeThreeCustomLayer implements CustomLayerInterface {
     });
     this.renderer.autoClear = false;
     map.on('moveend', this.onMapChange);
-    map.on('idle', this.onMapChange);
+    this.lastViewportKey = '';
     this.rebuildBundles();
   }
 
   onRemove(): void {
+    this.dispose();
+  }
+
+  /** Libération GPU / listeners sans passer par map.removeLayer (carte déjà détruite). */
+  dispose(): void {
+    if (!this.map && !this.renderer && this.bundles.length === 0) return;
     cancelAnimationFrame(this.mapChangeRaf);
     const map = this.map;
     if (map) {
-      map.off('moveend', this.onMapChange);
-      map.off('idle', this.onMapChange);
+      try {
+        map.off('moveend', this.onMapChange);
+      } catch {
+        /* ignore */
+      }
     }
+    this.visible = false;
     this.disposeBundles();
     this.renderer = null;
     this.map = null;
     this.allSpecs = [];
+    this.positionsDirty = true;
   }
 
   render(_gl: WebGLRenderingContext | WebGL2RenderingContext, args: CustomRenderMethodInput): void {
-    if (!this.renderer || !this.visible || this.bundles.length === 0) return;
+    if (!this.map || !this.renderer || !this.visible || this.bundles.length === 0) return;
 
     if (this.positionsDirty) {
       this.syncGeometry();
