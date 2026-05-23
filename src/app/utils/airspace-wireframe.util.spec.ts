@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildAirspaceCeilingMeshBuffers,
   buildAirspaceWallMeshBuffers,
   buildAirspaceWireframePositions,
   buildAirspaceWireframeSpecs,
@@ -47,15 +46,11 @@ describe('airspace-wireframe.util', () => {
     expect(specs[0].useTerrainTop).toBe(false);
 
     const positions = buildAirspaceWireframePositions(specs, null);
-    expect(positions.length).toBe(4 * 3 * 2 * 3);
+    expect(positions.length).toBe(4 * 2 * 3);
 
     const walls = buildAirspaceWallMeshBuffers(specs, null);
     expect(walls.indices.length).toBe(4 * 6);
     expect(walls.positions.length).toBe(4 * 4 * 3);
-
-    const ceiling = buildAirspaceCeilingMeshBuffers(specs, null);
-    expect(ceiling.indices.length).toBe(2 * 3);
-    expect(ceiling.positions.length).toBe(4 * 3);
   });
 
   it('utilise FL999 pour le plafond MSL du volume', () => {

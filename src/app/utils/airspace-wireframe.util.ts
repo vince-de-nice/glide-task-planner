@@ -206,7 +206,7 @@ export interface AirspaceWallMeshBuffers {
   indices: Uint32Array;
 }
 
-/** Couvercle horizontal au plafond MSL (anneau du haut). */
+/** @deprecated Plus de couvercle horizontal : parois latérales uniquement. */
 export function buildAirspaceCeilingMeshBuffers(
   specs: readonly AirspaceWireframeVolumeSpec[],
   map: MaplibreMap | null
@@ -297,7 +297,7 @@ export function buildAirspaceWireframePositions(
   for (const spec of specs) {
     const n = spec.ring.length;
     if (n < 3) continue;
-    segmentCount += n * 3;
+    segmentCount += n;
   }
 
   const positions = new Float32Array(segmentCount * 2 * 3);
@@ -321,9 +321,6 @@ function appendVolumeWireframe(
 
   const n = corners.bottom.length;
   for (let i = 0; i < n; i++) {
-    const j = (i + 1) % n;
-    offset = writeSegment(buffer, offset, corners.bottom[i], corners.bottom[j]);
-    offset = writeSegment(buffer, offset, corners.top[i], corners.top[j]);
     offset = writeSegment(buffer, offset, corners.bottom[i], corners.top[i]);
   }
 
