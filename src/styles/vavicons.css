@@ -1,139 +1,143 @@
 @font-face {
   font-family: 'vavicons';
   font-display: block;
-  src: url("/fonts/vavicons.woff2?bdb7a83cf58be578c82f7a499e5b6540") format("woff2"),
-url("/fonts/vavicons.woff?bdb7a83cf58be578c82f7a499e5b6540") format("woff");
+  src: url("/fonts/vavicons.woff2?59a83cb09e5ebf2bda3a23af82d17f79") format("woff2"),
+url("/fonts/vavicons.woff?59a83cb09e5ebf2bda3a23af82d17f79") format("woff");
 }
 
-.pi.pi-vav-waypoint-catalog:before {
+.pi.pi-vav-waypoint-types:before {
   font-family: 'vavicons';
   content: "\f101";
 }
-.pi.pi-vav-waypoint-catalog-off:before {
+.pi.pi-vav-waypoint-catalog:before {
   font-family: 'vavicons';
   content: "\f102";
 }
-.pi.pi-vav-turnpoint:before {
+.pi.pi-vav-waypoint-catalog-off:before {
   font-family: 'vavicons';
   content: "\f103";
 }
-.pi.pi-vav-regulation:before {
+.pi.pi-vav-turnpoint:before {
   font-family: 'vavicons';
   content: "\f104";
 }
-.pi.pi-vav-nav-waypoints:before {
+.pi.pi-vav-regulation:before {
   font-family: 'vavicons';
   content: "\f105";
 }
-.pi.pi-vav-nav-safety-profile:before {
+.pi.pi-vav-nav-waypoints:before {
   font-family: 'vavicons';
   content: "\f106";
 }
-.pi.pi-vav-nav-library:before {
+.pi.pi-vav-nav-safety-profile:before {
   font-family: 'vavicons';
   content: "\f107";
 }
-.pi.pi-vav-nav-data-sources:before {
+.pi.pi-vav-nav-library:before {
   font-family: 'vavicons';
   content: "\f108";
 }
-.pi.pi-vav-nav-circuit:before {
+.pi.pi-vav-nav-data-sources:before {
   font-family: 'vavicons';
   content: "\f109";
 }
-.pi.pi-vav-nav-airspace-debug:before {
+.pi.pi-vav-nav-circuit:before {
   font-family: 'vavicons';
   content: "\f10a";
 }
-.pi.pi-vav-load-circuit:before {
+.pi.pi-vav-nav-airspace-debug:before {
   font-family: 'vavicons';
   content: "\f10b";
 }
-.pi.pi-vav-landable:before {
+.pi.pi-vav-load-circuit:before {
   font-family: 'vavicons';
   content: "\f10c";
 }
-.pi.pi-vav-hillshade:before {
+.pi.pi-vav-landable:before {
   font-family: 'vavicons';
   content: "\f10d";
 }
-.pi.pi-vav-glide-cone:before {
+.pi.pi-vav-hillshade:before {
   font-family: 'vavicons';
   content: "\f10e";
 }
-.pi.pi-vav-export-xcsoar:before {
+.pi.pi-vav-glide-cone:before {
   font-family: 'vavicons';
   content: "\f10f";
 }
-.pi.pi-vav-export-preview:before {
+.pi.pi-vav-export-xcsoar:before {
   font-family: 'vavicons';
   content: "\f110";
 }
-.pi.pi-vav-export-igc:before {
+.pi.pi-vav-export-preview:before {
   font-family: 'vavicons';
   content: "\f111";
 }
-.pi.pi-vav-export-flarm:before {
+.pi.pi-vav-export-igc:before {
   font-family: 'vavicons';
   content: "\f112";
 }
-.pi.pi-vav-export-cupx:before {
+.pi.pi-vav-export-flarm:before {
   font-family: 'vavicons';
   content: "\f113";
 }
-.pi.pi-vav-export-cup:before {
+.pi.pi-vav-export-cupx:before {
   font-family: 'vavicons';
   content: "\f114";
 }
-.pi.pi-vav-cup-source:before {
+.pi.pi-vav-export-cup:before {
   font-family: 'vavicons';
   content: "\f115";
 }
-.pi.pi-vav-circuits-library:before {
+.pi.pi-vav-cup-source:before {
   font-family: 'vavicons';
   content: "\f116";
 }
-.pi.pi-vav-basemap-topo:before {
+.pi.pi-vav-circuits-library:before {
   font-family: 'vavicons';
   content: "\f117";
 }
-.pi.pi-vav-basemap-satellite:before {
+.pi.pi-vav-basemap-topo:before {
   font-family: 'vavicons';
   content: "\f118";
 }
-.pi.pi-vav-basemap-osm:before {
+.pi.pi-vav-basemap-satellite:before {
   font-family: 'vavicons';
   content: "\f119";
 }
-.pi.pi-vav-basemap-opentopo:before {
+.pi.pi-vav-basemap-osm:before {
   font-family: 'vavicons';
   content: "\f11a";
 }
-.pi.pi-vav-basemap-dem-gray:before {
+.pi.pi-vav-basemap-opentopo:before {
   font-family: 'vavicons';
   content: "\f11b";
 }
-.pi.pi-vav-basemap-carto-voyager:before {
+.pi.pi-vav-basemap-dem-gray:before {
   font-family: 'vavicons';
   content: "\f11c";
 }
-.pi.pi-vav-basemap-carto-light:before {
+.pi.pi-vav-basemap-carto-voyager:before {
   font-family: 'vavicons';
   content: "\f11d";
 }
-.pi.pi-vav-airspace:before {
+.pi.pi-vav-basemap-carto-light:before {
   font-family: 'vavicons';
   content: "\f11e";
 }
-.pi.pi-vav-airspace-volume:before {
+.pi.pi-vav-airspace:before {
   font-family: 'vavicons';
   content: "\f11f";
 }
-.pi.pi-vav-airspace-filter:before {
+.pi.pi-vav-airspace-volume:before {
   font-family: 'vavicons';
   content: "\f120";
 }
-.pi.pi-vav-airfield:before {
+.pi.pi-vav-airspace-filter:before {
   font-family: 'vavicons';
   content: "\f121";
+}
+.pi.pi-vav-airfield:before {
+  font-family: 'vavicons';
+  content: "\f122";
 }

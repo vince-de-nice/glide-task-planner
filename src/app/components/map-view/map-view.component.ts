@@ -47,7 +47,7 @@ import {
   type AirspaceZoneFiltersPrefs
 } from '../../utils/airspace-zone-filter.util';
 import { configureMapFreeCamera } from '../../utils/map-free-camera.util';
-import { DEFAULT_POAFF_REGION_ID } from '../../config/map-airspace.config';
+import { AirspaceDataSourceService } from '../../services/airspace-data-source.service';
 import { Waypoint, WaypointType } from '../../models/waypoint.model';
 import {
   defaultTaskBadge,
@@ -60,7 +60,6 @@ import {
   WaypointEditDialogComponent,
   WaypointEditPayload
 } from '../waypoint-edit-dialog/waypoint-edit-dialog.component';
-import { Select } from 'primeng/select';
 import { ToggleSwitch } from 'primeng/toggleswitch';
 import { Tooltip } from 'primeng/tooltip';
 import { UiFeedbackService } from '../../services/ui-feedback.service';
@@ -121,7 +120,6 @@ export interface MapContextMenuState {
     MapComponent,
     WaypointEditDialogComponent,
     WaypointContextMenuComponent,
-    Select,
     ToggleSwitch,
     Tooltip,
     TranslatePipe,
@@ -141,6 +139,7 @@ export class MapViewComponent implements OnInit {
   private mapFocus = inject(MapFocusService);
   readonly airspaceLayerService = inject(AirspaceLayerService);
   private readonly airspaceMapDisplay = inject(AirspaceMapDisplayService);
+  private readonly airspaceDataSource = inject(AirspaceDataSourceService);
   private readonly airspaceScreenId = 'task-map' as const;
 
   compact = input(false);
@@ -162,7 +161,6 @@ export class MapViewComponent implements OnInit {
     this.i18n.locale();
     return WAYPOINT_TYPE_ORDER.map(type => waypointTypeDisplayI18n(type, this.i18n));
   });
-  readonly poaffRegions = this.airspaceLayerService.poaffRegions;
   readonly contextPopupLabels = computed(() => {
     this.i18n.locale();
     return mapPopupLabels(this.i18n);
@@ -171,7 +169,6 @@ export class MapViewComponent implements OnInit {
   obsZonesVisible = signal(true);
   airspaceVisible = signal(false);
   airspaceVolume3d = signal(true);
-  airspaceRegionId = signal(DEFAULT_POAFF_REGION_ID);
   airspaceStatus = signal<string | null>(null);
   airspaceLoading = signal(false);
   airspaceConfigReady = signal(false);
@@ -293,6 +290,13 @@ export class MapViewComponent implements OnInit {
         this.updateObsZones();
       }
     });
+
+    effect(() => {
+      this.airspaceDataSource.revision();
+      if (this.airspaceVisible() && this.mapReady()) {
+        void this.reloadAirspaceLayer();
+      }
+    });
   }
 
   toggleFilters(): void {
@@ -406,7 +410,6 @@ export class MapViewComponent implements OnInit {
     this.airspaceMapDisplay.writePrefs(this.airspaceScreenId, {
       visible: this.airspaceVisible(),
       volume3d: this.airspaceVolume3d(),
-      regionId: this.airspaceRegionId(),
       zoneFilters: this.airspaceZoneFilters()
     });
   }
@@ -450,15 +453,6 @@ export class MapViewComponent implements OnInit {
     this.airspaceStatus.set(outcome.ok ? outcome.status : outcome.status);
   }
 
-  onAirspaceRegionChange(regionId: string): void {
-    this.airspaceRegionId.set(regionId);
-    this.airspaceMapDisplay.clearScreenCache(this.airspaceScreenId);
-    this.persistAirspacePrefs();
-    if (this.airspaceVisible()) {
-      void this.reloadAirspaceLayer();
-    }
-  }
-
   ngOnInit(): void {
     ensureMapterhornGrayProtocolRegistered();
 
@@ -477,7 +471,6 @@ export class MapViewComponent implements OnInit {
     const airPrefs = this.airspaceMapDisplay.readPrefs(this.airspaceScreenId);
     this.airspaceVisible.set(airPrefs.visible);
     this.airspaceVolume3d.set(airPrefs.volume3d);
-    this.airspaceRegionId.set(airPrefs.regionId);
     this.airspaceZoneFilters.set(airPrefs.zoneFilters);
 
     void this.airspaceLayerService.ensureConfigLoaded().then(() => {

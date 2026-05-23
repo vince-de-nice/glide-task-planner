@@ -27,6 +27,7 @@ import {
   type AirspaceLoadResult,
   type PoaffProperties
 } from './airspace-layer.service';
+import { AirspaceDataSourceService } from './airspace-data-source.service';
 import {
   AirspaceScreenPrefsService,
   type AirspaceScreenId,
@@ -41,7 +42,7 @@ export interface AirspaceMapApplyOutcome {
 }
 
 interface ScreenAirspaceCache {
-  regionId: string;
+  sourceId: string;
   result: AirspaceLoadResult;
   enriched: FeatureCollection<Geometry, AirspaceVolumeProperties>;
 }
@@ -61,15 +62,16 @@ const STALE_OUTCOME: AirspaceMapApplyOutcome = {
 @Injectable({ providedIn: 'root' })
 export class AirspaceMapDisplayService {
   private readonly airspaceLayer = inject(AirspaceLayerService);
+  private readonly dataSource = inject(AirspaceDataSourceService);
   private readonly prefsService = inject(AirspaceScreenPrefsService);
   private readonly i18n = inject(TranslateService);
   private readonly terrariumProgress = inject(AirspaceTerrariumProgressService);
   private readonly enrichedPersist = inject(AirspaceEnrichedPersistService);
 
   private popup: Popup | null = null;
-  /** Cache POAFF enrichi (Terrarium) partagé entre écrans pour une même région. */
-  private readonly cacheByRegion = new Map<string, ScreenAirspaceCache>();
-  private readonly regionQueueKeys = new Map<string, object>();
+  /** Cache enrichi (Terrarium) partagé entre écrans pour une même source. */
+  private readonly cacheBySource = new Map<string, ScreenAirspaceCache>();
+  private readonly sourceQueueKeys = new Map<string, object>();
   /** Incrémenté à la destruction de carte pour abandonner les applies en cours. */
   private readonly invalidateEpochByMap = new WeakMap<MaplibreMap, number>();
 
@@ -81,22 +83,27 @@ export class AirspaceMapDisplayService {
     this.prefsService.save(screenId, prefs);
   }
 
-  getFilterOptions(screenId: AirspaceScreenId): AirspaceFilterFieldOptions | null {
-    const cached = this.cacheByRegion.get(this.prefsService.get(screenId).regionId);
+  getFilterOptions(_screenId: AirspaceScreenId): AirspaceFilterFieldOptions | null {
+    const cached = this.cacheBySource.get(this.dataSource.activeSourceId());
     if (!cached) return null;
     return collectAirspaceFilterOptions(cached.enriched);
   }
 
-  clearScreenCache(screenId: AirspaceScreenId): void {
-    const regionId = this.prefsService.get(screenId).regionId;
-    this.cacheByRegion.delete(regionId);
-    void this.enrichedPersist.delete(regionId);
+  /** @deprecated utiliser invalidateActiveSourceCache */
+  clearScreenCache(_screenId: AirspaceScreenId): void {
+    this.invalidateActiveSourceCache();
+  }
+
+  invalidateActiveSourceCache(): void {
+    const sourceId = this.dataSource.activeSourceId();
+    this.cacheBySource.delete(sourceId);
+    void this.enrichedPersist.delete(sourceId);
   }
 
   getCachedEnriched(
-    screenId: AirspaceScreenId
+    _screenId: AirspaceScreenId
   ): FeatureCollection<Geometry, AirspaceVolumeProperties> | null {
-    return this.cacheByRegion.get(this.prefsService.get(screenId).regionId)?.enriched ?? null;
+    return this.cacheBySource.get(this.dataSource.activeSourceId())?.enriched ?? null;
   }
 
   /** Retire les calques sans invalider les chargements async. */
@@ -127,8 +134,8 @@ export class AirspaceMapDisplayService {
     screenId: AirspaceScreenId,
     options: { forceReload?: boolean } = {}
   ): Promise<AirspaceMapApplyOutcome> {
-    const regionId = this.prefsService.get(screenId).regionId;
-    return this.runForRegion(regionId, () =>
+    const sourceId = this.dataSource.activeSourceId();
+    return this.runForSource(sourceId, () =>
       this.loadEnrichedCache(screenId, options.forceReload === true, map)
     );
   }
@@ -175,11 +182,11 @@ export class AirspaceMapDisplayService {
     return getSerialQueue(map).enqueue(fn);
   }
 
-  private runForRegion<T>(regionId: string, fn: () => Promise<T>): Promise<T> {
-    let key = this.regionQueueKeys.get(regionId);
+  private runForSource<T>(sourceId: string, fn: () => Promise<T>): Promise<T> {
+    let key = this.sourceQueueKeys.get(sourceId);
     if (!key) {
       key = {};
-      this.regionQueueKeys.set(regionId, key);
+      this.sourceQueueKeys.set(sourceId, key);
     }
     return getSerialQueue(key).enqueue(fn);
   }
@@ -255,8 +262,8 @@ export class AirspaceMapDisplayService {
 
     await this.airspaceLayer.ensureConfigLoaded();
 
-    const regionId = prefs.regionId;
-    const cached = this.cacheByRegion.get(regionId);
+    const sourceId = this.dataSource.activeSourceId();
+    const cached = this.cacheBySource.get(sourceId);
     const cacheValid = cached != null && !forceReload;
 
     let result: AirspaceLoadResult;
@@ -266,7 +273,7 @@ export class AirspaceMapDisplayService {
       result = cached.result;
       enriched = cached.enriched;
     } else {
-      const loaded = await this.airspaceLayer.loadPoaffWithDiagnostics(regionId);
+      const loaded = await this.airspaceLayer.loadActiveWithDiagnostics();
       if (!loaded.result?.geojson) {
         this.clearScreenCache(screenId);
         this.terrariumProgress.cancel();
@@ -278,11 +285,11 @@ export class AirspaceMapDisplayService {
       const poaffFc = result.geojson as FeatureCollection<Geometry, PoaffProperties>;
       const sourceFingerprint = this.enrichedPersist.fingerprintFromGeoJson(poaffFc);
 
-      const persisted = await this.enrichedPersist.read(regionId);
+      const persisted = await this.enrichedPersist.read(sourceId);
       if (
         !forceReload &&
         persisted &&
-        this.enrichedPersist.matchesCurrentSource(persisted, regionId, sourceFingerprint)
+        this.enrichedPersist.matchesCurrentSource(persisted, sourceId, sourceFingerprint)
       ) {
         enriched = persisted.enriched;
         result = {
@@ -291,10 +298,10 @@ export class AirspaceMapDisplayService {
           geojson: poaffFc
         };
       } else {
-        if (persisted && !this.enrichedPersist.matchesCurrentSource(persisted, regionId, sourceFingerprint)) {
-          void this.enrichedPersist.delete(regionId);
+        if (persisted && !this.enrichedPersist.matchesCurrentSource(persisted, sourceId, sourceFingerprint)) {
+          void this.enrichedPersist.delete(sourceId);
         }
-        const regionLabel = result.label.replace(/^POAFF — /, '');
+        const regionLabel = result.label.replace(/^(POAFF|Import) — /, '');
         const demZoneCount = poaffFc.features.filter(f =>
           featureNeedsDemGround(f.properties ?? {})
         ).length;
@@ -318,15 +325,15 @@ export class AirspaceMapDisplayService {
         }
 
         void this.enrichedPersist.write({
-          regionId,
+          sourceId,
           sourceFingerprint,
           label: result.label,
           enriched
         });
       }
 
-      this.cacheByRegion.set(regionId, {
-        regionId,
+      this.cacheBySource.set(sourceId, {
+        sourceId,
         result,
         enriched
       });
@@ -348,7 +355,8 @@ export class AirspaceMapDisplayService {
     legDisplayZoneKeys: ReadonlySet<string> | undefined,
     epoch: number
   ): Promise<AirspaceMapApplyOutcome> {
-    const cached = this.cacheByRegion.get(prefs.regionId);
+    const sourceId = this.dataSource.activeSourceId();
+    const cached = this.cacheBySource.get(sourceId);
     if (!cached) {
       return STALE_OUTCOME;
     }
@@ -360,10 +368,10 @@ export class AirspaceMapDisplayService {
     if (
       !useVolume3d &&
       this.airspaceLayer.hasOpenAipKey() &&
-      (await this.airspaceLayer.createAirspaceLayer(prefs.regionId))?.source ===
+      (await this.airspaceLayer.createAirspaceLayer(sourceId))?.source ===
         'openaip'
     ) {
-      const oa = await this.airspaceLayer.createAirspaceLayer(prefs.regionId);
+      const oa = await this.airspaceLayer.createAirspaceLayer(sourceId);
       if (oa) openAipResult = oa;
     }
 
@@ -415,7 +423,7 @@ export class AirspaceMapDisplayService {
     const status =
       useVolume3d || openAipResult.source !== 'openaip'
         ? this.i18n.t('map.airspacePoaffVolumes', {
-            label: result.label.replace(/^POAFF — /, ''),
+            label: result.label.replace(/^(POAFF|Import) — /, ''),
             count: volumeCount,
             shown,
             total

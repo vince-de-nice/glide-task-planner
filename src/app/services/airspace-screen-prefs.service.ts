@@ -12,7 +12,6 @@ export type AirspaceScreenId = 'task-map' | 'safety-profile';
 export interface AirspaceScreenPrefs {
   visible: boolean;
   volume3d: boolean;
-  regionId: string;
   zoneFilters: AirspaceZoneFiltersPrefs;
 }
 
@@ -22,14 +21,12 @@ const DEFAULT_PREFS_BY_SCREEN: Record<AirspaceScreenId, AirspaceScreenPrefs> = {
   'task-map': {
     visible: false,
     volume3d: true,
-    regionId: DEFAULT_POAFF_REGION_ID,
     zoneFilters: DEFAULT_AIRSPACE_ZONE_FILTERS
   },
   /** Affichage piloté par les zones activées sur la branche (pas de toggle global). */
   'safety-profile': {
     visible: true,
     volume3d: true,
-    regionId: DEFAULT_POAFF_REGION_ID,
     zoneFilters: DEFAULT_AIRSPACE_ZONE_FILTERS
   }
 };
@@ -48,10 +45,6 @@ export class AirspaceScreenPrefsService {
             ? parsed.visible !== false
             : parsed.visible === true,
         volume3d: parsed.volume3d !== false,
-        regionId:
-          typeof parsed.regionId === 'string' && parsed.regionId.length > 0
-            ? parsed.regionId
-            : defaults.regionId,
         zoneFilters: normalizeAirspaceZoneFilters(parsed.zoneFilters)
       };
     } catch {

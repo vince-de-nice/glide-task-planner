@@ -16,6 +16,8 @@ export const VavIcons = {
 
   WAYPOINT_CATALOG: 'pi pi-vav-waypoint-catalog',
   WAYPOINT_CATALOG_OFF: 'pi pi-vav-waypoint-catalog-off',
+  /** Affichage des types de points (TP, AD, AL…) sur la carte circuit. */
+  WAYPOINT_TYPES: 'pi pi-vav-waypoint-types',
 
   HILLSHADE: 'pi pi-vav-hillshade',
   AIRSPACE: 'pi pi-vav-airspace',

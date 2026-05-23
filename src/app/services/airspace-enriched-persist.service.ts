@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import type { FeatureCollection, Geometry } from 'geojson';
+import { isCustomAirspaceSourceId } from '../config/airspace-data-source.constants';
 import { POAFF_AIRSPACE_REGIONS } from '../config/map-airspace.config';
 import {
   AIRSPACE_ENRICH_CACHE_SCHEMA_VERSION,
@@ -11,7 +12,9 @@ import type { AirspaceVolumeProperties } from '../utils/airspace-volume-enrich.u
 import { poaffCollectionFingerprint } from '../utils/airspace-poaff-fingerprint.util';
 
 export interface PersistedAirspaceEnrichedEntry {
-  regionId: string;
+  /** @deprecated alias — même valeur que sourceId pour les entrées récentes */
+  regionId?: string;
+  sourceId: string;
   sourceAssetFile: string;
   sourceFingerprint: string;
   schemaVersion: number;
@@ -25,18 +28,26 @@ export interface PersistedAirspaceEnrichedEntry {
 export class AirspaceEnrichedPersistService {
   private dbPromise: Promise<IDBDatabase> | null = null;
 
-  sourceAssetFile(regionId: string): string | null {
-    return POAFF_AIRSPACE_REGIONS.find(r => r.id === regionId)?.assetFile ?? null;
+  sourceKey(sourceId: string): string | null {
+    if (isCustomAirspaceSourceId(sourceId)) {
+      return sourceId;
+    }
+    return POAFF_AIRSPACE_REGIONS.find(r => r.id === sourceId)?.assetFile ?? null;
   }
 
-  async read(regionId: string): Promise<PersistedAirspaceEnrichedEntry | null> {
+  /** @deprecated utiliser sourceKey */
+  sourceAssetFile(sourceId: string): string | null {
+    return this.sourceKey(sourceId);
+  }
+
+  async read(sourceId: string): Promise<PersistedAirspaceEnrichedEntry | null> {
     if (typeof indexedDB === 'undefined') return null;
     try {
       const db = await this.openDb();
       return await idbGet<PersistedAirspaceEnrichedEntry>(
         db,
         AIRSPACE_ENRICH_IDB_STORE,
-        regionId
+        sourceId
       );
     } catch (err) {
       console.warn('[airspace-enriched-persist] read failed:', err);
@@ -46,14 +57,15 @@ export class AirspaceEnrichedPersistService {
 
   matchesCurrentSource(
     entry: PersistedAirspaceEnrichedEntry,
-    regionId: string,
+    sourceId: string,
     sourceFingerprint: string
   ): boolean {
-    const assetFile = this.sourceAssetFile(regionId);
+    const sourceKey = this.sourceKey(sourceId);
+    const entrySourceId = entry.sourceId ?? entry.regionId;
     return (
-      entry.regionId === regionId &&
-      assetFile != null &&
-      entry.sourceAssetFile === assetFile &&
+      entrySourceId === sourceId &&
+      sourceKey != null &&
+      entry.sourceAssetFile === sourceKey &&
       entry.sourceFingerprint === sourceFingerprint &&
       entry.schemaVersion === AIRSPACE_ENRICH_CACHE_SCHEMA_VERSION &&
       entry.demZoom === AIRSPACE_ENRICH_DEM_ZOOM &&
@@ -62,17 +74,17 @@ export class AirspaceEnrichedPersistService {
   }
 
   async write(params: {
-    regionId: string;
+    sourceId: string;
     sourceFingerprint: string;
     label: string;
     enriched: FeatureCollection<Geometry, AirspaceVolumeProperties>;
   }): Promise<void> {
     if (typeof indexedDB === 'undefined') return;
-    const sourceAssetFile = this.sourceAssetFile(params.regionId);
+    const sourceAssetFile = this.sourceKey(params.sourceId);
     if (!sourceAssetFile) return;
 
     const entry: PersistedAirspaceEnrichedEntry = {
-      regionId: params.regionId,
+      sourceId: params.sourceId,
       sourceAssetFile,
       sourceFingerprint: params.sourceFingerprint,
       schemaVersion: AIRSPACE_ENRICH_CACHE_SCHEMA_VERSION,
@@ -84,17 +96,17 @@ export class AirspaceEnrichedPersistService {
 
     try {
       const db = await this.openDb();
-      await idbPut(db, AIRSPACE_ENRICH_IDB_STORE, params.regionId, entry);
+      await idbPut(db, AIRSPACE_ENRICH_IDB_STORE, params.sourceId, entry);
     } catch (err) {
       console.warn('[airspace-enriched-persist] write failed:', err);
     }
   }
 
-  async delete(regionId: string): Promise<void> {
+  async delete(sourceId: string): Promise<void> {
     if (typeof indexedDB === 'undefined') return;
     try {
       const db = await this.openDb();
-      await idbDelete(db, AIRSPACE_ENRICH_IDB_STORE, regionId);
+      await idbDelete(db, AIRSPACE_ENRICH_IDB_STORE, sourceId);
     } catch (err) {
       console.warn('[airspace-enriched-persist] delete failed:', err);
     }

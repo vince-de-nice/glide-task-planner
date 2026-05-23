@@ -6,6 +6,25 @@
   background: var(--gc-bg);
 }
 
+.ds-hidden-input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ds-hero--airspace {
+  margin-bottom: 1rem;
+}
+
+.ds-airspace-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
 .ds-hero {
   display: grid;
   grid-template-columns: auto 1fr auto;

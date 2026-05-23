@@ -1,4 +1,5 @@
 import { Injectable, inject } from '@angular/core';
+import { isCustomAirspaceSourceId } from '../config/airspace-data-source.constants';
 import { TranslateService } from '../i18n/translate.service';
 import type { Feature, FeatureCollection, Geometry } from 'geojson';
 
@@ -10,6 +11,7 @@ import {
   poaffRegionProxyUrl,
   PoaffRegion
 } from '../config/map-airspace.config';
+import { AirspaceDataSourceService } from './airspace-data-source.service';
 
 export type AirspaceSource = 'openaip' | 'poaff' | 'none';
 
@@ -61,6 +63,7 @@ export interface PoaffPaintProps {
 })
 export class AirspaceLayerService {
   private readonly i18n = inject(TranslateService);
+  private readonly dataSources = inject(AirspaceDataSourceService);
   private openAipApiKey: string | null = null;
   private configLoaded = false;
 
@@ -119,13 +122,40 @@ export class AirspaceLayerService {
   async loadPoaffWithDiagnostics(
     regionId: string = DEFAULT_POAFF_REGION_ID
   ): Promise<{ result: AirspaceLoadResult | null; failure?: AirspaceLoadFailure }> {
+    return this.loadSourceWithDiagnostics(regionId);
+  }
+
+  async loadActiveWithDiagnostics(): Promise<{
+    result: AirspaceLoadResult | null;
+    failure?: AirspaceLoadFailure;
+  }> {
+    return this.loadSourceWithDiagnostics(this.dataSources.activeSourceId());
+  }
+
+  async loadSourceWithDiagnostics(
+    sourceId: string
+  ): Promise<{ result: AirspaceLoadResult | null; failure?: AirspaceLoadFailure }> {
     await this.ensureConfigLoaded();
     if (this.openAipApiKey) {
-      const result = await this.createAirspaceLayer(regionId);
+      const result = await this.createAirspaceLayer(sourceId);
       return { result };
     }
 
-    const region = POAFF_AIRSPACE_REGIONS.find(r => r.id === regionId);
+    if (isCustomAirspaceSourceId(sourceId)) {
+      const geojson = await this.dataSources.readCustomGeoJson(sourceId);
+      if (!geojson?.features?.length) {
+        return { result: null, failure: 'not_found' };
+      }
+      return {
+        result: {
+          source: 'poaff',
+          label: this.dataSources.loadLabelFor(sourceId),
+          geojson: geojson as FeatureCollection
+        }
+      };
+    }
+
+    const region = POAFF_AIRSPACE_REGIONS.find(r => r.id === sourceId);
     if (!region) return { result: null, failure: 'unknown' };
 
     const loaded = await this.loadPoaffGeoJson(region);

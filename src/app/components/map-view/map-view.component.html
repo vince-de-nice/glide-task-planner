@@ -78,7 +78,7 @@
         [attr.aria-label]="'map.filtersTypesAria' | translate"
         [attr.aria-expanded]="filtersExpanded()"
       >
-        <i class="pi pi-filter" aria-hidden="true"></i>
+        <i class="pi pi-vav-waypoint-types" aria-hidden="true"></i>
       </button>
 
       <div class="map-fab-divider" aria-hidden="true"></div>
@@ -190,23 +190,6 @@
             />
           </label>
         }
-      </div>
-    }
-
-    @if (airspaceConfigReady() && airspaceVisible()) {
-      <div class="map-overlay map-overlay--region">
-        <p-select
-          [options]="poaffRegions"
-          optionLabel="label"
-          optionValue="id"
-          [ngModel]="airspaceRegionId()"
-          (ngModelChange)="onAirspaceRegionChange($event)"
-          [disabled]="airspaceLoading()"
-          size="small"
-          [placeholder]="'map.region' | translate"
-          styleClass="map-region-select"
-          [attr.aria-label]="'map.region' | translate"
-        />
       </div>
     }
 

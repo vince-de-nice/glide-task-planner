@@ -161,7 +161,7 @@ export const fr = {
   dataSources: {
     title: 'Sources de données',
     intro:
-      'Chargez et gérez la base CUP utilisée par le circuit, la carte et l’export. Utilisez le panneau principal pour importer ou télécharger un fichier ; les sources configurées et vos URL récentes sont à droite.',
+      'Chargez et gérez la base CUP et la source des espaces aériens utilisée par la carte et le profil sécurité. Importez un fichier .cup ou .geojson, ou choisissez une source dans les listes ci-dessous.',
     loadTitle: 'Charger une base',
     activeBadge: 'Base active',
     activeEmpty: 'Aucune base chargée',
@@ -187,7 +187,32 @@ export const fr = {
     clearDbMessage:
       'Supprimer tous les points et réinitialiser la tâche ? Cette action est irréversible.',
     clearDbAccept: 'Vider',
-    cleared: 'Base vidée.'
+    cleared: 'Base vidée.',
+    airspace: {
+      statusAria: 'Source espaces aériens',
+      statusTitle: 'Espaces aériens',
+      activeBadge: 'Source active',
+      activeEmpty: 'Aucune source sélectionnée',
+      builtinAria: 'Régions POAFF',
+      builtinTitle: 'Régions POAFF (SIA)',
+      builtinHint:
+        'Données cartographiques aériennes dédiées au vol libre (licence Ouverte). Les fichiers sont fournis localement ou via le proxy de développement.',
+      customAria: 'Imports personnalisés',
+      customTitle: 'Fichiers importés',
+      customHint: 'GeoJSON FeatureCollection (.geojson, .json). Le choix est mémorisé sur cet appareil.',
+      noCustom: 'Aucun fichier importé.',
+      import: 'Importer GeoJSON',
+      importFailed: 'Impossible de lire ce fichier (GeoJSON FeatureCollection attendu).',
+      imported: 'Source importée',
+      importedDetail: '{{count}} entités — affichage sur la carte après activation.',
+      activate: 'Utiliser',
+      active: 'Active',
+      removeCustom: 'Supprimer l’import',
+      removeCustomHeader: 'Supprimer la source',
+      removeCustomMessage:
+        'Retirer « {{label}} » de la liste et effacer le fichier local ? Les caches d’enrichissement associés seront invalidés.',
+      featureCount: '{{count}} zones'
+    }
   },
   cup: {
     sectionQuick: 'Source connue',
@@ -286,7 +311,7 @@ export const fr = {
     centerAll: 'Centrer tous les points',
     clearSelection: 'Effacer la sélection',
     region: 'Région',
-    filtersAria: 'Afficher sur la carte',
+    filtersAria: 'Types de points affichés',
     helpTitle: 'Aide carte',
     helpTooltip:
       'Zones tâche : cylindres/secteurs/lignes en mètres réels · espaces aériens POAFF/OpenAIP · altitude terrain au survol (DEM Mapterhorn) · tâche toujours visible (numéros de leg) · catalogue : grappes sous zoom 10 · double-clic : point · clic : menu',
@@ -318,10 +343,10 @@ export const fr = {
     showFullCatalog: 'Afficher tout le CUP',
     hideFullCatalog: 'Tâche seulement',
     showFullCatalogCount: 'Afficher tout le CUP ({{count}} pts)',
-    filtersToggle: 'Filtres',
-    filtersExpanded: 'Filtres ▴',
-    filtersCollapsed: 'Filtres ▾',
-    filtersTypesAria: 'Afficher les filtres de types',
+    filtersToggle: 'Types',
+    filtersExpanded: 'Types ▴',
+    filtersCollapsed: 'Types ▾',
+    filtersTypesAria: 'Afficher les types de points sur la carte',
     taskZones: 'Zones tâche',
     taskZonesTooltip: 'Cylindres / lignes / secteurs à l’échelle (m)',
     taskZonesTooltipEmpty: 'Composez un circuit',

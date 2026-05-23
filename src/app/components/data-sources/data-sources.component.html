@@ -43,6 +43,113 @@
     </div>
   </section>
 
+  <section class="ds-hero ds-hero--airspace gc-card" [attr.aria-label]="'dataSources.airspace.statusAria' | translate">
+    <div class="ds-hero__icon" aria-hidden="true">
+      <i class="pi pi-globe"></i>
+    </div>
+    <div class="ds-hero__main">
+      <p class="ds-hero__badge">{{ 'dataSources.airspace.activeBadge' | translate }}</p>
+      <h2 class="ds-hero__name">{{ activeAirspaceLabel() }}</h2>
+      <p class="ds-hero__meta">{{ 'dataSources.airspace.statusTitle' | translate }}</p>
+    </div>
+    <div class="ds-hero__aside">
+      <input
+        #geoJsonInput
+        type="file"
+        accept=".geojson,.json,application/geo+json,application/json"
+        class="ds-hidden-input"
+        (change)="onAirspaceFileSelected($event)"
+      />
+      <p-button
+        [label]="'dataSources.airspace.import' | translate"
+        icon="pi pi-upload"
+        size="small"
+        [outlined]="true"
+        [loading]="airspaceImporting()"
+        [disabled]="airspaceImporting()"
+        (onClick)="triggerAirspaceImport()"
+      />
+    </div>
+  </section>
+
+  <div class="ds-airspace-grid">
+    <section class="ds-panel gc-card" [attr.aria-label]="'dataSources.airspace.builtinAria' | translate">
+      <header class="gc-panel-head">
+        <h2 class="gc-panel-title">{{ 'dataSources.airspace.builtinTitle' | translate }}</h2>
+      </header>
+      <p class="gc-panel-hint">{{ 'dataSources.airspace.builtinHint' | translate }}</p>
+      <ul class="ds-source-list">
+        @for (source of airspaceSources.builtinSources; track source.id) {
+          <li class="ds-source" [class.ds-source--active]="isActiveAirspaceSource(source.id)">
+            <div class="ds-source__info">
+              <span class="ds-source__label">{{ source.label }}</span>
+              <span class="ds-source__url">POAFF / SIA</span>
+            </div>
+            <p-button
+              [label]="
+                isActiveAirspaceSource(source.id)
+                  ? ('dataSources.airspace.active' | translate)
+                  : ('dataSources.airspace.activate' | translate)
+              "
+              [icon]="isActiveAirspaceSource(source.id) ? 'pi pi-check' : 'pi pi-map'"
+              size="small"
+              [outlined]="!isActiveAirspaceSource(source.id)"
+              [severity]="isActiveAirspaceSource(source.id) ? 'success' : undefined"
+              [disabled]="isActiveAirspaceSource(source.id)"
+              (onClick)="activateAirspaceSource(source.id)"
+            />
+          </li>
+        }
+      </ul>
+    </section>
+
+    <section class="ds-panel gc-card" [attr.aria-label]="'dataSources.airspace.customAria' | translate">
+      <header class="gc-panel-head">
+        <h2 class="gc-panel-title">{{ 'dataSources.airspace.customTitle' | translate }}</h2>
+      </header>
+      <p class="gc-panel-hint">{{ 'dataSources.airspace.customHint' | translate }}</p>
+      @if (airspaceSources.customSources().length === 0) {
+        <p class="ds-msg">{{ 'dataSources.airspace.noCustom' | translate }}</p>
+      } @else {
+        <ul class="ds-source-list">
+          @for (source of airspaceSources.customSources(); track source.id) {
+            <li class="ds-source" [class.ds-source--active]="isActiveAirspaceSource(source.id)">
+              <div class="ds-source__info">
+                <span class="ds-source__label">{{ source.label }}</span>
+                <span class="ds-source__url">{{
+                  'dataSources.airspace.featureCount' | translate: { count: source.featureCount }
+                }}</span>
+              </div>
+              <div class="ds-source__actions">
+                <p-button
+                  [label]="
+                    isActiveAirspaceSource(source.id)
+                      ? ('dataSources.airspace.active' | translate)
+                      : ('dataSources.airspace.activate' | translate)
+                  "
+                  [icon]="isActiveAirspaceSource(source.id) ? 'pi pi-check' : 'pi pi-map'"
+                  size="small"
+                  [outlined]="!isActiveAirspaceSource(source.id)"
+                  [severity]="isActiveAirspaceSource(source.id) ? 'success' : undefined"
+                  [disabled]="isActiveAirspaceSource(source.id)"
+                  (onClick)="activateAirspaceSource(source.id)"
+                />
+                <p-button
+                  icon="pi pi-trash"
+                  size="small"
+                  severity="danger"
+                  [text]="true"
+                  [attr.aria-label]="'dataSources.airspace.removeCustom' | translate"
+                  (onClick)="removeCustomAirspace(source.id)"
+                />
+              </div>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  </div>
+
   <div class="ds-layout">
     <section class="ds-layout__primary gc-card" [attr.aria-label]="'cup.panelAria' | translate">
       <header class="gc-panel-head">

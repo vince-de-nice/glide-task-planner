@@ -213,7 +213,7 @@ export const en = {
   dataSources: {
     title: 'Data sources',
     intro:
-      'Load and manage the CUP database used by the task map, circuit, and export. Use the main panel to import or download a file; configured sources and recent URLs are on the right.',
+      'Load and manage the CUP database and the airspace source used on the map and safety profile. Import a .cup or .geojson file, or pick a source from the lists below.',
     loadTitle: 'Load a database',
     activeBadge: 'Active database',
     activeEmpty: 'No database loaded',
@@ -238,7 +238,32 @@ export const en = {
     clearDbHeader: 'Clear CUP database',
     clearDbMessage: 'Delete all waypoints and reset the task? This cannot be undone.',
     clearDbAccept: 'Clear',
-    cleared: 'Database cleared.'
+    cleared: 'Database cleared.',
+    airspace: {
+      statusAria: 'Airspace data source',
+      statusTitle: 'Airspace',
+      activeBadge: 'Active source',
+      activeEmpty: 'No source selected',
+      builtinAria: 'POAFF regions',
+      builtinTitle: 'POAFF regions (SIA)',
+      builtinHint:
+        'Open-data airspace cartography for free flight. Files are served locally or via the dev proxy.',
+      customAria: 'Custom imports',
+      customTitle: 'Imported files',
+      customHint: 'GeoJSON FeatureCollection (.geojson, .json). Your choice is stored on this device.',
+      noCustom: 'No imported files.',
+      import: 'Import GeoJSON',
+      importFailed: 'Could not read this file (expected GeoJSON FeatureCollection).',
+      imported: 'Source imported',
+      importedDetail: '{{count}} features — shown on the map when active.',
+      activate: 'Use',
+      active: 'Active',
+      removeCustom: 'Remove import',
+      removeCustomHeader: 'Remove source',
+      removeCustomMessage:
+        'Remove “{{label}}” from the list and delete the local file? Associated enrichment caches will be cleared.',
+      featureCount: '{{count}} zones'
+    }
   },
   cup: {
     sectionQuick: 'Known source',
@@ -337,7 +362,7 @@ export const en = {
     centerAll: 'Center all waypoints',
     clearSelection: 'Clear selection',
     region: 'Region',
-    filtersAria: 'Map layers',
+    filtersAria: 'Waypoint types shown',
     helpTitle: 'Map help',
     helpTooltip:
       'Task zones: cylinders/sectors/lines in real meters · POAFF/OpenAIP airspace · terrain elevation on hover (Mapterhorn DEM) · task always visible (leg numbers) · catalog: clusters below zoom 10 · double-click: waypoint · click: menu',
@@ -369,10 +394,10 @@ export const en = {
     showFullCatalog: 'Show full CUP',
     hideFullCatalog: 'Task only',
     showFullCatalogCount: 'Show full CUP ({{count}} pts)',
-    filtersToggle: 'Filters',
-    filtersExpanded: 'Filters ▴',
-    filtersCollapsed: 'Filters ▾',
-    filtersTypesAria: 'Show type filters',
+    filtersToggle: 'Types',
+    filtersExpanded: 'Types ▴',
+    filtersCollapsed: 'Types ▾',
+    filtersTypesAria: 'Show waypoint types on the map',
     taskZones: 'Task zones',
     taskZonesTooltip: 'Cylinders / lines / sectors at real scale (m)',
     taskZonesTooltipEmpty: 'Build a task first',

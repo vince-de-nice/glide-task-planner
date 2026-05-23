@@ -4,7 +4,9 @@ import {
   computed,
   inject,
   OnInit,
-  signal
+  signal,
+  viewChild,
+  ElementRef
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Button } from 'primeng/button';
@@ -18,6 +20,8 @@ import { UiFeedbackService } from '../../services/ui-feedback.service';
 import { TranslateService } from '../../i18n/translate.service';
 import { TranslatePipe } from '../../i18n/translate.pipe';
 import { CupSourceEntry } from '../../models/cup-sources.model';
+import { AirspaceDataSourceService } from '../../services/airspace-data-source.service';
+import { AirspaceMapDisplayService } from '../../services/airspace-map-display.service';
 
 @Component({
   selector: 'app-data-sources',
@@ -35,6 +39,10 @@ export class DataSourcesComponent implements OnInit {
   private waypointService = inject(WaypointService);
   private uiFeedback = inject(UiFeedbackService);
   private i18n = inject(TranslateService);
+  readonly airspaceSources = inject(AirspaceDataSourceService);
+  private readonly airspaceMapDisplay = inject(AirspaceMapDisplayService);
+
+  private readonly geoJsonInput = viewChild<ElementRef<HTMLInputElement>>('geoJsonInput');
 
   cupMeta = this.cupDatabase.meta;
   waypoints = this.waypointService.waypoints;
@@ -44,6 +52,9 @@ export class DataSourcesComponent implements OnInit {
   recentUrls = signal<string[]>([]);
   configError = signal<string | null>(null);
   loadingSource = signal(false);
+  airspaceImporting = signal(false);
+
+  readonly activeAirspaceLabel = computed(() => this.airspaceSources.activeLabel());
 
   readonly loadedAtLabel = computed(() => {
     const at = this.cupMeta().loadedAt;
@@ -79,6 +90,61 @@ export class DataSourcesComponent implements OnInit {
 
   isActiveSource(url: string): boolean {
     return this.cupDatabase.isFromUrl(url);
+  }
+
+  isActiveAirspaceSource(sourceId: string): boolean {
+    return this.airspaceSources.activeSourceId() === sourceId;
+  }
+
+  async activateAirspaceSource(sourceId: string): Promise<void> {
+    if (this.isActiveAirspaceSource(sourceId)) return;
+    await this.airspaceSources.setActiveSource(sourceId);
+    this.airspaceMapDisplay.invalidateActiveSourceCache();
+  }
+
+  triggerAirspaceImport(): void {
+    this.geoJsonInput()?.nativeElement.click();
+  }
+
+  async onAirspaceFileSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+
+    this.airspaceImporting.set(true);
+    try {
+      const id = await this.airspaceSources.importGeoJsonFile(file);
+      if (!id) {
+        this.uiFeedback.error(this.i18n.t('dataSources.airspace.importFailed'));
+        return;
+      }
+      this.airspaceMapDisplay.invalidateActiveSourceCache();
+      const meta = this.airspaceSources.customSources().find(s => s.id === id);
+      this.uiFeedback.success(
+        this.i18n.t('dataSources.airspace.imported'),
+        this.i18n.t('dataSources.airspace.importedDetail', {
+          count: meta?.featureCount ?? 0
+        })
+      );
+    } finally {
+      this.airspaceImporting.set(false);
+    }
+  }
+
+  async removeCustomAirspace(sourceId: string): Promise<void> {
+    const meta = this.airspaceSources.customSources().find(s => s.id === sourceId);
+    if (!meta) return;
+    const ok = await this.uiFeedback.confirm({
+      header: this.i18n.t('dataSources.airspace.removeCustomHeader'),
+      message: this.i18n.t('dataSources.airspace.removeCustomMessage', {
+        label: meta.label
+      }),
+      acceptButtonStyleClass: 'p-button-danger'
+    });
+    if (!ok) return;
+    await this.airspaceSources.removeCustomSource(sourceId);
+    this.airspaceMapDisplay.invalidateActiveSourceCache();
   }
 
   async loadSource(entry: CupSourceEntry): Promise<void> {

@@ -40,7 +40,7 @@ import {
 } from '../../services/glide-envelope.service';
 import { AirspaceMapDisplayService } from '../../services/airspace-map-display.service';
 import { BackgroundActivityService } from '../../services/background-activity.service';
-import { DEFAULT_POAFF_REGION_ID } from '../../config/map-airspace.config';
+import { AirspaceDataSourceService } from '../../services/airspace-data-source.service';
 import { computeLegEvolutionEnvelope } from '../../utils/leg-evolution-envelope.util';
 import {
   airspaceFeatureToHighlightLines,
@@ -203,6 +203,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private readonly injector = inject(Injector);
   private readonly airspaceMapDisplay = inject(AirspaceMapDisplayService);
+  private readonly airspaceDataSource = inject(AirspaceDataSourceService);
   private readonly bgActivity = inject(BackgroundActivityService);
   private readonly airspaceScreenId = 'safety-profile' as const;
 
@@ -232,7 +233,6 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   /** Volumes 3D des cônes de demi-finesse sur la carte (branche active). */
   cones3dVisible = signal(true);
   airspaceVolume3d = signal(true);
-  airspaceRegionId = signal(DEFAULT_POAFF_REGION_ID);
   airspaceLoading = signal(false);
   lookPadActive = signal(false);
   altPadActive = signal(false);
@@ -485,6 +485,13 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
         this.updateProfileMapPoints();
       }
     });
+
+    effect(() => {
+      this.airspaceDataSource.revision();
+      if (this.mapReady()) {
+        this.requestAirspaceDisplay(this.selectedLegIndex(), { forceCache: true });
+      }
+    });
   }
 
   ngOnInit(): void {
@@ -498,7 +505,6 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
 
     const airPrefs = this.airspaceMapDisplay.readPrefs(this.airspaceScreenId);
     this.airspaceVolume3d.set(airPrefs.volume3d);
-    this.airspaceRegionId.set(airPrefs.regionId);
     this.persistAirspacePrefs();
 
     const storedShare = localStorage.getItem(PROFILE_SHARE_STORAGE_KEY);
@@ -600,8 +606,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     this.airspaceMapDisplay.writePrefs(this.airspaceScreenId, {
       ...current,
       visible: true,
-      volume3d: this.airspaceVolume3d(),
-      regionId: this.airspaceRegionId()
+      volume3d: this.airspaceVolume3d()
     });
   }
 
@@ -1206,7 +1211,12 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
 
     this.landableClickHandler = (e: MapLayerMouseEvent) => {
       const landableId = this.landableIdFromMapFeature(e.features?.[0]);
-      if (landableId) this.selectLandableInList(landableId);
+      if (!landableId) return;
+      if (this.selectedLandableId() === landableId) {
+        this.clearLandableSelection();
+      } else {
+        this.selectLandableInList(landableId);
+      }
     };
     this.landableEnterHandler = (e: MapLayerMouseEvent) => {
       const landableId = this.landableIdFromMapFeature(e.features?.[0]);
@@ -1427,6 +1437,12 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     });
   }
 
+  private clearLandableSelection(): void {
+    this.selectedLandableId.set(null);
+    this.hoveredLandableId.set(null);
+    this.syncProfileMapLandableHighlight();
+  }
+
   onLandableChipActivate(
     legIndex: number,
     landableId: string,
@@ -1434,7 +1450,11 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     event: Event
   ): void {
     if (legIndex === this.selectedLegIndex()) {
-      this.selectLandableInList(landableId);
+      if (enabled) {
+        this.selectLandableInList(landableId);
+      } else if (this.selectedLandableId() === landableId) {
+        this.clearLandableSelection();
+      }
     }
     this.onLandableToggle(legIndex, landableId, enabled);
     event.stopPropagation();
@@ -1508,6 +1528,9 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   disableAllLandablesOnLeg(leg: LegRender, event?: Event): void {
     event?.stopPropagation();
     this.lastEnvelopeInputKey = '';
+    if (leg.index === this.selectedLegIndex() && this.selectedLandableId()) {
+      this.clearLandableSelection();
+    }
     this.taskState.setAllSafetyLandablesEnabled(
       leg.index,
       leg.landableToggles.map(t => t.id),
