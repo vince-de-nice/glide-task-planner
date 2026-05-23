@@ -112,13 +112,24 @@
             <button
               type="button"
               class="safety-profile__map-fab"
-              [class.safety-profile__map-fab--on]="cones3dVisible()"
-              [attr.aria-label]="'safetyProfile.cones3d' | translate"
-              [attr.aria-pressed]="cones3dVisible()"
-              [title]="'safetyProfile.cones3dHint' | translate"
-              (click)="toggleCones3d()"
+              [class.safety-profile__map-fab--on]="coneVolumes3dVisible()"
+              [attr.aria-label]="'safetyProfile.coneVolumes3d' | translate"
+              [attr.aria-pressed]="coneVolumes3dVisible()"
+              [title]="'safetyProfile.coneVolumes3dHint' | translate"
+              (click)="toggleConeVolumes3d()"
             >
               <i class="pi pi-vav-glide-cone" aria-hidden="true"></i>
+            </button>
+            <button
+              type="button"
+              class="safety-profile__map-fab"
+              [class.safety-profile__map-fab--on]="coneDistanceRingsVisible()"
+              [attr.aria-label]="'safetyProfile.coneDistanceRings' | translate"
+              [attr.aria-pressed]="coneDistanceRingsVisible()"
+              [title]="'safetyProfile.coneDistanceRingsHint' | translate"
+              (click)="toggleConeDistanceRings()"
+            >
+              <i class="pi pi-circle" aria-hidden="true"></i>
             </button>
             @if (activeLegAirspaceToggles().length > 0) {
               <button
@@ -474,6 +485,9 @@
                         (click)="onAirspaceZoneChipActivate(leg.index, zone.key, !zone.enabled, $event)"
                       >
                         <span class="leg__landable-chip-name">{{ zone.shortName }}</span>
+                        @if (zone.vertical) {
+                          <span class="leg__airspace-chip-vertical">{{ zone.vertical }}</span>
+                        }
                         @if (zone.meta) {
                           <span class="leg__airspace-chip-meta">{{ zone.meta }}</span>
                         }

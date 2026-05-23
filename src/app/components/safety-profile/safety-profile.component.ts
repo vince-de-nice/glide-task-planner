@@ -109,6 +109,7 @@ import {
 } from '../../utils/safety-cone-three-layer.util';
 import { buildConeRingLabelsGeoJson } from '../../utils/safety-cone-ring-labels.util';
 import { computeProfileLegCameraFit } from '../../utils/safety-profile-map-fit.util';
+import { formatAirspaceVerticalRange } from '../../utils/airspace-altitude.util';
 import { ensureMapterhornGrayProtocolRegistered } from '../../utils/map-basemap.util';
 import {
   SafetyProfileTerrainFacade,
@@ -235,7 +236,9 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   readonly basemapId = signal<BasemapId>(DEFAULT_BASEMAP_ID);
   basemapPanelExpanded = signal(false);
   /** Volumes 3D des cônes de demi-finesse sur la carte (branche active). */
-  cones3dVisible = signal(true);
+  coneVolumes3dVisible = signal(true);
+  /** Anneaux de distance (cercles) sur la surface des cônes 3D. */
+  coneDistanceRingsVisible = signal(true);
   airspaceVolume3d = signal(true);
   airspaceLoading = signal(false);
   lookPadActive = signal(false);
@@ -311,7 +314,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       legs[legIdx].safetyOutgoing?.disabledAirspaceZoneKeys ?? []
     );
     return catalog.map(z => {
-      const vertical = [z.lower, z.upper].filter(Boolean).join(' → ');
+      const vertical = formatAirspaceVerticalRange(z.lower, z.upper);
       const meta = [z.class, z.type].filter(Boolean).join(' · ');
       return {
         key: z.key,
@@ -482,7 +485,8 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
 
     effect(() => {
       this.activeLegRender();
-      this.cones3dVisible();
+      this.coneVolumes3dVisible();
+      this.coneDistanceRingsVisible();
       this.currentParams();
       if (this.mapReady()) {
         this.updateSafetyCones3d();
@@ -583,11 +587,14 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     this.basemapPanelExpanded.update(v => !v);
   }
 
-  toggleCones3d(): void {
-    this.cones3dVisible.update(v => !v);
+  toggleConeVolumes3d(): void {
+    this.coneVolumes3dVisible.update(v => !v);
     this.updateSafetyCones3d();
-    this.updateSafetyMinAltitude3d();
-    this.fitToActiveLeg();
+  }
+
+  toggleConeDistanceRings(): void {
+    this.coneDistanceRingsVisible.update(v => !v);
+    this.updateSafetyCones3d();
   }
 
   onAirspaceVolume3dToggle(on: boolean): void {
@@ -1960,7 +1967,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     if (!layer) return;
 
     const leg = this.activeLegRender();
-    if (!this.cones3dVisible() || !leg) {
+    if (!leg) {
       layer.setPath([]);
       layer.setVisible(false);
       return;
@@ -1978,9 +1985,12 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     if (!layer) return;
 
     const leg = this.activeLegRender();
-    if (!this.cones3dVisible() || !leg) {
+    const showVolumes = this.coneVolumes3dVisible();
+    const showRings = this.coneDistanceRingsVisible();
+    if (!leg || (!showVolumes && !showRings)) {
       layer.setSpecs([]);
       layer.setVisible(false);
+      layer.setPartVisibility(false, false);
       this.updateConeRingLabels([]);
       return;
     }
@@ -2012,6 +2022,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     });
 
     layer.setSpecs(specs);
+    layer.setPartVisibility(showVolumes, showRings);
     layer.setVisible(specs.length > 0);
     this.updateConeRingLabels(specs);
     this.repositionProfileMapLayers();
@@ -2024,7 +2035,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     const source = map.getSource(PROFILE_MAP_SOURCE.CONE_RING_LABELS);
     if (!source || source.type !== 'geojson') return;
 
-    const visible = this.cones3dVisible() && specs.length > 0;
+    const visible = this.coneDistanceRingsVisible() && specs.length > 0;
     const fc = visible ? buildConeRingLabelsGeoJson(specs) : EMPTY_FC;
     (source as GeoJSONSource).setData(fc);
     if (map.getLayer(PROFILE_MAP_LAYER.CONE_RING_LABELS)) {
@@ -2041,7 +2052,8 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     const leg = this.activeLegRender();
     if (!map || !leg) return;
 
-    const cones3d = this.cones3dVisible();
+    const cones3d =
+      this.coneVolumes3dVisible() || this.coneDistanceRingsVisible();
     const enabledIds = new Set(
       leg.landableToggles.filter(t => t.enabled).map(t => t.id)
     );

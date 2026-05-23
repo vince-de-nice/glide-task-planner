@@ -12,6 +12,7 @@ import {
   PoaffRegion
 } from '../config/map-airspace.config';
 import { AirspaceDataSourceService } from './airspace-data-source.service';
+import { formatAirspaceVerticalRange } from '../utils/airspace-altitude.util';
 
 export type AirspaceSource = 'openaip' | 'poaff' | 'none';
 
@@ -193,7 +194,12 @@ export class AirspaceLayerService {
   buildPoaffPopupHtml(feature: Feature<Geometry, PoaffProperties>): string {
     const p = feature.properties ?? {};
     const name = p.nameV ?? p.id ?? 'Zone';
-    const vertical = [p.lower, p.upper].filter(Boolean).join(' → ');
+    const vertical = formatAirspaceVerticalRange(
+      p.lower,
+      p.upper,
+      p.lowerM,
+      p.upperM
+    );
     return (
       `<div class="gc-airspace-popup"><strong>${this.escapeHtml(name)}</strong>` +
       (p.class ? `<p>Type : ${this.escapeHtml(p.class)}</p>` : '') +

@@ -842,6 +842,12 @@ export const en = {
     empty:
       'No task is built yet. Add at least a take-off and a landing to display the cross-sections.',
     cones3d: '3D cones on map',
+    coneVolumes3d: 'Cone volumes (3D)',
+    coneVolumes3dHint:
+      'Glide-ratio cones from each active landable (minimum altitude line stays visible when volumes are hidden).',
+    coneDistanceRings: 'Distance rings on cones',
+    coneDistanceRingsHint:
+      'Rings every 5 or 10 km along each cone surface, with altitude labels.',
     cones3dHint:
       'Shows half-ratio glide volumes from each enabled landable and the combined min envelope (red). Tilt the map for a better view.',
     airspaceZonesTitle: 'Zones in evolution perimeter',

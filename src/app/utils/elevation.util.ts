@@ -1,5 +1,6 @@
 import { Waypoint } from '../models/waypoint.model';
 import { CircuitLeg } from '../models/circuit.model';
+import { formatMetersDisplay } from './airspace-altitude.util';
 
 /** Altitude MSL en mètres pour export / affichage tâche. */
 export function resolveLegElevationM(
@@ -35,5 +36,5 @@ export function formatElevationDisplay(elevationM: number | undefined): string {
   if (elevationM == null || !Number.isFinite(elevationM)) {
     return '—';
   }
-  return `${Math.round(elevationM)} m MSL`;
+  return `${formatMetersDisplay(elevationM)} MSL`;
 }

@@ -3,6 +3,8 @@ import {
   extractFlightLevelFromText,
   FL999_CEILING_M,
   flightLevelToMslM,
+  formatAirspaceLimitDisplay,
+  formatAirspaceVerticalRange,
   parseAirspaceLimit,
   resolveCeilingMslM,
   resolveExtrusionBounds
@@ -34,6 +36,17 @@ describe('airspace-altitude.util', () => {
     const bounds = resolveExtrusionBounds('SFC', 'FL999', 0, 30449, 2761);
     expect(bounds?.extrusionTopM).toBe(30449);
     expect(bounds?.extrusionBaseM).toBeCloseTo(2761, 0);
+  });
+
+  it('formats FL and FT with meter conversion in parentheses', () => {
+    expect(formatAirspaceLimitDisplay('FL100')).toMatch(/FL100.*\(.*3[,.]?0?48.*m\)/);
+    expect(formatAirspaceLimitDisplay('2500FT AGL')).toMatch(
+      /2500FT AGL.*\(.*762.*m AGL\)/
+    );
+    expect(formatAirspaceLimitDisplay('2000M')).toMatch(/^2[,.]?000 m$/);
+    expect(formatAirspaceVerticalRange('GND', 'FL095')).toMatch(
+      /GND.*→.*FL095.*\(/
+    );
   });
 
   it('builds extrusion bounds with DEM for AGL floor', () => {

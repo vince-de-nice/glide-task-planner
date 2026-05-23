@@ -1,4 +1,5 @@
 import type { Feature, FeatureCollection, Point } from 'geojson';
+import { formatMetersDisplay } from './airspace-altitude.util';
 import { destinationPoint } from './obs-zone-map.util';
 import { landableMapLabelColorFromHex } from './safety-profile-palette.util';
 import {
@@ -15,7 +16,7 @@ export function roundAltitudeToUpper50M(altitudeM: number): number {
 }
 
 export function formatConeRingAltitudeLabel(altitudeM: number): string {
-  return `${roundAltitudeToUpper50M(altitudeM)} m`;
+  return formatMetersDisplay(roundAltitudeToUpper50M(altitudeM));
 }
 
 /**

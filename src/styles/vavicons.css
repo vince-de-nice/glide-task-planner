@@ -1,8 +1,8 @@
 @font-face {
   font-family: 'vavicons';
   font-display: block;
-  src: url("/fonts/vavicons.woff2?59a83cb09e5ebf2bda3a23af82d17f79") format("woff2"),
-url("/fonts/vavicons.woff?59a83cb09e5ebf2bda3a23af82d17f79") format("woff");
+  src: url("/fonts/vavicons.woff2?9e10f82ee2419285a44c9d85365946a9") format("woff2"),
+url("/fonts/vavicons.woff?9e10f82ee2419285a44c9d85365946a9") format("woff");
 }
 
 .pi.pi-vav-waypoint-types:before {

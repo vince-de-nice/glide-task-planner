@@ -25,6 +25,7 @@ import {
   type TerrainBandQuality
 } from '../../utils/leg-profile-chart.geometry';
 import type { LegAirspaceProfileBand } from '../../utils/leg-airspace-profile-cross-section.util';
+import { formatMetersDisplay } from '../../utils/airspace-altitude.util';
 
 export interface LegEndpointInfo {
   name: string;
@@ -699,7 +700,7 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
 
   formatAltitude(value: number | null): string {
     if (value == null || !Number.isFinite(value)) return '—';
-    return `${Math.round(value)} m`;
+    return formatMetersDisplay(value);
   }
 
   formatTerrainAltitude(sample: EnvelopeSample): string {

@@ -273,3 +273,84 @@ export function resolveExtrusionBounds(
     verticalLabel
   };
 }
+
+const METER_LITERAL_RE = /^(\d+)\s*M(?:\s*AMSL)?$/i;
+
+/** Altitude en mètres (affichage UI). */
+export function formatMetersDisplay(m: number): string {
+  if (!Number.isFinite(m)) return '—';
+  return `${Math.round(m).toLocaleString()} m`;
+}
+
+function isAlreadyMeterLiteral(raw: string): boolean {
+  const t = raw.trim();
+  return METER_LITERAL_RE.test(t);
+}
+
+/**
+ * Libellé POAFF d’une limite avec conversion en mètres entre parenthèses
+ * lorsque le texte n’est pas déjà exprimé en mètres (FL, FT, AGL…).
+ */
+export function formatAirspaceLimitDisplay(
+  text: string | undefined,
+  metersHint?: number | null
+): string {
+  const raw = text?.trim() ?? '';
+  if (!raw) {
+    return metersHint != null && Number.isFinite(metersHint)
+      ? formatMetersDisplay(metersHint)
+      : '';
+  }
+
+  if (isAlreadyMeterLiteral(raw)) {
+    const parsed = parseAirspaceLimit(raw, metersHint);
+    if (parsed?.kind === 'msl') return formatMetersDisplay(parsed.valueM);
+    return raw;
+  }
+
+  const parsed = parseAirspaceLimit(raw, metersHint);
+  if (!parsed) return raw;
+
+  switch (parsed.kind) {
+    case 'ground':
+    case 'unlimited':
+      return parsed.raw;
+    case 'agl':
+      return `${parsed.raw} (${formatMetersDisplay(parsed.valueM)} AGL)`;
+    case 'msl':
+      return `${parsed.raw} (${formatMetersDisplay(parsed.valueM)} m)`;
+    case 'unknown':
+      if (metersHint != null && Number.isFinite(metersHint)) {
+        return `${parsed.raw} (${formatMetersDisplay(metersHint)} m)`;
+      }
+      return parsed.raw;
+    default:
+      return parsed.raw;
+  }
+}
+
+/** Plage verticale POAFF (plancher → plafond) avec conversions. */
+export function formatAirspaceVerticalRange(
+  lowerText?: string,
+  upperText?: string,
+  lowerM?: number,
+  upperM?: number
+): string {
+  const lower = formatAirspaceLimitDisplay(lowerText, lowerM);
+  const upper = formatAirspaceLimitDisplay(upperText, upperM);
+  return [lower, upper].filter(Boolean).join(' → ');
+}
+
+/** Libellé composé déjà joint par « → ». */
+export function formatAirspaceVerticalLabel(label: string): string {
+  const trimmed = label.trim();
+  if (!trimmed) return '';
+  if (!trimmed.includes('→')) {
+    return formatAirspaceLimitDisplay(trimmed);
+  }
+  return trimmed
+    .split(/\s*→\s*/)
+    .map(part => formatAirspaceLimitDisplay(part.trim()))
+    .filter(Boolean)
+    .join(' → ');
+}

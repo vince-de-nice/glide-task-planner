@@ -104,6 +104,8 @@ export function createSafetyConeCustomLayer(): SafetyConeThreeCustomLayer {
   return new SafetyConeThreeCustomLayer();
 }
 
+type ConeMeshKind = 'cone' | 'ring';
+
 export class SafetyConeThreeCustomLayer implements CustomLayerInterface {
   readonly id = SAFETY_CONES_CUSTOM_LAYER_ID;
   readonly type = 'custom' as const;
@@ -116,6 +118,8 @@ export class SafetyConeThreeCustomLayer implements CustomLayerInterface {
   private readonly meshes: THREE.Object3D[] = [];
   private specs: SafetyConeMeshSpec[] = [];
   private visible = false;
+  private showConeVolumes = true;
+  private showDistanceRings = true;
 
   setSpecs(specs: SafetyConeMeshSpec[]): void {
     this.specs = specs;
@@ -126,6 +130,22 @@ export class SafetyConeThreeCustomLayer implements CustomLayerInterface {
   setVisible(visible: boolean): void {
     this.visible = visible;
     this.map?.triggerRepaint();
+  }
+
+  /** Affichage indépendant des volumes et des anneaux de distance sur le cône. */
+  setPartVisibility(coneVolumes: boolean, distanceRings: boolean): void {
+    this.showConeVolumes = coneVolumes;
+    this.showDistanceRings = distanceRings;
+    this.applyPartVisibility();
+    this.map?.triggerRepaint();
+  }
+
+  private applyPartVisibility(): void {
+    for (const obj of this.meshes) {
+      const kind = obj.userData['meshKind'] as ConeMeshKind;
+      obj.visible =
+        kind === 'cone' ? this.showConeVolumes : this.showDistanceRings;
+    }
   }
 
   onAdd(map: MaplibreMap, gl: WebGLRenderingContext | WebGL2RenderingContext): void {
@@ -156,6 +176,7 @@ export class SafetyConeThreeCustomLayer implements CustomLayerInterface {
     this.renderer.resetState();
 
     for (const obj of this.meshes) {
+      if (!obj.visible) continue;
       const spec = obj.userData['spec'] as SafetyConeMeshSpec;
       const model = this.modelMatrixForCone(spec, args);
       this.camera.projectionMatrix = projection.clone().multiply(model);
@@ -172,12 +193,12 @@ export class SafetyConeThreeCustomLayer implements CustomLayerInterface {
       if (heightM < 1 || radiusM < 1) continue;
 
       /*
-       * ConeGeometry (Three.js) : apex en y=+h/2, base en y=−h/2 (centré sur l'origine).
-       * On veut : sommet (tip) à l'origine du mesh, base large vers +Y (altitude croissante).
+       * ConeGeometry (Three.js) : apex en +Y par défaut.
+       * Sommet (terrain posable) à l’origine locale, base large vers −Y (altitude croissante
+       * après transform MapLibre — pointe vers le bas sur la carte).
        */
       const geometry = new THREE.ConeGeometry(radiusM, heightM, 48, 1, false);
       geometry.translate(0, -heightM / 2, 0);
-      geometry.rotateX(Math.PI);
 
       /* BasicMaterial : la couleur ne dépend pas de l'éclairage (incompatible avec la caméra custom). */
       const material = new THREE.MeshBasicMaterial({
@@ -192,6 +213,7 @@ export class SafetyConeThreeCustomLayer implements CustomLayerInterface {
 
       const mesh = new THREE.Mesh(geometry, material);
       mesh.userData['spec'] = spec;
+      mesh.userData['meshKind'] = 'cone' satisfies ConeMeshKind;
       this.meshes.push(mesh);
       this.scene.add(mesh);
 
@@ -214,10 +236,13 @@ export class SafetyConeThreeCustomLayer implements CustomLayerInterface {
 
         const ring = new THREE.Mesh(ringGeom, ringMaterial);
         ring.userData['spec'] = spec;
+        ring.userData['meshKind'] = 'ring' satisfies ConeMeshKind;
         this.meshes.push(ring);
         this.scene.add(ring);
       }
     }
+
+    this.applyPartVisibility();
   }
 
   private disposeMeshes(): void {
@@ -313,7 +338,7 @@ function buildConeSurfaceRingTubeGeometry(
     path.push(
       new THREE.Vector3(
         circleRadiusM * Math.cos(t),
-        ySliceM,
+        -ySliceM,
         circleRadiusM * Math.sin(t)
       )
     );

@@ -794,6 +794,12 @@ export const fr = {
     cones3d: 'Cônes 3D sur la carte',
     cones3dHint:
       'Affiche les volumes de demi-finesse depuis chaque terrain posable actif et l’enveloppe min. (rouge). Inclinez la carte pour mieux les voir.',
+    coneVolumes3d: 'Volumes des cônes (3D)',
+    coneVolumes3dHint:
+      'Prismes de demi-finesse depuis chaque terrain posable actif (la ligne d’altitude min. reste affichée si les volumes sont masqués).',
+    coneDistanceRings: 'Cercles de distance sur les cônes',
+    coneDistanceRingsHint:
+      'Anneaux tous les 5 ou 10 km sur la surface des cônes, avec altitudes au survol.',
     airspaceZonesTitle: 'Zones dans le périmètre',
     airspaceZonesHint:
       'Liste filtrée par les cônes de local activés (horizontal et vertical). Survol = aperçu sur la carte.',

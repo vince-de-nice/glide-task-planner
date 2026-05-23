@@ -1,6 +1,9 @@
 import type { Feature, FeatureCollection, Geometry } from 'geojson';
 import type { PoaffProperties } from '../services/airspace-layer.service';
-import { resolveExtrusionBounds } from './airspace-altitude.util';
+import {
+  formatMetersDisplay,
+  resolveExtrusionBounds
+} from './airspace-altitude.util';
 import type { AirspaceVolumeProperties } from './airspace-volume-enrich.util';
 
 export type AirspaceFilterMode = 'include' | 'exclude';
@@ -402,6 +405,5 @@ export function countActiveAirspaceFilterCriteria(
 }
 
 export function formatAltitudeMslLabel(m: number): string {
-  const fl = Math.round(m / (100 * 0.3048));
-  return `${Math.round(m).toLocaleString()} m (${fl > 0 ? `FL${fl}` : 'sol'})`;
+  return formatMetersDisplay(m);
 }
