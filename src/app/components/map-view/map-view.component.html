@@ -48,8 +48,8 @@
       >
         <i
           class="pi"
-          [class.pi-eye-slash]="showFullCatalog()"
-          [class.pi-eye]="!showFullCatalog()"
+          [class.pi-vav-waypoint-catalog-off]="showFullCatalog()"
+          [class.pi-vav-waypoint-catalog]="!showFullCatalog()"
           aria-hidden="true"
         ></i>
       </button>
@@ -95,7 +95,7 @@
         [attr.aria-label]="'map.airspace' | translate"
         [attr.aria-pressed]="airspaceVisible()"
       >
-        <i class="pi pi-cloud" aria-hidden="true"></i>
+        <i class="pi pi-vav-airspace" aria-hidden="true"></i>
       </button>
 
       @if (airspaceVisible()) {
@@ -110,7 +110,7 @@
           [attr.aria-label]="'map.airspaceVolume3d' | translate"
           [attr.aria-pressed]="airspaceVolume3d()"
         >
-          <i class="pi pi-box" aria-hidden="true"></i>
+          <i class="pi pi-vav-airspace-volume" aria-hidden="true"></i>
         </button>
         <button
           type="button"
@@ -123,7 +123,7 @@
           [attr.aria-label]="'map.airspaceFiltersFabAria' | translate"
           [attr.aria-haspopup]="'dialog'"
         >
-          <i class="pi pi-filter" aria-hidden="true"></i>
+          <i class="pi pi-vav-airspace-filter" aria-hidden="true"></i>
         </button>
       }
 

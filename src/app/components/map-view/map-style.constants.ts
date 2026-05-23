@@ -1,4 +1,5 @@
 import type { Map as MaplibreMap, StyleSpecification } from 'maplibre-gl';
+import { VavIcons } from '../../icons/vav-icons';
 import { MAPTERHORN_GRAY_TILE_URL_TEMPLATE } from '../../utils/mapterhorn-gray-tile-protocol.util';
 import {
   MAPTERHORN_DEM_TILE_SIZE,
@@ -56,7 +57,7 @@ export {
 export const BASEMAP_PRESETS: readonly BasemapPreset[] = [
   {
     id: 'esri-satellite',
-    icon: 'pi pi-globe',
+    icon: VavIcons.BASEMAP_SATELLITE,
     labelKey: 'map.basemap.esriSatellite',
     imagery: {
       tiles: [
@@ -77,7 +78,7 @@ export const BASEMAP_PRESETS: readonly BasemapPreset[] = [
   },
   {
     id: 'esri-topo',
-    icon: 'pi pi-map',
+    icon: VavIcons.BASEMAP_TOPO,
     labelKey: 'map.basemap.esriTopo',
     imagery: {
       tiles: [
@@ -89,7 +90,7 @@ export const BASEMAP_PRESETS: readonly BasemapPreset[] = [
   },
   {
     id: 'osm',
-    icon: 'pi pi-compass',
+    icon: VavIcons.BASEMAP_OSM,
     labelKey: 'map.basemap.osm',
     imagery: {
       tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
@@ -100,7 +101,7 @@ export const BASEMAP_PRESETS: readonly BasemapPreset[] = [
   },
   {
     id: 'carto-voyager',
-    icon: 'pi pi-map-marker',
+    icon: VavIcons.BASEMAP_CARTO_VOYAGER,
     labelKey: 'map.basemap.cartoVoyager',
     imagery: {
       tiles: ['https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png'],
@@ -111,7 +112,7 @@ export const BASEMAP_PRESETS: readonly BasemapPreset[] = [
   },
   {
     id: 'carto-light',
-    icon: 'pi pi-sun',
+    icon: VavIcons.BASEMAP_CARTO_LIGHT,
     labelKey: 'map.basemap.cartoLight',
     imagery: {
       tiles: ['https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png'],
@@ -122,7 +123,7 @@ export const BASEMAP_PRESETS: readonly BasemapPreset[] = [
   },
   {
     id: 'opentopo',
-    icon: 'pi pi-chart-line',
+    icon: VavIcons.BASEMAP_OPENTOPO,
     labelKey: 'map.basemap.opentopo',
     imagery: {
       tiles: ['https://tile.opentopomap.org/{z}/{x}/{y}.png'],
@@ -133,7 +134,7 @@ export const BASEMAP_PRESETS: readonly BasemapPreset[] = [
   },
   {
     id: 'mapterhorn-dem-gray',
-    icon: 'pi pi-sliders-h',
+    icon: VavIcons.BASEMAP_DEM_GRAY,
     labelKey: 'map.basemap.mapterhornDemGray',
     imagery: {
       tiles: [MAPTERHORN_GRAY_TILE_URL_TEMPLATE],

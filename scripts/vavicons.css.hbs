@@ -1,0 +1,12 @@
+@font-face {
+  font-family: '{{ name }}';
+  font-display: block;
+  src: {{{ fontSrc }}};
+}
+
+{{#each codepoints}}
+.pi.{{ ../prefix }}-{{ @key }}:before {
+  font-family: '{{ ../name }}';
+  content: "\\{{ codepoint this }}";
+}
+{{/each}}

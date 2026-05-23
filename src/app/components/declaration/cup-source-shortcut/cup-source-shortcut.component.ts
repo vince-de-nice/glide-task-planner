@@ -11,7 +11,7 @@ import { TranslatePipe } from '../../../i18n/translate.pipe';
   template: `
     <p class="decl-cup-shortcut" [attr.aria-label]="'cup.shortcutAria' | translate">
       <span class="decl-cup-shortcut__base">
-        <i class="pi pi-database decl-cup-shortcut__icon" aria-hidden="true"></i>
+        <i class="pi pi-vav-cup-source decl-cup-shortcut__icon" aria-hidden="true"></i>
         <span class="decl-cup-shortcut__name">{{
           cupMeta().sourceLabel || ('common.noBase' | translate)
         }}</span>

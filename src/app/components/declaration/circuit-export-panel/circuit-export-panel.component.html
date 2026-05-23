@@ -18,7 +18,7 @@
   @if (exportBlocked()) {
     <p-button
       [label]="'circuit.export.fixRegulation' | translate"
-      icon="pi pi-sliders-h"
+      icon="pi pi-vav-regulation"
       size="small"
       [outlined]="true"
       styleClass="decl-circuit__goto-reg"
@@ -102,14 +102,14 @@
     <div class="decl-circuit__export-actions">
       <p-button
         [label]="'circuit.export.myCircuits' | translate"
-        icon="pi pi-bookmark"
+        icon="pi pi-vav-circuits-library"
         size="small"
         [outlined]="true"
         (onClick)="openCircuits.emit()"
       />
       <p-button
         [label]="'circuit.export.previewExport' | translate"
-        icon="pi pi-eye"
+        icon="pi pi-vav-export-preview"
         size="small"
         [outlined]="true"
         [disabled]="selectedWaypointIds().length === 0"

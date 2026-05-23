@@ -1,4 +1,5 @@
 import { WaypointType } from '../models/waypoint.model';
+import { VavIcons } from '../icons/vav-icons';
 
 /** Affichage unifié d’un type de waypoint (carte, liste, filtres). */
 export interface WaypointTypeDisplay {
@@ -27,7 +28,7 @@ export const WAYPOINT_TYPE_DISPLAY: Record<WaypointType, WaypointTypeDisplay> = 
     description: 'Point de virage',
     shortLabel: 'TP',
     color: '#ea580c',
-    icon: 'pi pi-flag'
+    icon: VavIcons.TURNPOINT
   },
   airfield: {
     type: 'airfield',
@@ -35,7 +36,7 @@ export const WAYPOINT_TYPE_DISPLAY: Record<WaypointType, WaypointTypeDisplay> = 
     description: 'Aérodrome',
     shortLabel: 'AD',
     color: '#2563eb',
-    icon: 'pi pi-building'
+    icon: VavIcons.AIRFIELD
   },
   landable: {
     type: 'landable',
@@ -43,7 +44,7 @@ export const WAYPOINT_TYPE_DISPLAY: Record<WaypointType, WaypointTypeDisplay> = 
     description: 'Posé possible',
     shortLabel: 'AL',
     color: '#16a34a',
-    icon: 'pi pi-map-marker'
+    icon: VavIcons.LANDABLE
   },
   custom: {
     type: 'custom',

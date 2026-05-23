@@ -10,6 +10,7 @@ import { TranslatePipe } from './i18n/translate.pipe';
 import { TranslateService } from './i18n/translate.service';
 import { LanguageSwitcherComponent } from './components/language-switcher/language-switcher.component';
 import { BackgroundActivityService } from './services/background-activity.service';
+import { VavIcons } from './icons/vav-icons';
 
 export interface AppNavItem {
   route: string;
@@ -50,32 +51,32 @@ export class App {
       {
         route: '/declaration',
         label: this.i18n.t('app.nav.circuit'),
-        icon: 'pi pi-map'
+        icon: VavIcons.NAV_CIRCUIT
       },
       {
         route: '/waypoints',
         label: this.i18n.t('app.nav.waypoints'),
-        icon: 'pi pi-list'
+        icon: VavIcons.NAV_WAYPOINTS
       },
       {
         route: '/data-sources',
         label: this.i18n.t('app.nav.dataSources'),
-        icon: 'pi pi-database'
+        icon: VavIcons.NAV_DATA_SOURCES
       },
       {
         route: '/library',
         label: this.i18n.t('app.nav.library'),
-        icon: 'pi pi-bookmark'
+        icon: VavIcons.NAV_LIBRARY
       },
       {
         route: '/safety-profile',
         label: this.i18n.t('app.nav.safetyProfile'),
-        icon: 'pi pi-chart-line'
+        icon: VavIcons.NAV_SAFETY_PROFILE
       },
       {
         route: '/airspace-debug',
         label: this.i18n.t('app.nav.airspaceDebug'),
-        icon: 'pi pi-wrench'
+        icon: VavIcons.NAV_AIRSPACE_DEBUG
       }
     ];
   });

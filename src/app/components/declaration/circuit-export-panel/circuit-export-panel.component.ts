@@ -18,6 +18,7 @@ import { DistanceResult } from '../../../services/distance.service';
 import { TaskExportFormat } from '../../../services/task-export.service';
 import { TranslateService } from '../../../i18n/translate.service';
 import { TranslatePipe } from '../../../i18n/translate.pipe';
+import { VavIcons } from '../../../icons/vav-icons';
 
 @Component({
   selector: 'app-circuit-export-panel',
@@ -58,32 +59,32 @@ export class CircuitExportPanelComponent {
         format: 'flarm' as TaskExportFormat,
         label: 'FLARM',
         detail: this.i18n.t('circuit.export.formatFlarmDetail'),
-        icon: 'pi pi-download',
+        icon: VavIcons.EXPORT_FLARM,
         primary: true
       },
       {
         format: 'cup' as TaskExportFormat,
         label: 'CUP',
         detail: this.i18n.t('circuit.export.formatCupDetail'),
-        icon: 'pi pi-file'
+        icon: VavIcons.EXPORT_CUP
       },
       {
         format: 'cupx' as TaskExportFormat,
         label: 'CUPX',
         detail: this.i18n.t('circuit.export.formatCupxDetail'),
-        icon: 'pi pi-box'
+        icon: VavIcons.EXPORT_CUPX
       },
       {
         format: 'tsk' as TaskExportFormat,
         label: 'XCSoar',
         detail: this.i18n.t('circuit.export.formatTskDetail'),
-        icon: 'pi pi-code'
+        icon: VavIcons.EXPORT_XCSOAR
       },
       {
         format: 'igc-crecords' as TaskExportFormat,
         label: 'IGC C-records',
         detail: this.i18n.t('circuit.export.formatIgcDetail'),
-        icon: 'pi pi-list'
+        icon: VavIcons.EXPORT_IGC
       }
     ];
   });

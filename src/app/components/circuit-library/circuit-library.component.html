@@ -90,7 +90,7 @@
           }
         </button>
         <div class="circuit-actions">
-          <p-button icon="pi pi-play" [text]="true" size="small" [title]="'library.loadTitle' | translate" (onClick)="loadCircuit(c.id)" />
+          <p-button icon="pi pi-vav-load-circuit" [text]="true" size="small" [title]="'library.loadTitle' | translate" (onClick)="loadCircuit(c.id)" />
           <p-button icon="pi pi-pencil" [text]="true" size="small" [title]="'library.saveTitleUpdate' | translate" (onClick)="startUpdate(c, $event)" />
           <p-button icon="pi pi-copy" [text]="true" size="small" [title]="'common.duplicate' | translate" (onClick)="duplicateCircuit(c.id, $event)" />
           <p-button icon="pi pi-file-edit" [text]="true" size="small" [title]="'common.rename' | translate" (onClick)="startRename(c, $event)" />
@@ -157,7 +157,7 @@
     @if (canLoadCup()) {
       <p-button
         [label]="'library.resolveLoadCup' | translate"
-        icon="pi pi-database"
+        icon="pi pi-vav-cup-source"
         severity="secondary"
         [loading]="cupLoading()"
         (onClick)="loadCupForMissing()"
