@@ -10,38 +10,30 @@ import {
 } from 'maplibre-gl';
 import type { EnvelopeSample } from '../services/glide-envelope.service';
 import type { SafetyMinAltitudeCrossingLabelSpec } from './safety-cone-crossings.util';
+import {
+  buildSafetyMinAltitudeStyledPath,
+  type SafetyMinAltitudeStyledPoint
+} from './safety-min-altitude-style.util';
 import { SAFETY_PROFILE_SEMANTIC } from './safety-profile-palette.util';
 
 export const SAFETY_MIN_ALTITUDE_LAYER_ID = 'safety-profile-min-altitude-3d';
 
-/** Rouge aligné sur la coupe profil (.leg-chart__safety-line). */
-const SAFETY_RIBBON_COLOR = parseInt(
-  SAFETY_PROFILE_SEMANTIC.safetyMinAltitude.slice(1),
-  16
+const SAFETY_RIBBON_COLOR_CONE = hexToThreeColor(
+  SAFETY_PROFILE_SEMANTIC.safetyMinAltitudeCone
+);
+const SAFETY_RIBBON_COLOR_TERRAIN = hexToThreeColor(
+  SAFETY_PROFILE_SEMANTIC.safetyMinAltitudeTerrain
 );
 
 /** Demi-largeur du ruban (m) de chaque côté de l'axe de la branche. */
 const SAFETY_RIBBON_HALF_WIDTH_M = 150;
 
-export interface SafetyMinAltitudePoint {
-  longitude: number;
-  latitude: number;
-  altitudeM: number;
-}
+export type SafetyMinAltitudePoint = SafetyMinAltitudeStyledPoint;
 
 export function buildSafetyMinAltitudePath(
   samples: EnvelopeSample[]
 ): SafetyMinAltitudePoint[] {
-  const path: SafetyMinAltitudePoint[] = [];
-  for (const s of samples) {
-    if (s.safetyM == null || !Number.isFinite(s.safetyM)) continue;
-    path.push({
-      longitude: s.longitude,
-      latitude: s.latitude,
-      altitudeM: s.safetyM
-    });
-  }
-  return path;
+  return buildSafetyMinAltitudeStyledPath(samples);
 }
 
 export function createSafetyMinAltitudeCustomLayer(): SafetyMinAltitudeThreeCustomLayer {
@@ -60,7 +52,7 @@ export class SafetyMinAltitudeThreeCustomLayer implements CustomLayerInterface {
   private mesh: THREE.Mesh | null = null;
   /** Basic : la couleur ne dépend pas des lumières (incompatibles avec la caméra custom MapLibre). */
   private readonly material = new THREE.MeshBasicMaterial({
-    color: SAFETY_RIBBON_COLOR,
+    vertexColors: true,
     transparent: true,
     opacity: 0.62,
     depthWrite: false,
@@ -152,9 +144,10 @@ export class SafetyMinAltitudeThreeCustomLayer implements CustomLayerInterface {
     this.disposeMesh();
     if (this.path.length < 2) return;
 
-    const { positions, indices } = buildRibbonBuffers(this.path);
+    const { positions, colors, indices } = buildRibbonBuffers(this.path);
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geometry.setIndex(new THREE.BufferAttribute(indices, 1));
     geometry.computeVertexNormals();
 
@@ -164,10 +157,13 @@ export class SafetyMinAltitudeThreeCustomLayer implements CustomLayerInterface {
 
   private syncRibbonPositions(): void {
     if (!this.mesh || this.path.length < 2) return;
-    const { positions } = buildRibbonBuffers(this.path);
+    const { positions, colors } = buildRibbonBuffers(this.path);
     const attr = this.mesh.geometry.getAttribute('position') as THREE.BufferAttribute;
     attr.array.set(positions);
     attr.needsUpdate = true;
+    const colorAttr = this.mesh.geometry.getAttribute('color') as THREE.BufferAttribute;
+    colorAttr.array.set(colors);
+    colorAttr.needsUpdate = true;
     this.mesh.geometry.computeVertexNormals();
   }
 
@@ -182,10 +178,12 @@ export class SafetyMinAltitudeThreeCustomLayer implements CustomLayerInterface {
 
 function buildRibbonBuffers(path: SafetyMinAltitudePoint[]): {
   positions: Float32Array;
+  colors: Float32Array;
   indices: Uint16Array | Uint32Array;
 } {
   const n = path.length;
   const positions = new Float32Array(n * 2 * 3);
+  const colors = new Float32Array(n * 2 * 3);
   const mercators = path.map(p => mercatorForPoint(p));
   const tangents = horizontalTangentsMercator(mercators);
 
@@ -193,9 +191,14 @@ function buildRibbonBuffers(path: SafetyMinAltitudePoint[]): {
     const mc = mercators[i];
     const scale = mc.meterInMercatorCoordinateUnits();
     const offset = perpendicularOffset(tangents[i], SAFETY_RIBBON_HALF_WIDTH_M * scale);
+    const rgb = path[i].terrainConstrained
+      ? SAFETY_RIBBON_COLOR_TERRAIN
+      : SAFETY_RIBBON_COLOR_CONE;
 
     writeVertex(positions, i * 2, mc.x - offset.x, mc.y - offset.y, mc.z);
     writeVertex(positions, i * 2 + 1, mc.x + offset.x, mc.y + offset.y, mc.z);
+    writeColor(colors, i * 2, rgb);
+    writeColor(colors, i * 2 + 1, rgb);
   }
 
   const segCount = n - 1;
@@ -218,7 +221,23 @@ function buildRibbonBuffers(path: SafetyMinAltitudePoint[]): {
     indices[idx++] = d;
   }
 
-  return { positions, indices };
+  return { positions, colors, indices };
+}
+
+function hexToThreeColor(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+}
+
+function writeColor(
+  buffer: Float32Array,
+  vertexIndex: number,
+  rgb: [number, number, number]
+): void {
+  const o = vertexIndex * 3;
+  buffer[o] = rgb[0];
+  buffer[o + 1] = rgb[1];
+  buffer[o + 2] = rgb[2];
 }
 
 function mercatorForPoint(point: SafetyMinAltitudePoint): MercatorCoordinate {

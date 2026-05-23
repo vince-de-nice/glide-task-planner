@@ -11,6 +11,11 @@ export const LANDABLE_GLIDE_CONE_RING_OPACITY = 0.9;
 
 /** Éléments globaux (pas liés à un terrain X vs Y). */
 export const SAFETY_PROFILE_SEMANTIC = {
+  /** Altitude min combinée suivant le cône (relief non contraignant). */
+  safetyMinAltitudeCone: '#16a34a',
+  /** Altitude min relevée par le relief au-dessus du cône. */
+  safetyMinAltitudeTerrain: '#dc2626',
+  /** @deprecated Préférer safetyMinAltitudeCone / safetyMinAltitudeTerrain. */
   safetyMinAltitude: '#dc2626',
   legEndpoint: '#2563eb',
   legRouteActive: '#f97316',

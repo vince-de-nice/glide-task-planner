@@ -230,9 +230,16 @@
 }
 
 .leg-chart__safety-line {
-  stroke: #dc2626;
   stroke-width: 2.25;
   fill: none;
+
+  &--cone {
+    stroke: #16a34a;
+  }
+
+  &--terrain {
+    stroke: #dc2626;
+  }
 }
 
 .leg-chart__intersection-dot {

@@ -218,8 +218,13 @@
       <path class="leg-chart__cone-envelope" [attr.d]="s.conePath" />
     }
 
-    @if (s.safetyPath) {
-      <path class="leg-chart__safety-line" [attr.d]="s.safetyPath" />
+    @for (seg of s.safetySegments; track $index) {
+      <path
+        class="leg-chart__safety-line"
+        [class.leg-chart__safety-line--cone]="!seg.terrainConstrained"
+        [class.leg-chart__safety-line--terrain]="seg.terrainConstrained"
+        [attr.d]="seg.path"
+      />
     }
 
     @for (hit of intersections; track hit.key) {

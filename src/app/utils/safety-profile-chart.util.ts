@@ -62,8 +62,13 @@ export function defaultLegYMaxM(
   return Math.ceil(maxElev / 1000) * 1000;
 }
 
-/** Rouge réservé à la courbe d'altitude min combinée sur les coupes. */
-export const SAFETY_MIN_ALTITUDE_COLOR = SAFETY_PROFILE_SEMANTIC.safetyMinAltitude;
+/** Vert : altitude min suivant le cône (relief non contraignant). */
+export const SAFETY_MIN_ALTITUDE_CONE_COLOR = SAFETY_PROFILE_SEMANTIC.safetyMinAltitudeCone;
+/** Rouge : altitude min relevée par le relief. */
+export const SAFETY_MIN_ALTITUDE_TERRAIN_COLOR =
+  SAFETY_PROFILE_SEMANTIC.safetyMinAltitudeTerrain;
+/** @deprecated Préférer SAFETY_MIN_ALTITUDE_CONE_COLOR / SAFETY_MIN_ALTITUDE_TERRAIN_COLOR. */
+export const SAFETY_MIN_ALTITUDE_COLOR = SAFETY_MIN_ALTITUDE_TERRAIN_COLOR;
 
 /** @deprecated Utiliser {@link landableColorFromId} par terrain. */
 export const SAFETY_CONE_COLOR = SAFETY_MIN_ALTITUDE_COLOR;

@@ -29,6 +29,10 @@ import {
 } from '../../utils/leg-profile-chart.geometry';
 import type { LegAirspaceProfileBand } from '../../utils/leg-airspace-profile-cross-section.util';
 import { formatMetersDisplay } from '../../utils/airspace-altitude.util';
+import {
+  buildSafetyMinAltitudeChartSegments,
+  type SafetyMinAltitudeChartSegment
+} from '../../utils/safety-min-altitude-style.util';
 
 export interface LegEndpointInfo {
   name: string;
@@ -96,7 +100,7 @@ interface ChartSeries {
   terrainLowFidelityAreaPath: string;
   groundLinePath: string;
   conePath: string;
-  safetyPath: string;
+  safetySegments: SafetyMinAltitudeChartSegment[];
 }
 
 interface TerrainMissingBand {
@@ -324,7 +328,7 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
         terrainLowFidelityAreaPath: '',
         groundLinePath: '',
         conePath: '',
-        safetyPath: ''
+        safetySegments: []
       };
     }
 
@@ -333,7 +337,6 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
     const estimatedPoints: string[] = [];
     const groundPoints: string[] = [];
     const conePoints: string[] = [];
-    const safetyPoints: string[] = [];
     for (const s of data) {
       if (s.terrainM != null && s.terrainQuality === 'dem') {
         terrainPoints.push(`${x(s.distanceKm)},${y(s.terrainM)}`);
@@ -347,9 +350,6 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
       }
       if (s.glideConeM != null && Number.isFinite(s.glideConeM)) {
         conePoints.push(`${x(s.distanceKm)},${y(s.glideConeM)}`);
-      }
-      if (s.safetyM != null && Number.isFinite(s.safetyM)) {
-        safetyPoints.push(`${x(s.distanceKm)},${y(s.safetyM)}`);
       }
     }
 
@@ -374,7 +374,7 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
       terrainEstimatedAreaPath: estimatedAreaPath,
       groundLinePath: groundPoints.length ? `M ${groundPoints.join(' L ')}` : '',
       conePath: conePoints.length ? `M ${conePoints.join(' L ')}` : '',
-      safetyPath: safetyPoints.length ? `M ${safetyPoints.join(' L ')}` : ''
+      safetySegments: buildSafetyMinAltitudeChartSegments(data, x, y)
     };
   });
 
