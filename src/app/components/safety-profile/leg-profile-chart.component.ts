@@ -24,6 +24,7 @@ import {
   type QualityBandBase,
   type TerrainBandQuality
 } from '../../utils/leg-profile-chart.geometry';
+import type { LegAirspaceProfileBand } from '../../utils/leg-airspace-profile-cross-section.util';
 
 export interface LegEndpointInfo {
   name: string;
@@ -58,6 +59,18 @@ export interface LegChartLabels {
   terrainLowFidelity: string;
   legendTerrainLowFidelity: string;
   tooltipTerrainLowFidelity: string;
+  legendAirspaceZones: string;
+}
+
+interface AirspaceBandDraw {
+  key: string;
+  x: number;
+  width: number;
+  yTop: number;
+  yBottom: number;
+  fill: string;
+  name: string;
+  hovered: boolean;
 }
 
 interface ChartGeometry {
@@ -190,6 +203,9 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
   yMaxM = input.required<number>();
   /** Couleurs par id (branche), alignées sur les puces / cônes carte. */
   landableColors = input<Record<string, string>>({});
+  /** Bandes d'espace aérien (intersection zone × segment de branche). */
+  airspaceBands = input<LegAirspaceProfileBand[]>([]);
+  hoveredAirspaceZoneKey = input<string | null>(null);
 
   hoveredSample = signal<EnvelopeSample | null>(null);
 
@@ -220,6 +236,9 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
       for (const pt of cone.curve) {
         allYs.push(pt.altitudeM);
       }
+    }
+    for (const band of this.airspaceBands()) {
+      allYs.push(band.floorM, band.ceilingM);
     }
     const fromE = this.fromEndpoint().elevationM;
     const toE = this.toEndpoint().elevationM;
@@ -403,6 +422,38 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
         altitudeM: s.terrainM!
       }));
   }
+
+  readonly airspaceBandDraws = computed<AirspaceBandDraw[]>(() => {
+    const g = this.geometry();
+    const bands = this.airspaceBands();
+    if (bands.length === 0) return [];
+
+    const plotW = g.width - g.padding.left - g.padding.right;
+    const plotH = g.height - g.padding.top - g.padding.bottom;
+    const xKm = (km: number): number =>
+      g.padding.left + ((km - g.xMin) / (g.xMax - g.xMin)) * plotW;
+    const yM = (m: number): number =>
+      g.padding.top + plotH - ((m - g.yMin) / (g.yMax - g.yMin)) * plotH;
+
+    const hoveredKey = this.hoveredAirspaceZoneKey();
+    return bands.map(band => {
+      const x0 = xKm(band.alongStartKm);
+      const x1 = xKm(band.alongEndKm);
+      const yTop = yM(Math.min(band.ceilingM, g.yMax));
+      const yBottom = yM(Math.max(band.floorM, g.yMin));
+      return {
+        key: `${band.key}-${band.alongStartKm}-${band.alongEndKm}`,
+        x: Math.min(x0, x1),
+        width: Math.max(1, Math.abs(x1 - x0)),
+        yTop: Math.min(yTop, yBottom),
+        yBottom: Math.max(yTop, yBottom),
+        fill: band.fill,
+        stroke: '',
+        name: band.name,
+        hovered: hoveredKey != null && hoveredKey === band.key
+      };
+    });
+  });
 
   readonly landableLayers = computed<LandableLayerDraw[]>(() => {
     const g = this.geometry();

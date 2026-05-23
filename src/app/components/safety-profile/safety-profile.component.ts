@@ -48,6 +48,10 @@ import {
   findAirspaceFeatureByKey,
   mergeDisabledAirspaceKeys
 } from '../../utils/leg-airspace-zone-filter.util';
+import {
+  computeLegAirspaceProfileBands,
+  type LegAirspaceProfileBand
+} from '../../utils/leg-airspace-profile-cross-section.util';
 import { configureMapFreeCamera } from '../../utils/map-free-camera.util';
 import { geoJsonFlagEq } from '../../utils/map-expression.util';
 import { isMapStyleActive } from '../../utils/map-runtime.util';
@@ -405,7 +409,8 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       ),
       tooltipTerrainLowFidelity: this.i18n.t(
         'safetyProfile.chart.tooltipTerrainLowFidelity'
-      )
+      ),
+      legendAirspaceZones: this.i18n.t('safetyProfile.chart.legendAirspaceZones')
     };
   });
 
@@ -1353,7 +1358,41 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   }
 
   defaultYMaxForLeg(leg: LegRender): number {
-    return defaultLegYMaxM(leg.envelope.samples);
+    let max = defaultLegYMaxM(leg.envelope.samples);
+    for (const band of this.airspaceProfileBandsForLeg(leg)) {
+      max = Math.max(max, band.ceilingM);
+    }
+    return max;
+  }
+
+  airspaceProfileBandsForLeg(leg: LegRender): LegAirspaceProfileBand[] {
+    const enriched = this.airspaceMapDisplay.getCachedEnriched(
+      this.airspaceScreenId
+    );
+    if (!enriched) return [];
+
+    const keys = this.enabledAirspaceKeysForLeg(leg.index);
+    if (keys.size === 0) return [];
+
+    const samples = leg.envelope.samples;
+    const profileEndKm =
+      samples.length > 0
+        ? samples[samples.length - 1].distanceKm
+        : leg.distanceKm;
+
+    return computeLegAirspaceProfileBands(
+      {
+        fromLng: leg.fromWaypoint.longitude,
+        fromLat: leg.fromWaypoint.latitude,
+        toLng: leg.toWaypoint.longitude,
+        toLat: leg.toWaypoint.latitude,
+        legLengthKm: leg.distanceKm,
+        profileStartKm: leg.envelope.legStartKm,
+        profileEndKm: profileEndKm
+      },
+      enriched,
+      keys
+    );
   }
 
   effectiveYMaxForLeg(leg: LegRender): number {

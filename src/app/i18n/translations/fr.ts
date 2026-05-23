@@ -225,7 +225,12 @@ export const fr = {
       removeCustomHeader: 'Supprimer la source',
       removeCustomMessage:
         'Retirer « {{label}} » de la liste et effacer le fichier local ? Les caches d’enrichissement associés seront invalidés.',
-      featureCount: '{{count}} zones'
+      featureCount: '{{count}} zones',
+      optionsAria: 'Options espaces aériens',
+      optionsTitle: 'Filtrage à la source',
+      includeAreaGeo: 'Inclure les zones AREA et GEO',
+      includeAreaGeoHint:
+        'Par défaut, les zones de grande emprise (classe AREA) et géographiques (type GEO) sont exclues de la carte, du profil sécurité et des catalogues. Activez cette option pour les charger comme les autres zones.'
     }
   },
   cup: {
@@ -867,7 +872,9 @@ export const fr = {
       tooltipTerrainMissing: 'Altitude terrain : DEM non disponible',
       tooltipTerrainEstimated: 'Altitude terrain : estimée (extrémités)',
       tooltipTerrainLowFidelity:
-        'Altitude terrain : DEM basse fidélité (tuile de zoom inférieur)'
+        'Altitude terrain : DEM basse fidélité (tuile de zoom inférieur)',
+      legendAirspaceZones:
+        'Espace aérien (intersection zone × branche, plancher/plafond MSL)'
     },
     demProgress: {
       title: 'Chargement du relief (DEM)',

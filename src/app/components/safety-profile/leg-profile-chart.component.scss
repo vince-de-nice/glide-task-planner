@@ -62,6 +62,18 @@
   font-weight: 600;
 }
 
+.leg-chart__airspace-band {
+  stroke: color-mix(in srgb, #7c3aed 45%, transparent);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+
+  &--hovered {
+    stroke: color-mix(in srgb, #5b21b6 75%, transparent);
+    stroke-width: 1.5;
+    filter: brightness(1.08);
+  }
+}
+
 .leg-chart__terrain-area {
   fill: color-mix(in srgb, #78350f 30%, transparent);
 

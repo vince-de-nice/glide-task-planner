@@ -7,6 +7,7 @@ import {
 } from './airspace-altitude.util';
 import type { AirspaceVolumeProperties } from './airspace-volume-enrich.util';
 
+import { isAreaOrGeoAirspaceZone } from './airspace-datasource-filter.util';
 import { haversineKm } from './geo.util';
 import { ringLngLatBounds, type WireframeLngLatBounds } from './airspace-wireframe-perf.util';
 
@@ -239,9 +240,7 @@ function shouldSkipWireframeVolume(
   props: AirspaceVolumeProperties,
   ring: { lng: number; lat: number }[]
 ): boolean {
-  const type = (props.type ?? '').toUpperCase();
-  const cls = (props.class ?? '').toUpperCase();
-  if (type === 'GEO' || cls === 'AREA') return true;
+  if (isAreaOrGeoAirspaceZone(props)) return true;
 
   const b = ringLngLatBounds(ring);
   const diagKm = haversineKm([b.west, b.south], [b.east, b.north]);

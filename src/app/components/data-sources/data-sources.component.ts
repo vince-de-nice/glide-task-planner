@@ -12,6 +12,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Button } from 'primeng/button';
 import { InputText } from 'primeng/inputtext';
+import { ToggleSwitch } from 'primeng/toggleswitch';
 import { CupDatabaseService } from '../../services/cup-database.service';
 import { CupSourcesConfigService } from '../../services/cup-sources-config.service';
 import { CupLoaderService } from '../../services/cup-loader.service';
@@ -33,6 +34,7 @@ import { CupImportedSourceService } from '../../services/cup-imported-source.ser
     FormsModule,
     Button,
     InputText,
+    ToggleSwitch,
     TranslatePipe
   ],
   templateUrl: './data-sources.component.html',
@@ -199,6 +201,11 @@ export class DataSourcesComponent implements OnInit {
   async activateAirspaceSource(sourceId: string): Promise<void> {
     if (this.isActiveAirspaceSource(sourceId)) return;
     await this.airspaceSources.setActiveSource(sourceId);
+    this.airspaceMapDisplay.invalidateActiveSourceCache();
+  }
+
+  onIncludeAreaGeoChange(include: boolean): void {
+    this.airspaceSources.setIncludeAreaGeoZones(include);
     this.airspaceMapDisplay.invalidateActiveSourceCache();
   }
 

@@ -353,6 +353,8 @@
                   [legStartKm]="leg.envelope.legStartKm"
                   [legEndKm]="leg.envelope.legEndKm"
                   [yMaxM]="effectiveYMaxForLeg(leg)"
+                  [airspaceBands]="airspaceProfileBandsForLeg(leg)"
+                  [hoveredAirspaceZoneKey]="hoveredAirspaceZoneKey()"
                   (sampleHover)="onChartSampleHover(leg.index, $event)"
                 />
               </div>

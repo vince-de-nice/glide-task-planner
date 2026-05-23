@@ -12,6 +12,7 @@
 @let lowMarks = terrainLowFidelityMarks();
 @let estBands = terrainEstimatedBands();
 @let estMarks = terrainEstimatedMarks();
+@let airspace = airspaceBandDraws();
 
 <div class="leg-chart" #chartHost>
   <svg
@@ -98,6 +99,20 @@
         class="leg-chart__terrain-line leg-chart__terrain-line--estimated"
         [attr.d]="s.terrainEstimatedPath"
       />
+    }
+
+    @for (band of airspace; track band.key) {
+      <rect
+        class="leg-chart__airspace-band"
+        [class.leg-chart__airspace-band--hovered]="band.hovered"
+        [attr.x]="band.x"
+        [attr.y]="band.yTop"
+        [attr.width]="band.width"
+        [attr.height]="band.yBottom - band.yTop"
+        [attr.fill]="band.fill"
+      >
+        <title>{{ band.name }}</title>
+      </rect>
     }
 
     @for (mark of lowMarks; track mark.key) {

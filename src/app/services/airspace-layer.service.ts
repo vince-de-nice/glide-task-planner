@@ -115,7 +115,7 @@ export class AirspaceLayerService {
     return {
       source: 'poaff',
       label: `POAFF — ${region.label}`,
-      geojson: loaded.geojson
+      geojson: this.filterLoadedGeoJson(loaded.geojson)
     };
   }
 
@@ -150,7 +150,7 @@ export class AirspaceLayerService {
         result: {
           source: 'poaff',
           label: this.dataSources.loadLabelFor(sourceId),
-          geojson: geojson as FeatureCollection
+          geojson: this.filterLoadedGeoJson(geojson as FeatureCollection)
         }
       };
     }
@@ -164,11 +164,19 @@ export class AirspaceLayerService {
         result: {
           source: 'poaff',
           label: `POAFF — ${region.label}`,
-          geojson: loaded.geojson
+          geojson: this.filterLoadedGeoJson(loaded.geojson)
         }
       };
     }
     return { result: null, failure: loaded.failure ?? 'unknown' };
+  }
+
+  private filterLoadedGeoJson(
+    geojson: FeatureCollection
+  ): FeatureCollection {
+    return this.dataSources.applyDatasourceFilter(
+      geojson as FeatureCollection<Geometry, PoaffProperties>
+    );
   }
 
   poaffPaint(feature: Feature<Geometry, PoaffProperties>): PoaffPaintProps {

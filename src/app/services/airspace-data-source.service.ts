@@ -9,9 +9,14 @@ import {
   AIRSPACE_CUSTOM_CATALOG_KEY,
   AIRSPACE_CUSTOM_IDB_NAME,
   AIRSPACE_CUSTOM_IDB_STORE,
+  AIRSPACE_INCLUDE_AREA_GEO_KEY,
   isCustomAirspaceSourceId,
   newCustomAirspaceSourceId
 } from '../config/airspace-data-source.constants';
+import {
+  filterAreaGeoFromAirspaceCollection,
+  type AirspaceZoneClassTypeProps
+} from '../utils/airspace-datasource-filter.util';
 import type {
   BuiltinAirspaceSourceMeta,
   CustomAirspaceSourceMeta
@@ -30,6 +35,11 @@ export class AirspaceDataSourceService {
 
   readonly customSources = signal<CustomAirspaceSourceMeta[]>([]);
   readonly activeSourceId = signal<string>(DEFAULT_POAFF_REGION_ID);
+  /**
+   * Inclure les zones POAFF `class` AREA et `type` GEO.
+   * Par défaut false : filtrées à la lecture de la source.
+   */
+  readonly includeAreaGeoZones = signal(readIncludeAreaGeoPref());
   /** Incrémenté à chaque changement de catalogue ou de source active (réactivité carte). */
   readonly revision = signal(0);
 
@@ -62,6 +72,25 @@ export class AirspaceDataSourceService {
     }
     const region = POAFF_AIRSPACE_REGIONS.find(r => r.id === sourceId);
     return region ? `POAFF — ${region.label}` : sourceId;
+  }
+
+  setIncludeAreaGeoZones(include: boolean): void {
+    if (this.includeAreaGeoZones() === include) return;
+    this.includeAreaGeoZones.set(include);
+    try {
+      localStorage.setItem(AIRSPACE_INCLUDE_AREA_GEO_KEY, include ? '1' : '0');
+    } catch {
+      /* quota / mode privé */
+    }
+    this.revision.update(n => n + 1);
+  }
+
+  /** Filtre datasource (AREA / GEO) si l’option n’est pas activée. */
+  applyDatasourceFilter<P extends AirspaceZoneClassTypeProps>(
+    collection: FeatureCollection<Geometry, P>
+  ): FeatureCollection<Geometry, P> {
+    if (this.includeAreaGeoZones()) return collection;
+    return filterAreaGeoFromAirspaceCollection(collection);
   }
 
   async setActiveSource(sourceId: string): Promise<void> {
@@ -227,6 +256,14 @@ export class AirspaceDataSourceService {
       });
     }
     return this.customDbPromise;
+  }
+}
+
+function readIncludeAreaGeoPref(): boolean {
+  try {
+    return localStorage.getItem(AIRSPACE_INCLUDE_AREA_GEO_KEY) === '1';
+  } catch {
+    return false;
   }
 }
 

@@ -240,6 +240,26 @@
       </div>
     </section>
 
+    <section
+      class="ds-panel gc-card ds-airspace-options"
+      [attr.aria-label]="'dataSources.airspace.optionsAria' | translate"
+    >
+      <header class="gc-panel-head">
+        <h3 class="gc-panel-title">{{ 'dataSources.airspace.optionsTitle' | translate }}</h3>
+      </header>
+      <p class="gc-panel-hint">{{ 'dataSources.airspace.includeAreaGeoHint' | translate }}</p>
+      <label class="ds-toggle-row">
+        <span class="ds-toggle-row__label">{{
+          'dataSources.airspace.includeAreaGeo' | translate
+        }}</span>
+        <p-toggleswitch
+          [ngModel]="airspaceSources.includeAreaGeoZones()"
+          (ngModelChange)="onIncludeAreaGeoChange($event)"
+          [attr.aria-label]="'dataSources.airspace.includeAreaGeo' | translate"
+        />
+      </label>
+    </section>
+
     <div class="ds-grid">
       <section class="ds-panel gc-card" [attr.aria-label]="'dataSources.airspace.builtinAria' | translate">
         <header class="gc-panel-head">

@@ -276,7 +276,12 @@ export const en = {
       removeCustomHeader: 'Remove source',
       removeCustomMessage:
         'Remove “{{label}}” from the list and delete the local file? Associated enrichment caches will be cleared.',
-      featureCount: '{{count}} zones'
+      featureCount: '{{count}} zones',
+      optionsAria: 'Airspace options',
+      optionsTitle: 'Source filtering',
+      includeAreaGeo: 'Include AREA and GEO zones',
+      includeAreaGeoHint:
+        'By default, large-area (class AREA) and geographic (type GEO) zones are excluded from the map, safety profile, and catalogs. Enable this option to load them like other zones.'
     }
   },
   cup: {
@@ -917,7 +922,9 @@ export const en = {
       tooltipTerrainMissing: 'Terrain altitude: DEM unavailable',
       tooltipTerrainEstimated: 'Terrain altitude: estimated (endpoints)',
       tooltipTerrainLowFidelity:
-        'Terrain altitude: low-fidelity DEM (lower-zoom tile)'
+        'Terrain altitude: low-fidelity DEM (lower-zoom tile)',
+      legendAirspaceZones:
+        'Airspace (zone ∩ leg segment, floor/ceiling MSL)'
     },
     demProgress: {
       title: 'Loading terrain (DEM)',
