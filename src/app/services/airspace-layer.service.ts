@@ -44,6 +44,10 @@ export interface PoaffProperties {
   /** Plafond en mètres (fichiers POAFF enrichis). */
   upperM?: number;
   desc?: string;
+  activationCode?: string;
+  activationDesc?: string;
+  /** Fréquences radio structurées (POAFF). */
+  Mhz?: Record<string, string[]>;
   stroke?: string;
   'stroke-width'?: number;
   fill?: string;

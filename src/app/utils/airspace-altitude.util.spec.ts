@@ -5,6 +5,7 @@ import {
   flightLevelToMslM,
   formatAirspaceLimitDisplay,
   formatAirspaceVerticalRange,
+  formatChartAltitudeM,
   parseAirspaceLimit,
   resolveCeilingMslM,
   resolveExtrusionBounds
@@ -40,6 +41,10 @@ describe('airspace-altitude.util', () => {
 
   it('formats FL and FT with meter conversion in parentheses', () => {
     expect(formatAirspaceLimitDisplay('FL100')).toMatch(/FL100.*\(.*3[,.]?0?48.*m\)/);
+    expect(formatAirspaceLimitDisplay('FL100')).not.toMatch(/m m/);
+    expect(formatAirspaceLimitDisplay('2500FT AMSL', 762)).toBe(
+      '2500FT AMSL (762 m)'
+    );
     expect(formatAirspaceLimitDisplay('2500FT AGL')).toMatch(
       /2500FT AGL.*\(.*762.*m AGL\)/
     );
@@ -60,5 +65,10 @@ describe('airspace-altitude.util', () => {
     expect(bounds?.hasVolume).toBe(true);
     expect(bounds?.extrusionBaseM).toBeCloseTo(400 + 609.6, 0);
     expect(bounds?.extrusionTopM).toBeCloseTo(flightLevelToMslM(115), 0);
+  });
+
+  it('formats chart altitudes without locale thousands separator', () => {
+    expect(formatChartAltitudeM(2040)).toBe('2040 m');
+    expect(formatChartAltitudeM(981)).toBe('981 m');
   });
 });

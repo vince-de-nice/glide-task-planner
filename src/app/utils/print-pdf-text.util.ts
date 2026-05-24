@@ -18,6 +18,44 @@ export function formatPdfInteger(n: number): string {
   return sign + digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
 
+/** Découpe un texte pour tenir dans une largeur PDF (points). */
+export function wrapPdfTextLines(
+  text: string,
+  maxWidth: number,
+  measure: (line: string) => number
+): string[] {
+  const sanitized = sanitizePdfText(text);
+  if (!sanitized.trim()) return [];
+  const words = sanitized.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = '';
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (measure(candidate) <= maxWidth) {
+      current = candidate;
+      continue;
+    }
+    if (current) lines.push(current);
+    if (measure(word) <= maxWidth) {
+      current = word;
+      continue;
+    }
+    let chunk = '';
+    for (const ch of word) {
+      const next = chunk + ch;
+      if (measure(next) > maxWidth && chunk) {
+        lines.push(chunk);
+        chunk = ch;
+      } else {
+        chunk = next;
+      }
+    }
+    current = chunk;
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
 export function sanitizePdfText(text: string): string {
   let out = '';
   for (const ch of text) {
@@ -30,6 +68,18 @@ export function sanitizePdfText(text: string): string {
       out += '-';
       continue;
     }
+    if (cp === 0x2192) {
+      out += '->';
+      continue;
+    }
+    if (cp === 0x2194) {
+      out += '<->';
+      continue;
+    }
+    if (cp === 0x00b7) {
+      out += '-';
+      continue;
+    }
     if (cp <= 0xff) {
       out += ch;
       continue;
@@ -37,5 +87,5 @@ export function sanitizePdfText(text: string): string {
     const mapped = WIN_ANSI_EXTRA[cp];
     out += mapped ?? '?';
   }
-  return out;
+  return out.replace(/\s{2,}/g, ' ').trim();
 }

@@ -14,7 +14,11 @@
 @let estMarks = terrainEstimatedMarks();
 @let airspace = airspaceBandDraws();
 
-<div class="leg-chart" #chartHost>
+<div
+  class="leg-chart"
+  [class.leg-chart--print-export]="printExportMode()"
+  #chartHost
+>
   <svg
     #svg
     class="leg-chart__svg"
@@ -26,6 +30,7 @@
     (mousemove)="onMouseMove($event, $any(svg))"
     (mouseleave)="onMouseLeave()"
   >
+    <g class="leg-chart__plot">
     @for (tick of yTicks(); track tick.value) {
       <line
         class="leg-chart__grid"
@@ -34,12 +39,6 @@
         [attr.y1]="tick.position"
         [attr.y2]="tick.position"
       />
-      <text
-        class="leg-chart__axis-label"
-        [attr.x]="g.padding.left - 10"
-        [attr.y]="tick.position + 4"
-        text-anchor="end"
-      >{{ tick.label }}</text>
     }
 
     @for (band of lowBands; track band.key) {
@@ -121,14 +120,6 @@
           [attr.y1]="band.yTop"
           [attr.y2]="band.yTop"
         />
-        @if (band.width > 36) {
-          <text
-            class="leg-chart__airspace-cap-label"
-            [attr.x]="band.truncationMarkX"
-            [attr.y]="band.truncationMarkY - 4"
-            text-anchor="middle"
-          >↥ {{ formatAltitude(band.regulatoryCeilingM) }}</text>
-        }
       }
     }
 
@@ -162,15 +153,6 @@
         [attr.cy]="mark.y"
         r="3.5"
       />
-    }
-
-    @for (band of gaps; track band.key) {
-      <text
-        class="leg-chart__gap-label"
-        [attr.x]="band.centerX"
-        [attr.y]="(band.yTop + band.yBottom) / 2 + 4"
-        text-anchor="middle"
-      >?</text>
     }
 
     @if (s.groundLinePath) {
@@ -221,14 +203,6 @@
         [attr.stroke]="layer.color"
         [attr.r]="layer.isBinding ? 5 : 4"
       />
-      <text
-        class="leg-chart__landable-label"
-        [class.leg-chart__landable-label--binding]="layer.isBinding"
-        [attr.x]="layer.markerX"
-        [attr.y]="layer.labelY"
-        [attr.fill]="layer.color"
-        text-anchor="middle"
-      >{{ layer.label }}</text>
     }
 
     @if (s.conePath && !noLandables()) {
@@ -253,13 +227,6 @@
         [attr.fill]="hit.color"
         [attr.stroke]="hit.color"
       />
-      <text
-        class="leg-chart__intersection-label"
-        [attr.x]="hit.x"
-        [attr.y]="hit.labelY"
-        [attr.fill]="hit.color"
-        text-anchor="middle"
-      >{{ hit.text }}</text>
     }
 
     @if (fromM) {
@@ -312,28 +279,8 @@
         [attr.y1]="g.height - g.padding.bottom"
         [attr.y2]="g.height - g.padding.bottom + 4"
       />
-      <text
-        class="leg-chart__axis-label"
-        [attr.x]="tick.position"
-        [attr.y]="g.height - g.padding.bottom + 18"
-        text-anchor="middle"
-      >{{ tick.label }}</text>
     }
-
-    <text
-      class="leg-chart__axis-title"
-      [attr.x]="g.padding.left + (g.width - g.padding.left - g.padding.right) / 2"
-      [attr.y]="g.height - 4"
-      text-anchor="middle"
-    >{{ lbl.distance }}</text>
-    <text
-      class="leg-chart__axis-title leg-chart__axis-title--altitude"
-      [attr.x]="g.altitudeTitleX"
-      [attr.y]="g.altitudeTitleY"
-      [attr.transform]="'rotate(-90 ' + g.altitudeTitleX + ' ' + g.altitudeTitleY + ')'"
-      text-anchor="middle"
-      dominant-baseline="middle"
-    >{{ lbl.altitude }}</text>
+    </g>
 
     @if (hover) {
       @let pos = tooltipPosition(hover);
@@ -345,6 +292,90 @@
         [attr.y2]="g.height - g.padding.bottom"
       />
     }
+
+    <g class="leg-chart__labels">
+      @for (tick of yTicks(); track tick.value) {
+        <text
+          class="leg-chart__label-text leg-chart__axis-label"
+          fill="#64748b"
+          [attr.x]="g.padding.left - 10"
+          [attr.y]="tick.position + 4"
+          text-anchor="end"
+        >{{ tick.label }}</text>
+      }
+
+      @for (band of airspace; track band.key) {
+        @if (band.ceilingTruncated && band.yBottom - band.yTop > 6 && band.width > 36) {
+          <text
+            class="leg-chart__label-text leg-chart__airspace-cap-label"
+            [attr.x]="band.truncationMarkX"
+            [attr.y]="band.truncationMarkY - 4"
+            text-anchor="middle"
+          >↥ {{ formatChartAltitude(band.regulatoryCeilingM) }}</text>
+        }
+      }
+
+      @for (band of gaps; track band.key) {
+        <text
+          class="leg-chart__label-text leg-chart__gap-label"
+          [attr.x]="band.centerX"
+          [attr.y]="(band.yTop + band.yBottom) / 2 + 4"
+          text-anchor="middle"
+        >?</text>
+      }
+
+      @for (layer of layers; track layer.id) {
+        <text
+          class="leg-chart__landable-label"
+          [class.leg-chart__landable-label--binding]="layer.isBinding"
+          fill="#0f172a"
+          stroke="none"
+          [attr.x]="layer.labelX"
+          [attr.y]="layer.labelY"
+          [attr.text-anchor]="layer.labelAnchor"
+          dominant-baseline="auto"
+        >{{ layer.label }}</text>
+      }
+
+      @for (hit of intersections; track hit.key) {
+        <text
+          class="leg-chart__intersection-label"
+          fill="#0f172a"
+          stroke="none"
+          [attr.x]="hit.labelX"
+          [attr.y]="hit.labelY"
+          [attr.text-anchor]="hit.labelAnchor"
+          dominant-baseline="auto"
+        >{{ hit.text }}</text>
+      }
+
+      @for (tick of xTicks(); track tick.value) {
+        <text
+          class="leg-chart__label-text leg-chart__axis-label"
+          fill="#64748b"
+          [attr.x]="tick.position"
+          [attr.y]="g.height - g.padding.bottom + 18"
+          text-anchor="middle"
+        >{{ tick.label }}</text>
+      }
+
+      <text
+        class="leg-chart__label-text leg-chart__axis-title"
+        fill="#334155"
+        [attr.x]="g.padding.left + (g.width - g.padding.left - g.padding.right) / 2"
+        [attr.y]="g.height - 4"
+        text-anchor="middle"
+      >{{ lbl.distance }}</text>
+      <text
+        class="leg-chart__label-text leg-chart__axis-title leg-chart__axis-title--altitude"
+        fill="#334155"
+        [attr.x]="g.altitudeTitleX"
+        [attr.y]="g.altitudeTitleY"
+        [attr.transform]="'rotate(-90 ' + g.altitudeTitleX + ' ' + g.altitudeTitleY + ')'"
+        text-anchor="middle"
+        dominant-baseline="middle"
+      >{{ lbl.altitude }}</text>
+    </g>
   </svg>
 
   @if (conesTruncated()) {

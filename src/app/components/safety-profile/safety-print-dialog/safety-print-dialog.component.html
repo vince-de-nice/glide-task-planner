@@ -68,8 +68,8 @@
           <label class="safety-print__toggle">
             <span>{{ 'safetyProfile.print.airspace' | translate }}</span>
             <p-toggleswitch
-              [ngModel]="options().airspace3d"
-              (ngModelChange)="patchOptions({ airspace3d: $event })"
+              [ngModel]="options().airspace2d"
+              (ngModelChange)="patchOptions({ airspace2d: $event })"
             />
           </label>
           <label class="safety-print__toggle">
@@ -140,6 +140,16 @@
               (ngModelChange)="patchOptions({ includeMetadata: $event })"
             />
           </label>
+          <label class="safety-print__toggle">
+            <span>{{ 'safetyProfile.print.airspaceSummary' | translate }}</span>
+            <p-toggleswitch
+              [ngModel]="options().includeAirspaceZonesSummary"
+              (ngModelChange)="patchOptions({ includeAirspaceZonesSummary: $event })"
+            />
+          </label>
+          <p class="safety-print__field-hint safety-print__field-hint--standalone">
+            {{ 'safetyProfile.print.airspaceSummaryHint' | translate }}
+          </p>
         </div>
       </section>
 

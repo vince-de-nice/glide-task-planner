@@ -1,4 +1,5 @@
 import { Injectable, inject } from '@angular/core';
+import { TranslateService } from '../i18n/translate.service';
 import { PDFDocument, rgb, StandardFonts, type PDFPage } from 'pdf-lib';
 import type {
   SafetyPrintOptions,
@@ -19,6 +20,13 @@ import {
   type PrintJobPage
 } from '../utils/safety-print-layout.util';
 import { formatPdfInteger, sanitizePdfText } from '../utils/print-pdf-text.util';
+import { buildAirspacePrintSummarySections } from '../utils/leg-airspace-print-summary.util';
+import {
+  appendAirspaceSummaryPages,
+  countAirspaceSummaryPages,
+  type AirspaceSummaryPdfLabels
+} from '../utils/safety-print-airspace-summary-pdf.util';
+import { drawProfileSvgInBox } from '../utils/profile-chart-pdf-svg.util';
 import {
   clampProfileChartHeightPercent,
   pickScaleBarMeters,
@@ -48,12 +56,17 @@ export interface SafetyPrintPdfResult {
 @Injectable({ providedIn: 'root' })
 export class SafetyPrintService {
   private readonly mapRenderer = inject(SafetyPrintMapRendererService);
+  private readonly i18n = inject(TranslateService);
 
   buildPreviewSummary(
     options: SafetyPrintOptions,
     legRenders: SafetyLegRender[],
     legPairs: { from: Waypoint; to: Waypoint }[],
-    getWaypoint: (id: string) => Waypoint | undefined
+    getWaypoint: (id: string) => Waypoint | undefined,
+    params?: {
+      circuitLegs: CircuitLeg[];
+      enabledAirspaceKeysForLeg: (legIndex: number) => Set<string>;
+    }
   ): SafetyPrintPreviewSummary {
     const jobPages = buildPrintJobPages({
       layoutMode: options.layoutMode,
@@ -66,18 +79,39 @@ export class SafetyPrintService {
       cones3d: options.coneVolumes3d,
       getWaypoint
     });
+    const summaryLabels = this.airspaceSummaryLabels();
+    const summarySections =
+      options.includeAirspaceZonesSummary && params
+        ? buildAirspacePrintSummarySections({
+            circuitLegs: params.circuitLegs,
+            legRenders,
+            enabledAirspaceKeysForLeg: params.enabledAirspaceKeysForLeg
+          })
+        : [];
+    const summaryPageCount = countAirspaceSummaryPages(
+      summarySections,
+      summaryLabels
+    );
+    const mapPages = jobPages.map((p, i) => ({
+      label: pageLabel(p, legRenders, i),
+      orientation:
+        (p.kind === 'map'
+          ? p.pageSpec.orientation
+          : p.kind === 'profilesCombined'
+            ? 'landscape'
+            : (p.mapPageSpec?.orientation ??
+              (!p.mapPageSpec ? 'landscape' : 'portrait'))) as PrintPageOrientation
+    }));
+    const summaryPages = Array.from({ length: summaryPageCount }, (_, i) => ({
+      label:
+        summaryPageCount > 1
+          ? `${summaryLabels.documentTitle} (${i + 1}/${summaryPageCount})`
+          : summaryLabels.documentTitle,
+      orientation: 'portrait' as const
+    }));
     return {
-      pageCount: jobPages.length,
-      pages: jobPages.map((p, i) => ({
-        label: pageLabel(p, legRenders, i),
-        orientation:
-          p.kind === 'map'
-            ? p.pageSpec.orientation
-            : p.kind === 'profilesCombined'
-              ? 'landscape'
-              : (p.mapPageSpec?.orientation ??
-                (!p.mapPageSpec ? 'landscape' : 'portrait'))
-      }))
+      pageCount: mapPages.length + summaryPages.length,
+      pages: [...mapPages, ...summaryPages]
     };
   }
 
@@ -90,10 +124,13 @@ export class SafetyPrintService {
     metadata: SafetyPrintMetadata;
     getWaypoint: (id: string) => Waypoint | undefined;
     enabledAirspaceKeysForLeg: (legIndex: number) => Set<string>;
-    renderProfilePng: (
+    renderProfileSvg: (
       legIndex: number,
       layout: ProfileChartPrintLayout,
-      printContext?: { combinedProfileCount?: number },
+      printContext?: {
+        combinedProfileCount?: number;
+        pageOrientation: PrintPageOrientation;
+      },
       onSubProgress?: (sub: SafetyPrintProfileSubPhase) => void
     ) => Promise<string | null>;
     onProgress?: (p: SafetyPrintProgress) => void;
@@ -110,8 +147,21 @@ export class SafetyPrintService {
       getWaypoint: params.getWaypoint
     });
 
-    const stepTotal = countPrintWorkSteps(jobPages);
-    const pageTotal = jobPages.length;
+    const summarySections = params.options.includeAirspaceZonesSummary
+      ? buildAirspacePrintSummarySections({
+          circuitLegs: params.circuitLegs,
+          legRenders: params.legRenders,
+          enabledAirspaceKeysForLeg: params.enabledAirspaceKeysForLeg
+        })
+      : [];
+    const summaryLabels = this.airspaceSummaryLabels();
+    const summaryPageCount = countAirspaceSummaryPages(
+      summarySections,
+      summaryLabels
+    );
+    const stepTotal =
+      countPrintWorkSteps(jobPages) + (summaryPageCount > 0 ? summaryPageCount : 0);
+    const pageTotal = jobPages.length + summaryPageCount;
     let step = 0;
     let pdfPageIndex = 0;
 
@@ -189,7 +239,7 @@ export class SafetyPrintService {
           const combinedLabel = combinedProfilesPageLabel(jobPage.legIndices.length);
           const profileRows: {
             legIndex: number;
-            png: string;
+            svg: string;
             branchLabel: string;
           }[] = [];
 
@@ -205,10 +255,13 @@ export class SafetyPrintService {
               pageLabel: branchLabel,
               profileSubPhase: 'prepare'
             });
-            const png = await params.renderProfilePng(
+            const svg = await params.renderProfileSvg(
               legIndex,
               'profilesCombined',
-              { combinedProfileCount: jobPage.legIndices.length },
+              {
+                combinedProfileCount: jobPage.legIndices.length,
+                pageOrientation: 'landscape'
+              },
               sub => {
                 emit({
                   phase: 'profile',
@@ -219,8 +272,8 @@ export class SafetyPrintService {
                 });
               }
             );
-            if (png) {
-              profileRows.push({ legIndex, png, branchLabel });
+            if (svg) {
+              profileRows.push({ legIndex, svg, branchLabel });
             }
           }
 
@@ -276,10 +329,14 @@ export class SafetyPrintService {
             pageLabel: branchLabel,
             profileSubPhase: 'prepare'
           });
-          const profilePng = await params.renderProfilePng(
+          const profileSvg = await params.renderProfileSvg(
             jobPage.legIndex,
             profileLayout,
-            undefined,
+            {
+              pageOrientation: profileOnly
+                ? 'landscape'
+                : (jobPage.mapPageSpec?.orientation ?? 'portrait')
+            },
             sub => {
               emit({
                 phase: 'profile',
@@ -299,7 +356,7 @@ export class SafetyPrintService {
           const page = pdf.addPage(pageSizePt(orientation));
           await this.drawProfilePage(page, {
             mapPng,
-            profilePng,
+            profileSvg,
             orientation,
             profileLayout,
             metadata: {
@@ -315,6 +372,24 @@ export class SafetyPrintService {
       }
     } finally {
       this.mapRenderer.dispose();
+    }
+
+    if (summaryPageCount > 0) {
+      pdfPageIndex += summaryPageCount;
+      advance({
+        phase: 'layout',
+        pageIndex: pdfPageIndex,
+        pageTotal,
+        pageLabel: summaryLabels.documentTitle
+      });
+      appendAirspaceSummaryPages(pdf, {
+        sections: summarySections,
+        metadata: params.metadata,
+        includeMetadata: params.options.includeMetadata,
+        labels: summaryLabels,
+        font,
+        fontBold
+      });
     }
 
     advance({ phase: 'save' });
@@ -375,7 +450,7 @@ export class SafetyPrintService {
     page: PDFPage,
     params: {
       mapPng: string | null;
-      profilePng: string | null;
+      profileSvg: string | null;
       orientation: PrintPageOrientation;
       profileLayout: ProfileChartPrintLayout;
       metadata: SafetyPrintMetadata;
@@ -404,7 +479,7 @@ export class SafetyPrintService {
     const innerH = contentTop - gap - bottom;
 
     const hasMap = params.mapPng != null;
-    const hasProfile = params.profilePng != null;
+    const hasProfile = params.profileSvg != null;
     const profileOnly =
       params.profileLayout === 'profileOnly' && hasProfile && !hasMap;
     const chartFrac =
@@ -425,14 +500,12 @@ export class SafetyPrintService {
     const chartY = bottom;
     const mapY = bottom + chartH + (hasProfile && hasMap ? gap : 0);
 
-    if (hasProfile && params.profilePng) {
-      await this.drawPngInBox(page, params.profilePng, {
+    if (hasProfile && params.profileSvg) {
+      await drawProfileSvgInBox(page, params.profileSvg, {
         x: margin,
         y: chartY,
         width: innerW,
-        height: chartH,
-        fit: 'contain',
-        background: '#ffffff'
+        height: chartH
       });
     }
 
@@ -458,7 +531,7 @@ export class SafetyPrintService {
   private async drawProfilesCombinedPage(
     page: PDFPage,
     params: {
-      profiles: { legIndex: number; png: string; branchLabel: string }[];
+      profiles: { legIndex: number; svg: string; branchLabel: string }[];
       metadata: SafetyPrintMetadata;
       options: SafetyPrintOptions;
       font: Awaited<ReturnType<PDFDocument['embedFont']>>;
@@ -499,13 +572,11 @@ export class SafetyPrintService {
         color: rgb(0.15, 0.15, 0.15)
       });
       yTop -= slotH;
-      await this.drawPngInBox(page, row.png, {
+      await drawProfileSvgInBox(page, row.svg, {
         x: margin,
         y: yTop,
         width: innerW,
-        height: slotH,
-        fit: 'contain',
-        background: '#ffffff'
+        height: slotH
       });
       yTop -= gap;
     }
@@ -577,8 +648,12 @@ export class SafetyPrintService {
         `L/D ${meta.glideRatio} - Sol +${meta.groundMarginM} m - Arrivée +${meta.arrivalMarginM} m`
       ),
       ...(meta.pageLabel ? [sanitizePdfText(meta.pageLabel)] : []),
-      ...(options.airspace3d
-        ? [sanitizePdfText('Espace aérien : POAFF (non certifié pour navigation)')]
+      ...(options.airspace2d
+        ? [
+            sanitizePdfText(
+              'Espace aérien 2D : POAFF (non certifié pour navigation)'
+            )
+          ]
         : [])
     ];
 
@@ -645,6 +720,18 @@ export class SafetyPrintService {
         height: headerH
       }
     );
+  }
+
+  private airspaceSummaryLabels(): AirspaceSummaryPdfLabels {
+    return {
+      documentTitle: this.i18n.t('safetyProfile.print.airspaceSummaryTitle'),
+      bidirectionalNote: this.i18n.t(
+        'safetyProfile.print.airspaceSummaryBidirectional'
+      ),
+      noZonesInSection: this.i18n.t(
+        'safetyProfile.print.airspaceSummaryNoZones'
+      )
+    };
   }
 
   private drawNorthArrow(page: PDFPage, x: number, y: number): void {

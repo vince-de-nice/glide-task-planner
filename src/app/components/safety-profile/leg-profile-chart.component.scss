@@ -19,7 +19,7 @@
   background: var(--gc-surface);
   border: 1px solid var(--gc-border);
   border-radius: var(--gc-radius-sm);
-  padding: 0.35rem 0.4rem 0.4rem;
+  padding: 0.3rem 0.12rem 0.35rem 0.15rem;
   box-shadow: 0 1px 4px rgb(15 23 42 / 0.06);
 }
 
@@ -47,6 +47,31 @@
 .leg-chart__tick {
   stroke: var(--gc-text-muted);
   stroke-width: 1;
+}
+
+.leg-chart__labels {
+  pointer-events: none;
+}
+
+.leg-chart__label-text {
+  paint-order: stroke fill;
+  stroke: #fff;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+.leg-chart--print-export {
+  .leg-chart__axis-label {
+    fill: #64748b;
+  }
+
+  .leg-chart__axis-title {
+    fill: #334155;
+  }
+
+  .leg-chart__label-text {
+    stroke: #fff;
+  }
 }
 
 .leg-chart__axis-label {
@@ -97,14 +122,14 @@
 }
 
 .leg-chart__terrain-area {
-  fill: color-mix(in srgb, #78350f 30%, transparent);
+  fill: rgba(146, 64, 14, 0.24);
 
   &--lowfidelity {
-    fill: color-mix(in srgb, #6366f1 28%, transparent);
+    fill: rgba(99, 102, 241, 0.2);
   }
 
   &--estimated {
-    fill: color-mix(in srgb, #f59e0b 35%, transparent);
+    fill: rgba(245, 158, 11, 0.22);
   }
 }
 
@@ -142,7 +167,7 @@
 }
 
 .leg-chart__terrain-line {
-  stroke: #78350f;
+  stroke: #92400e;
   stroke-width: 1.5;
   fill: none;
 
@@ -235,6 +260,7 @@
   font-size: 8px;
   font-weight: 600;
   font-family: var(--gc-font, sans-serif);
+  fill: #0f172a;
   pointer-events: none;
 
   &--binding {
@@ -274,9 +300,7 @@
   font-size: 8px;
   font-weight: 700;
   font-family: var(--gc-font, sans-serif);
-  paint-order: stroke fill;
-  stroke: var(--gc-surface);
-  stroke-width: 2.5px;
+  fill: #0f172a;
   pointer-events: none;
 }
 

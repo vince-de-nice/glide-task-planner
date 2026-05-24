@@ -935,7 +935,7 @@ export const fr = {
       coneVolumes: 'Cônes 3D (volumes)',
       coneRings: 'Cercles de distance',
       safetyRibbon: 'Ruban altitude min.',
-      airspace: 'Espaces aériens 3D',
+      airspace: 'Espaces aériens 2D',
       waypoints: 'Waypoints et branches',
       mapLabels: 'Libellés carte (croisements, marges)',
       profileChart: 'Inclure la coupe profil',
@@ -951,6 +951,12 @@ export const fr = {
       profileChartHeightHint:
         'Avec la carte sur la même page uniquement (défaut 30 %, max 60 %). Une page coupe seule utilise le format paysage et toute la hauteur utile.',
       metadata: 'Bandeau (titre, échelle, paramètres)',
+      airspaceSummary: 'Récapitulatif des zones',
+      airspaceSummaryHint:
+        'En fin de PDF : zones actives par tronçon (aller et retour regroupés), limites verticales, fréquences radio et texte POAFF.',
+      airspaceSummaryTitle: 'Récapitulatif espaces aériens',
+      airspaceSummaryBidirectional: 'Branches aller et retour',
+      airspaceSummaryNoZones: 'Aucune zone active sur ce tronçon.',
       download: 'Télécharger PDF',
       print: 'Imprimer',
       close: 'Fermer',
@@ -958,7 +964,7 @@ export const fr = {
       progressInit: 'Préparation du document…',
       progressMap: 'Rendu de la carte — {{label}}',
       progressProfilePrepare: 'Coupe profil — {{label}} — préparation du graphique',
-      progressProfileRasterize: 'Coupe profil — {{label}} — conversion en image',
+      progressProfileVectorize: 'Coupe profil — {{label}} — conversion vectorielle',
       progressLayout: 'Mise en page PDF — {{label}}',
       progressSave: 'Finalisation et enregistrement du PDF…',
       progressError: 'Échec de la génération — réessayez.'

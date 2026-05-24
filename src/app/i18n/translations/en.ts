@@ -984,7 +984,7 @@ export const en = {
       coneVolumes: '3D cone volumes',
       coneRings: 'Distance rings',
       safetyRibbon: 'Min altitude ribbon',
-      airspace: '3D airspace',
+      airspace: '2D airspace',
       waypoints: 'Waypoints and legs',
       mapLabels: 'Map labels (crossings, margins)',
       profileChart: 'Include profile chart',
@@ -1000,6 +1000,12 @@ export const en = {
       profileChartHeightHint:
         'When the map is on the same page only (default 30%, max 60%). A profile-only page uses landscape and the full usable height.',
       metadata: 'Header (title, scale, parameters)',
+      airspaceSummary: 'Airspace zones summary',
+      airspaceSummaryHint:
+        'At the end of the PDF: active zones per leg segment (outbound and return merged), vertical limits, radio frequencies and POAFF notes.',
+      airspaceSummaryTitle: 'Airspace summary',
+      airspaceSummaryBidirectional: 'Outbound and return legs',
+      airspaceSummaryNoZones: 'No active zones on this segment.',
       download: 'Download PDF',
       print: 'Print',
       close: 'Close',
@@ -1007,7 +1013,7 @@ export const en = {
       progressInit: 'Preparing document…',
       progressMap: 'Rendering map — {{label}}',
       progressProfilePrepare: 'Profile chart — {{label}} — preparing graph',
-      progressProfileRasterize: 'Profile chart — {{label}} — rasterizing',
+      progressProfileVectorize: 'Profile chart — {{label}} — vector export',
       progressLayout: 'PDF layout — {{label}}',
       progressSave: 'Finalizing and saving PDF…',
       progressError: 'Generation failed — try again.'

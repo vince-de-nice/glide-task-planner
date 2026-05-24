@@ -41,7 +41,8 @@ import {
 import { defaultLegYMaxM } from '../../../utils/safety-profile-chart.util';
 import {
   clampProfileChartHeightPercent,
-  profileChartExportPixelSize,
+  profileChartBoxSizePt,
+  type PrintPageOrientation,
   type ProfileChartPrintLayout
 } from '../../../utils/print-scale.util';
 import type { LegAirspaceProfileBand } from '../../../utils/leg-airspace-profile-cross-section.util';
@@ -201,7 +202,11 @@ export class SafetyPrintDialogComponent {
       this.options(),
       this.legRenders(),
       this.legPairs(),
-      this.getWaypoint()
+      this.getWaypoint(),
+      {
+        circuitLegs: this.circuitLegs(),
+        enabledAirspaceKeysForLeg: this.enabledAirspaceKeysForLeg()
+      }
     );
     this.previewPages.set(summary.pages);
   }
@@ -276,8 +281,8 @@ export class SafetyPrintDialogComponent {
         },
         getWaypoint: this.getWaypoint(),
         enabledAirspaceKeysForLeg: this.enabledAirspaceKeysForLeg(),
-        renderProfilePng: (legIndex, layout, printContext, onSubProgress) =>
-          this.renderProfilePngForLeg(legIndex, layout, printContext, onSubProgress),
+        renderProfileSvg: (legIndex, layout, printContext, onSubProgress) =>
+          this.renderProfileSvgForLeg(legIndex, layout, printContext, onSubProgress),
         onProgress: p => this.progress.set(p)
       });
       const blob = new Blob([result.bytes.slice()], { type: 'application/pdf' });
@@ -305,8 +310,8 @@ export class SafetyPrintDialogComponent {
       case 'map':
         return this.i18n.t('safetyProfile.print.progressMap', { label });
       case 'profile':
-        return p.profileSubPhase === 'rasterize'
-          ? this.i18n.t('safetyProfile.print.progressProfileRasterize', { label })
+        return p.profileSubPhase === 'vectorize'
+          ? this.i18n.t('safetyProfile.print.progressProfileVectorize', { label })
           : this.i18n.t('safetyProfile.print.progressProfilePrepare', { label });
       case 'layout':
         return this.i18n.t('safetyProfile.print.progressLayout', { label });
@@ -317,11 +322,14 @@ export class SafetyPrintDialogComponent {
     }
   }
 
-  private async renderProfilePngForLeg(
+  private async renderProfileSvgForLeg(
     legIndex: number,
     layout: ProfileChartPrintLayout,
-    printContext?: { combinedProfileCount?: number },
-    onSubProgress?: (sub: 'prepare' | 'rasterize') => void
+    printContext?: {
+      combinedProfileCount?: number;
+      pageOrientation: PrintPageOrientation;
+    },
+    onSubProgress?: (sub: 'prepare' | 'vectorize') => void
   ): Promise<string | null> {
     const leg = this.legRenders().find(l => l.index === legIndex);
     if (!leg) return null;
@@ -332,15 +340,27 @@ export class SafetyPrintDialogComponent {
     const chart = this.chartRef();
     if (!chart) return null;
     const printOpts = this.options();
-    const { width, height } = profileChartExportPixelSize({
+    const pageOrientation =
+      printContext?.pageOrientation ??
+      (layout === 'profileOnly' || layout === 'profilesCombined'
+        ? 'landscape'
+        : 'portrait');
+    const { widthPt, heightPt } = profileChartBoxSizePt({
       layout,
       includeHeader: printOpts.includeMetadata,
-      heightPercent: printOpts.profileChartHeightPercent
+      heightPercent: printOpts.profileChartHeightPercent,
+      combinedProfileCount: printContext?.combinedProfileCount,
+      pageOrientation
     });
-    chart.setChartSizeForPrint(width, height);
+    chart.setChartSizeForPrint(
+      Math.round(widthPt),
+      Math.round(heightPt)
+    );
     await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
-    onSubProgress?.('rasterize');
-    return chart.rasterizeSvgForPrint();
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    onSubProgress?.('vectorize');
+    return chart.serializeSvgForPrint();
   }
 
   private attachPreviewFromBlob(blob: Blob): void {
@@ -367,10 +387,19 @@ export class SafetyPrintDialogComponent {
     try {
       const raw = localStorage.getItem(SAFETY_PRINT_OPTIONS_STORAGE_KEY);
       if (!raw) return { ...DEFAULT_SAFETY_PRINT_OPTIONS };
-      const parsed = JSON.parse(raw) as Partial<SafetyPrintOptions>;
+      const parsed = JSON.parse(raw) as Partial<SafetyPrintOptions> & {
+        airspace3d?: boolean;
+      };
+      const { airspace3d: _legacyAirspace3d, ...rest } = parsed;
       return {
         ...DEFAULT_SAFETY_PRINT_OPTIONS,
-        ...parsed,
+        ...rest,
+        airspace2d:
+          typeof parsed.airspace2d === 'boolean'
+            ? parsed.airspace2d
+            : typeof _legacyAirspace3d === 'boolean'
+              ? _legacyAirspace3d
+              : DEFAULT_SAFETY_PRINT_OPTIONS.airspace2d,
         basemapId:
           parsed.basemapId != null && isBasemapId(parsed.basemapId)
             ? parsed.basemapId
@@ -383,7 +412,11 @@ export class SafetyPrintDialogComponent {
             ? 'separatePage'
             : parsed.profileChartPlacement === 'allOnOnePage'
               ? 'allOnOnePage'
-              : 'withMap'
+              : 'withMap',
+        includeAirspaceZonesSummary:
+          typeof parsed.includeAirspaceZonesSummary === 'boolean'
+            ? parsed.includeAirspaceZonesSummary
+            : DEFAULT_SAFETY_PRINT_OPTIONS.includeAirspaceZonesSummary
       };
     } catch {
       return { ...DEFAULT_SAFETY_PRINT_OPTIONS };

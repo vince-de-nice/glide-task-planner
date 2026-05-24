@@ -282,6 +282,15 @@ export function formatMetersDisplay(m: number): string {
   return `${Math.round(m).toLocaleString()} m`;
 }
 
+/**
+ * Altitude sur la coupe profil / export SVG→PDF : pas de séparateur de milliers
+ * (l’espace fine « 2 040 » est mal rendu et peut ressembler à « 2 / 040 »).
+ */
+export function formatChartAltitudeM(m: number): string {
+  if (!Number.isFinite(m)) return '—';
+  return `${Math.round(m)} m`;
+}
+
 function isAlreadyMeterLiteral(raw: string): boolean {
   const t = raw.trim();
   return METER_LITERAL_RE.test(t);
@@ -291,20 +300,35 @@ function isAlreadyMeterLiteral(raw: string): boolean {
  * Libellé POAFF d’une limite avec conversion en mètres entre parenthèses
  * lorsque le texte n’est pas déjà exprimé en mètres (FL, FT, AGL…).
  */
+export interface FormatAirspaceLimitDisplayOptions {
+  /** Sans séparateur de milliers (impression PDF). */
+  pdf?: boolean;
+}
+
+function formatMetersForAirspaceDisplay(
+  m: number,
+  opts?: FormatAirspaceLimitDisplayOptions
+): string {
+  return opts?.pdf ? formatChartAltitudeM(m) : formatMetersDisplay(m);
+}
+
 export function formatAirspaceLimitDisplay(
   text: string | undefined,
-  metersHint?: number | null
+  metersHint?: number | null,
+  opts?: FormatAirspaceLimitDisplayOptions
 ): string {
   const raw = text?.trim() ?? '';
   if (!raw) {
     return metersHint != null && Number.isFinite(metersHint)
-      ? formatMetersDisplay(metersHint)
+      ? formatMetersForAirspaceDisplay(metersHint, opts)
       : '';
   }
 
   if (isAlreadyMeterLiteral(raw)) {
     const parsed = parseAirspaceLimit(raw, metersHint);
-    if (parsed?.kind === 'msl') return formatMetersDisplay(parsed.valueM);
+    if (parsed?.kind === 'msl') {
+      return formatMetersForAirspaceDisplay(parsed.valueM, opts);
+    }
     return raw;
   }
 
@@ -316,12 +340,12 @@ export function formatAirspaceLimitDisplay(
     case 'unlimited':
       return parsed.raw;
     case 'agl':
-      return `${parsed.raw} (${formatMetersDisplay(parsed.valueM)} AGL)`;
+      return `${parsed.raw} (${formatMetersForAirspaceDisplay(parsed.valueM, opts)} AGL)`;
     case 'msl':
-      return `${parsed.raw} (${formatMetersDisplay(parsed.valueM)} m)`;
+      return `${parsed.raw} (${formatMetersForAirspaceDisplay(parsed.valueM, opts)})`;
     case 'unknown':
       if (metersHint != null && Number.isFinite(metersHint)) {
-        return `${parsed.raw} (${formatMetersDisplay(metersHint)} m)`;
+        return `${parsed.raw} (${formatMetersForAirspaceDisplay(metersHint, opts)})`;
       }
       return parsed.raw;
     default:
@@ -339,6 +363,18 @@ export function formatAirspaceVerticalRange(
   const lower = formatAirspaceLimitDisplay(lowerText, lowerM);
   const upper = formatAirspaceLimitDisplay(upperText, upperM);
   return [lower, upper].filter(Boolean).join(' → ');
+}
+
+/** Variante ASCII pour PDF (police standard Helvetica). */
+export function formatAirspaceVerticalRangeForPdf(
+  lowerText?: string,
+  upperText?: string,
+  lowerM?: number,
+  upperM?: number
+): string {
+  const lower = formatAirspaceLimitDisplay(lowerText, lowerM, { pdf: true });
+  const upper = formatAirspaceLimitDisplay(upperText, upperM, { pdf: true });
+  return [lower, upper].filter(Boolean).join(' -> ');
 }
 
 /** Libellé composé déjà joint par « → ». */

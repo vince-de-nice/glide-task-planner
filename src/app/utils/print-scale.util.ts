@@ -77,8 +77,42 @@ export const PROFILE_COMBINED_LABEL_MM = 5;
 /** Espace entre deux coupes sur une page multi-coupes (mm). */
 export const PROFILE_COMBINED_GAP_MM = 3;
 
+const MM_TO_PT = 2.834645669;
+
 /**
- * Taille d’export PNG de la coupe alignée sur la mise en page PDF.
+ * Taille du cadre PDF (points) pour la coupe — alignée sur `drawProfilePage` / multi-coupes.
+ */
+export function profileChartBoxSizePt(params: {
+  layout: ProfileChartPrintLayout;
+  includeHeader: boolean;
+  heightPercent?: number;
+  combinedProfileCount?: number;
+  pageOrientation: PrintPageOrientation;
+}): { widthPt: number; heightPt: number } {
+  const { widthMm, heightMm } = printableMapSizeMm(
+    params.pageOrientation,
+    params.includeHeader
+  );
+  const widthPt = widthMm * MM_TO_PT;
+
+  if (params.layout === 'profileOnly') {
+    return { widthPt, heightPt: heightMm * MM_TO_PT };
+  }
+
+  if (params.layout === 'profilesCombined') {
+    const n = Math.max(1, Math.round(params.combinedProfileCount ?? 1));
+    const labelsMm = n * PROFILE_COMBINED_LABEL_MM;
+    const gapsMm = Math.max(0, n - 1) * PROFILE_COMBINED_GAP_MM;
+    const slotMm = Math.max(40, (heightMm - labelsMm - gapsMm) / n);
+    return { widthPt, heightPt: slotMm * MM_TO_PT };
+  }
+
+  const frac = clampProfileChartHeightPercent(params.heightPercent) / 100;
+  return { widthPt, heightPt: heightMm * frac * MM_TO_PT };
+}
+
+/**
+ * Taille d’export raster (px @ 300 dpi) — conservée pour tests / compatibilité.
  *
  * - `withMap` : bandeau en bas de la page (fraction `heightPercent` de la hauteur utile).
  * - `profileOnly` : page dédiée en paysage, coupe sur toute la zone sous le bandeau.
@@ -98,31 +132,16 @@ export function profileChartExportPixelSize(params: {
   const useLandscape =
     params.layout === 'profileOnly' || params.layout === 'profilesCombined';
   const orientation = useLandscape ? 'landscape' : (params.orientation ?? 'portrait');
-  const { widthMm, heightMm } = printableMapSizeMm(orientation, params.includeHeader);
-  const width = Math.round((widthMm / 25.4) * dpi);
-
-  if (params.layout === 'profileOnly') {
-    return {
-      width,
-      height: Math.max(240, Math.round((heightMm / 25.4) * dpi))
-    };
-  }
-
-  if (params.layout === 'profilesCombined') {
-    const n = Math.max(1, Math.round(params.combinedProfileCount ?? 1));
-    const labelsMm = n * PROFILE_COMBINED_LABEL_MM;
-    const gapsMm = Math.max(0, n - 1) * PROFILE_COMBINED_GAP_MM;
-    const slotMm = Math.max(40, (heightMm - labelsMm - gapsMm) / n);
-    return {
-      width,
-      height: Math.max(120, Math.round((slotMm / 25.4) * dpi))
-    };
-  }
-
-  const frac = clampProfileChartHeightPercent(params.heightPercent) / 100;
+  const { widthPt, heightPt } = profileChartBoxSizePt({
+    layout: params.layout,
+    includeHeader: params.includeHeader,
+    heightPercent: params.heightPercent,
+    combinedProfileCount: params.combinedProfileCount,
+    pageOrientation: orientation
+  });
   return {
-    width,
-    height: Math.max(240, Math.round((heightMm * frac / 25.4) * dpi))
+    width: Math.max(240, Math.round((widthPt / 72) * dpi)),
+    height: Math.max(120, Math.round((heightPt / 72) * dpi))
   };
 }
 

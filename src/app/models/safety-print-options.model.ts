@@ -16,7 +16,8 @@ export interface SafetyPrintOptions {
   coneVolumes3d: boolean;
   coneDistanceRings: boolean;
   safetyMinAltitudeRibbon: boolean;
-  airspace3d: boolean;
+  /** Polygones 2D des zones actives (pas de fil de fer 3D). */
+  airspace2d: boolean;
   branchLines: boolean;
   waypoints: boolean;
   landableHighlights: boolean;
@@ -25,6 +26,8 @@ export interface SafetyPrintOptions {
   /** withMap : carte + coupe sur chaque feuille carte ; separatePage : coupe seule ensuite. */
   profileChartPlacement: SafetyPrintProfilePlacement;
   includeMetadata: boolean;
+  /** Récapitulatif textuel des zones actives par tronçon (aller/retour regroupés). */
+  includeAirspaceZonesSummary: boolean;
   /** Hauteur max de la coupe (% de la zone utile sous le bandeau). */
   profileChartHeightPercent: number;
 }
@@ -37,7 +40,7 @@ export const DEFAULT_SAFETY_PRINT_OPTIONS: SafetyPrintOptions = {
   coneVolumes3d: false,
   coneDistanceRings: true,
   safetyMinAltitudeRibbon: true,
-  airspace3d: true,
+  airspace2d: true,
   branchLines: true,
   waypoints: true,
   landableHighlights: true,
@@ -45,6 +48,7 @@ export const DEFAULT_SAFETY_PRINT_OPTIONS: SafetyPrintOptions = {
   includeProfileChart: true,
   profileChartPlacement: 'withMap',
   includeMetadata: true,
+  includeAirspaceZonesSummary: true,
   profileChartHeightPercent: 30
 };
 
@@ -65,7 +69,7 @@ export type SafetyPrintProgressPhase =
   | 'layout'
   | 'save';
 
-export type SafetyPrintProfileSubPhase = 'prepare' | 'rasterize';
+export type SafetyPrintProfileSubPhase = 'prepare' | 'vectorize';
 
 export interface SafetyPrintProgress {
   phase: SafetyPrintProgressPhase;

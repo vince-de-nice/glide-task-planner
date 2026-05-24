@@ -227,7 +227,7 @@ export class SafetyPrintMapRendererService {
       layers.safetyMinAltitudeLayer.setCrossingLabels([]);
     }
 
-    if (options.airspace3d && focusLegIndex != null) {
+    if (options.airspace2d && focusLegIndex != null) {
       await this.airspaceMapDisplay.ensureEnrichedCache(map, 'safety-profile');
       if (isMapStyleActive(map)) {
         const keys = ctx.enabledAirspaceKeysForLeg(focusLegIndex);
@@ -236,10 +236,10 @@ export class SafetyPrintMapRendererService {
           'safety-profile',
           PROFILE_MAP_LAYER.POINTS,
           keys,
-          { volume3d: true }
+          { volume3d: false }
         );
       }
-    } else if (options.airspace3d && focusLegIndex == null) {
+    } else if (options.airspace2d && focusLegIndex == null) {
       await this.airspaceMapDisplay.ensureEnrichedCache(map, 'safety-profile');
       const allKeys = new Set<string>();
       for (let i = 0; i < ctx.legRenders.length; i++) {
@@ -251,7 +251,7 @@ export class SafetyPrintMapRendererService {
           'safety-profile',
           PROFILE_MAP_LAYER.POINTS,
           allKeys,
-          { volume3d: true }
+          { volume3d: false }
         );
       }
     }

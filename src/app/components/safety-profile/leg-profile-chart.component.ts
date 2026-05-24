@@ -28,11 +28,16 @@ import {
   type TerrainBandQuality
 } from '../../utils/leg-profile-chart.geometry';
 import type { LegAirspaceProfileBand } from '../../utils/leg-airspace-profile-cross-section.util';
+import { applyProfileChartPrintPaints } from '../../utils/profile-chart-print-paint.util';
 import {
   inlineSvgPresentationTree,
-  prependSvgPrintBackground
+  prependSvgPrintBackground,
+  stripSvgNonPrintElements
 } from '../../utils/svg-print-inline-styles.util';
-import { formatMetersDisplay } from '../../utils/airspace-altitude.util';
+import {
+  formatChartAltitudeM,
+  formatMetersDisplay
+} from '../../utils/airspace-altitude.util';
 import {
   buildSafetyMinAltitudeChartSegments,
   type SafetyMinAltitudeChartSegment
@@ -161,7 +166,9 @@ interface LandableLayerDraw {
   stemPath: string;
   markerX: number;
   markerY: number;
+  labelX: number;
   labelY: number;
+  labelAnchor: 'start' | 'middle' | 'end';
   label: string;
   isBinding: boolean;
 }
@@ -171,7 +178,9 @@ interface ConeIntersectionMark {
   key: string;
   x: number;
   y: number;
+  labelX: number;
   labelY: number;
+  labelAnchor: 'start' | 'middle' | 'end';
   text: string;
   color: string;
 }
@@ -192,19 +201,29 @@ interface AxisTick {
 
 export const LEG_PROFILE_PRINT_WIDTH = 2000;
 export const LEG_PROFILE_PRINT_HEIGHT = 560;
-export const LEG_PROFILE_PRINT_RASTER_SCALE = 2;
 
 const CHART_WIDTH_DEFAULT = 800;
 const CHART_HEIGHT_DEFAULT = 280;
 const MIN_CHART_WIDTH = 280;
 const MIN_CHART_HEIGHT = 140;
 
-function chartPadding(width: number, height: number): ChartGeometry['padding'] {
+function chartPadding(
+  width: number,
+  height: number,
+  forPrintExport: boolean
+): ChartGeometry['padding'] {
+  if (forPrintExport) {
+    return {
+      top: Math.max(12, Math.round(height * 0.045)),
+      right: Math.max(8, Math.round(width * 0.01)),
+      bottom: Math.max(32, Math.round(height * 0.11)),
+      left: Math.max(44, Math.round(width * 0.048))
+    };
+  }
   return {
     top: Math.max(16, Math.round(height * 0.06)),
-    right: Math.max(20, Math.round(width * 0.028)),
+    right: Math.max(10, Math.round(width * 0.016)),
     bottom: Math.max(40, Math.round(height * 0.14)),
-    /** Marge gauche : graduations Y (4 chiffres) + titre d’axe vertical. */
     left: Math.max(56, Math.round(width * 0.075))
   };
 }
@@ -238,6 +257,8 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
     width: CHART_WIDTH_DEFAULT,
     height: CHART_HEIGHT_DEFAULT
   });
+  /** Coupe en cours d’export impression (marges réduites, taille fixe). */
+  readonly printExportMode = signal(false);
   samples = input.required<EnvelopeSample[]>();
   landableCones = input<LandableConeVisual[]>([]);
   fromEndpoint = input.required<LegEndpointInfo>();
@@ -308,7 +329,11 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
         : computeProfileYMinM(Math.min(...allYs), yMax);
 
     const size = this.chartSize();
-    const padding = chartPadding(size.width, size.height);
+    const padding = chartPadding(
+      size.width,
+      size.height,
+      this.printExportMode()
+    );
     const altitudeTitle = altitudeAxisTitlePosition(padding, size.height);
     return {
       width: size.width,
@@ -326,6 +351,7 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
   ngAfterViewInit(): void {
     const el = this.chartHost().nativeElement;
     const applySize = (): void => {
+      if (this.printExportMode()) return;
       const rect = el.getBoundingClientRect();
       const width = Math.round(rect.width);
       if (width < MIN_CHART_WIDTH) return;
@@ -552,6 +578,7 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
       const stemPath = `M ${markerX},${stemY} L ${markerX},${markerY}`;
 
       const color = this.landableColor(cone.id);
+      const labelOnRight = cone.alongLegKm > (g.xMin + g.xMax) / 2;
       return {
         id: cone.id,
         color,
@@ -559,7 +586,9 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
         stemPath,
         markerX,
         markerY,
-        labelY: markerY - 6,
+        labelX: markerX + (labelOnRight ? 7 : -7),
+        labelY: markerY - 5,
+        labelAnchor: labelOnRight ? 'start' : 'end',
         label: cone.shortName,
         isBinding: cone.isBinding
       };
@@ -582,15 +611,22 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
     const hits = collectActiveConeCrossings(cones, data, id =>
       this.landableColor(id)
     );
-    const raw: Omit<ConeIntersectionMark, 'labelY'>[] = hits.map(hit => ({
-      key: hit.key,
-      x: xKm(hit.distanceKm),
-      y: yM(hit.altitudeM),
-      text: formatMetersDisplay(Math.round(hit.altitudeM)),
-      color: hit.color
+    const raw: Omit<ConeIntersectionMark, 'labelX' | 'labelY' | 'labelAnchor'>[] =
+      hits.map(hit => ({
+        key: hit.key,
+        x: xKm(hit.distanceKm),
+        y: yM(hit.altitudeM),
+        text: formatChartAltitudeM(hit.altitudeM),
+        color: hit.color
+      }));
+
+    const landableAnchors = this.landableLayers().map(layer => ({
+      markerX: layer.markerX,
+      markerY: layer.markerY,
+      label: layer.label
     }));
 
-    return dedupeIntersectionMarks(raw, g.padding.top);
+    return layoutIntersectionMarks(raw, landableAnchors, g.padding.top);
   });
 
   readonly landablesAtHover = computed<LandableAtHover[]>(() => {
@@ -744,12 +780,43 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
     return formatMetersDisplay(value);
   }
 
+  /** Altitudes sur la coupe (évite le séparateur de milliers à l’impression). */
+  formatChartAltitude(value: number | null): string {
+    if (value == null || !Number.isFinite(value)) return '—';
+    return formatChartAltitudeM(value);
+  }
+
   /** Dimensions fixes pour l'export impression (SVG). */
   setChartSizeForPrint(
     width: number = LEG_PROFILE_PRINT_WIDTH,
     height: number = LEG_PROFILE_PRINT_HEIGHT
   ): void {
+    this.printExportMode.set(true);
     this.chartSize.set({ width, height });
+    const host = this.chartHost()?.nativeElement;
+    if (!host) return;
+    host.style.width = `${width}px`;
+    host.style.height = `${height}px`;
+    host.style.flex = 'none';
+    const svg = host.querySelector('svg.leg-chart__svg') as SVGSVGElement | null;
+    if (svg) {
+      svg.style.width = `${width}px`;
+      svg.style.height = `${height}px`;
+    }
+  }
+
+  clearPrintExportLayout(): void {
+    this.printExportMode.set(false);
+    const host = this.chartHost()?.nativeElement;
+    if (!host) return;
+    host.style.width = '';
+    host.style.height = '';
+    host.style.flex = '';
+    const svg = host.querySelector('svg.leg-chart__svg') as SVGSVGElement | null;
+    if (svg) {
+      svg.style.width = '';
+      svg.style.height = '';
+    }
   }
 
   serializeSvgForPrint(): string | null {
@@ -759,38 +826,18 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
     const { width, height } = this.chartSize();
     const source = svg as SVGSVGElement;
     const clone = source.cloneNode(true) as SVGSVGElement;
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
     clone.setAttribute('width', String(width));
     clone.setAttribute('height', String(height));
     clone.setAttribute('viewBox', `0 0 ${width} ${height}`);
-    clone.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    clone.setAttribute('preserveAspectRatio', 'none');
+    stripSvgNonPrintElements(clone);
     inlineSvgPresentationTree(source, clone);
+    applyProfileChartPrintPaints(clone, height);
     prependSvgPrintBackground(clone, width, height);
-    return new XMLSerializer().serializeToString(clone);
-  }
-
-  /** Rasterise le SVG courant en PNG (data URL). */
-  async rasterizeSvgForPrint(): Promise<string | null> {
-    const svgMarkup = this.serializeSvgForPrint();
-    if (!svgMarkup) return null;
-    const { width, height } = this.chartSize();
-    const scale = LEG_PROFILE_PRINT_RASTER_SCALE;
-    const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    try {
-      const img = await loadChartImage(url);
-      const canvas = document.createElement('canvas');
-      canvas.width = width * scale;
-      canvas.height = height * scale;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return null;
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.scale(scale, scale);
-      ctx.drawImage(img, 0, 0, width, height);
-      return canvas.toDataURL('image/png');
-    } finally {
-      URL.revokeObjectURL(url);
-    }
+    const markup = new XMLSerializer().serializeToString(clone);
+    this.clearPrintExportLayout();
+    return markup;
   }
 
   formatTerrainAltitude(sample: EnvelopeSample): string {
@@ -953,8 +1000,15 @@ function crossingWithSafety(
   };
 }
 
-function dedupeIntersectionMarks(
-  marks: Omit<ConeIntersectionMark, 'labelY'>[],
+interface LandableLabelAnchor {
+  markerX: number;
+  markerY: number;
+  label: string;
+}
+
+function layoutIntersectionMarks(
+  marks: Omit<ConeIntersectionMark, 'labelX' | 'labelY' | 'labelAnchor'>[],
+  landables: readonly LandableLabelAnchor[],
   plotTop: number
 ): ConeIntersectionMark[] {
   const kept: ConeIntersectionMark[] = [];
@@ -966,10 +1020,33 @@ function dedupeIntersectionMarks(
     ) {
       continue;
     }
-    const stack = kept.filter(k => Math.abs(k.x - mark.x) < 48).length;
+
+    const stack = kept.filter(k => Math.abs(k.x - mark.x) < 56).length;
+    const nearLandable = landables.find(
+      la =>
+        Math.abs(la.markerX - mark.x) < 42 &&
+        Math.abs(la.markerY - mark.y) < 28
+    );
+
+    let labelX = mark.x;
+    let labelAnchor: ConeIntersectionMark['labelAnchor'] = 'middle';
+    let labelY = Math.max(plotTop + 8, mark.y - 14 - stack * 13);
+
+    if (nearLandable) {
+      const shiftRight = nearLandable.markerX <= mark.x;
+      labelX = mark.x + (shiftRight ? 34 : -34);
+      labelAnchor = shiftRight ? 'start' : 'end';
+      labelY = Math.min(
+        nearLandable.markerY - 16,
+        Math.max(plotTop + 8, mark.y - 12 - stack * 11)
+      );
+    }
+
     kept.push({
       ...mark,
-      labelY: Math.max(plotTop + 6, mark.y - 8 - stack * 11)
+      labelX,
+      labelY,
+      labelAnchor
     });
   }
   return kept;
@@ -1018,13 +1095,4 @@ function niceTicks(min: number, max: number, target: number): number[] {
     ticks.push(Number(v.toFixed(6)));
   }
   return ticks;
-}
-
-function loadChartImage(url: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = url;
-  });
 }

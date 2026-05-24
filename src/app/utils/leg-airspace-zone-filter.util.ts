@@ -8,6 +8,7 @@ import {
   type AirspaceZoneFiltersPrefs
 } from './airspace-zone-filter.util';
 import type { LegEvolutionEnvelope } from './leg-evolution-envelope.util';
+import { formatPoaffMhzLines } from './airspace-radio.util';
 
 /** Clé stable pour persistance / toggles. */
 export function airspaceZoneKey(
@@ -112,18 +113,32 @@ export function buildLegAirspaceZoneCatalog(
     const props = f.properties ?? {};
     const key = airspaceZoneKey(props, f.id ?? i);
     if (!key) continue;
+    const radioLines = formatPoaffMhzLines(props.Mhz);
+    const activation = formatPoaffActivation(props);
     entries.push({
       key,
       name: airspaceZoneDisplayName(props),
       class: props.class,
       type: props.type,
       lower: props.lower,
-      upper: props.upper
+      upper: props.upper,
+      desc: props.desc?.trim() || undefined,
+      radioLines: radioLines.length > 0 ? radioLines : undefined,
+      activation
     });
   }
 
   entries.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
   return dedupeCatalogEntries(entries);
+}
+
+function formatPoaffActivation(
+  props: PoaffProperties | AirspaceVolumeProperties
+): string | undefined {
+  const code = props.activationCode?.trim();
+  const desc = props.activationDesc?.trim();
+  if (code && desc) return `${code} — ${desc}`;
+  return code || desc || undefined;
 }
 
 function dedupeCatalogEntries(
