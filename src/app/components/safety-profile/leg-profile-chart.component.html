@@ -227,6 +227,17 @@
       />
     }
 
+    @for (margin of safetyTerrainMarginLabels(); track margin.key) {
+      <text
+        class="leg-chart__safety-margin-label"
+        [attr.x]="margin.x"
+        [attr.y]="margin.y"
+        [attr.fill]="safetyTerrainMarginLabelColor"
+        text-anchor="middle"
+        dominant-baseline="auto"
+      >{{ margin.text }}</text>
+    }
+
     @for (hit of intersections; track hit.key) {
       <circle
         class="leg-chart__intersection-dot"

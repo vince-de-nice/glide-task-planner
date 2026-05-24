@@ -31,8 +31,10 @@ import type { LegAirspaceProfileBand } from '../../utils/leg-airspace-profile-cr
 import { formatMetersDisplay } from '../../utils/airspace-altitude.util';
 import {
   buildSafetyMinAltitudeChartSegments,
+  buildSafetyMinAltitudeTerrainMarginSections,
   type SafetyMinAltitudeChartSegment
 } from '../../utils/safety-min-altitude-style.util';
+import { SAFETY_MIN_ALTITUDE_TERRAIN_COLOR } from '../../utils/safety-profile-chart.util';
 
 export interface LegEndpointInfo {
   name: string;
@@ -103,6 +105,16 @@ interface ChartSeries {
   safetySegments: SafetyMinAltitudeChartSegment[];
 }
 
+interface SafetyTerrainMarginChartLabel {
+  key: string;
+  x: number;
+  y: number;
+  text: string;
+}
+
+/** Décalage MSL au-dessus de la ligne d'altitude min sur la coupe. */
+const SAFETY_MARGIN_LABEL_ALT_OFFSET_M = 18;
+
 interface TerrainMissingBand {
   key: string;
   x: number;
@@ -162,6 +174,9 @@ interface AxisTick {
   position: number;
   label: string;
 }
+
+export const LEG_PROFILE_PRINT_WIDTH = 1800;
+export const LEG_PROFILE_PRINT_HEIGHT = 420;
 
 const CHART_WIDTH_DEFAULT = 800;
 const CHART_HEIGHT_DEFAULT = 280;
@@ -377,6 +392,28 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
       safetySegments: buildSafetyMinAltitudeChartSegments(data, x, y)
     };
   });
+
+  readonly safetyTerrainMarginLabels = computed<SafetyTerrainMarginChartLabel[]>(() => {
+    const data = this.samples();
+    const g = this.geometry();
+    if (data.length === 0) return [];
+
+    const plotW = g.width - g.padding.left - g.padding.right;
+    const plotH = g.height - g.padding.top - g.padding.bottom;
+    const xKm = (km: number): number =>
+      g.padding.left + ((km - g.xMin) / (g.xMax - g.xMin)) * plotW;
+    const yM = (m: number): number =>
+      g.padding.top + plotH - ((m - g.yMin) / (g.yMax - g.yMin)) * plotH;
+
+    return buildSafetyMinAltitudeTerrainMarginSections(data).map(sec => ({
+      key: sec.key,
+      x: xKm(sec.peakDistanceKm),
+      y: yM(sec.peakSafetyM + SAFETY_MARGIN_LABEL_ALT_OFFSET_M),
+      text: sec.label
+    }));
+  });
+
+  protected readonly safetyTerrainMarginLabelColor = SAFETY_MIN_ALTITUDE_TERRAIN_COLOR;
 
   readonly hasTerrainQualityIssues = computed(() =>
     this.samples().some(s => s.terrainQuality !== 'dem')
@@ -680,6 +717,49 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
     return formatMetersDisplay(value);
   }
 
+  /** Dimensions fixes pour l'export impression (SVG). */
+  setChartSizeForPrint(
+    width: number = LEG_PROFILE_PRINT_WIDTH,
+    height: number = LEG_PROFILE_PRINT_HEIGHT
+  ): void {
+    this.chartSize.set({ width, height });
+  }
+
+  serializeSvgForPrint(): string | null {
+    const host = this.chartHost()?.nativeElement;
+    const svg = host?.querySelector('svg.leg-chart__svg');
+    if (!svg) return null;
+    const { width, height } = this.chartSize();
+    const clone = svg.cloneNode(true) as SVGSVGElement;
+    clone.setAttribute('width', String(width));
+    clone.setAttribute('height', String(height));
+    clone.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    return new XMLSerializer().serializeToString(clone);
+  }
+
+  /** Rasterise le SVG courant en PNG (data URL). */
+  async rasterizeSvgForPrint(): Promise<string | null> {
+    const svgMarkup = this.serializeSvgForPrint();
+    if (!svgMarkup) return null;
+    const { width, height } = this.chartSize();
+    const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    try {
+      const img = await loadChartImage(url);
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+      return canvas.toDataURL('image/png');
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
   formatTerrainAltitude(sample: EnvelopeSample): string {
     const lbl = this.labels();
     if (sample.terrainQuality === 'missing') {
@@ -905,4 +985,13 @@ function niceTicks(min: number, max: number, target: number): number[] {
     ticks.push(Number(v.toFixed(6)));
   }
   return ticks;
+}
+
+function loadChartImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = url;
+  });
 }

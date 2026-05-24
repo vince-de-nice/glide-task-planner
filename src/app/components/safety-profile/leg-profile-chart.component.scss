@@ -242,6 +242,16 @@
   }
 }
 
+.leg-chart__safety-margin-label {
+  font-size: 9px;
+  font-weight: 700;
+  font-family: var(--gc-font, sans-serif);
+  pointer-events: none;
+  paint-order: stroke fill;
+  stroke: var(--gc-surface);
+  stroke-width: 2.5px;
+}
+
 .leg-chart__intersection-dot {
   stroke: var(--gc-surface);
   stroke-width: 1.25;

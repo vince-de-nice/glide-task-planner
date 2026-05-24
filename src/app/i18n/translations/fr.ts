@@ -892,6 +892,37 @@ export const fr = {
       legBarCompute: 'Branche {{leg}} : calcul de l’enveloppe',
       legBarDone: 'Branche {{leg}} : terminé'
     },
+    print: {
+      button: 'Imprimer',
+      buttonDisabledLoading: 'Calcul des profils en cours…',
+      buttonDisabledIncomplete: 'Profils terrain incomplets — impression indisponible',
+      dialogTitle: 'Impression du profil de sécurité',
+      optionsAria: 'Options d’impression',
+      previewAria: 'Aperçu des pages',
+      previewTitle: 'Pages prévues',
+      previewHint:
+        'Liste du découpage selon les options. Cliquez « Générer l’aperçu » pour afficher le PDF dans le panneau de droite.',
+      previewFrameTitle: 'Aperçu du PDF généré',
+      generatePreview: 'Générer l’aperçu',
+      scaleHint: 'Échelle fixe 1:250 000 — nord en haut — format A4',
+      layoutMode: 'Mise en page',
+      modeFullCircuit: 'Circuit entier (carte seule)',
+      modePerBranch: 'Une page par branche (carte + coupe)',
+      coneVolumes: 'Cônes 3D (volumes)',
+      coneRings: 'Cercles de distance',
+      safetyRibbon: 'Ruban altitude min.',
+      airspace: 'Espaces aériens 3D',
+      waypoints: 'Waypoints et branches',
+      mapLabels: 'Libellés carte (croisements, marges)',
+      profileChart: 'Coupe profil sous la carte',
+      metadata: 'Bandeau (titre, échelle, paramètres)',
+      download: 'Télécharger PDF',
+      print: 'Imprimer',
+      close: 'Fermer',
+      progressStart: 'Génération du PDF…',
+      progressPage: 'Page',
+      progressError: 'Échec de la génération — réessayez.'
+    },
     warnings: {
       noLandables:
         'Aucun terrain posable (aérodrome / vachable) dans la base CUP : le cône de finesse n’est pas calculé. Importez une base CUP pour activer cette aide.',

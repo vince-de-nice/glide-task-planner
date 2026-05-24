@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { EnvelopeSample } from '../services/glide-envelope.service';
 import {
   buildSafetyMinAltitudeStyledPath,
+  buildSafetyMinAltitudeTerrainMarginSections,
+  formatSafetyTerrainMarginLabel,
   isSafetyMinAltitudeTerrainConstrained
 } from './safety-min-altitude-style.util';
 
@@ -59,5 +61,41 @@ describe('safety-min-altitude-style', () => {
     expect(path.length).toBeGreaterThanOrEqual(3);
     expect(path.some(p => !p.terrainConstrained)).toBe(true);
     expect(path.some(p => p.terrainConstrained)).toBe(true);
+  });
+
+  it('formats terrain margin labels', () => {
+    expect(formatSafetyTerrainMarginLabel(250)).toBe('+ 250 m');
+  });
+
+  it('builds one margin section per red run with max cone gap', () => {
+    const sections = buildSafetyMinAltitudeTerrainMarginSections([
+      sample({
+        distanceKm: 0,
+        glideConeM: 1200,
+        groundClearanceM: 1100,
+        safetyM: 1200
+      }),
+      sample({
+        distanceKm: 1,
+        glideConeM: 1000,
+        groundClearanceM: 1250,
+        safetyM: 1250
+      }),
+      sample({
+        distanceKm: 2,
+        glideConeM: 1000,
+        groundClearanceM: 1300,
+        safetyM: 1300
+      }),
+      sample({
+        distanceKm: 3,
+        glideConeM: 1100,
+        groundClearanceM: 1050,
+        safetyM: 1100
+      })
+    ]);
+    expect(sections).toHaveLength(1);
+    expect(sections[0].label).toBe('+ 300 m');
+    expect(sections[0].maxMarginM).toBe(300);
   });
 });

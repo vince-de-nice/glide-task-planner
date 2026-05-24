@@ -27,18 +27,52 @@
         <h1>{{ 'safetyProfile.title' | translate }}</h1>
       </div>
     </div>
-    <button
-      type="button"
-      class="safety-profile__params-toggle"
-      [class.safety-profile__params-toggle--active]="paramsPanelOpen()"
-      [attr.aria-expanded]="paramsPanelOpen()"
-      [attr.aria-label]="'safetyProfile.openParams' | translate"
-      (click)="toggleParamsPanel()"
-    >
-      <i class="pi pi-sliders-h" aria-hidden="true"></i>
-      <span>{{ 'safetyProfile.paramsShort' | translate }}</span>
-    </button>
+    <div class="safety-profile__toolbar-actions">
+      <button
+        type="button"
+        class="safety-profile__params-toggle"
+        [disabled]="!canPrint()"
+        [attr.title]="canPrintDisabledReason() || ('safetyProfile.print.button' | translate)"
+        [attr.aria-label]="'safetyProfile.print.button' | translate"
+        (click)="openPrintDialog()"
+      >
+        <i class="pi pi-print" aria-hidden="true"></i>
+        <span>{{ 'safetyProfile.print.button' | translate }}</span>
+      </button>
+      <button
+        type="button"
+        class="safety-profile__params-toggle"
+        [class.safety-profile__params-toggle--active]="paramsPanelOpen()"
+        [attr.aria-expanded]="paramsPanelOpen()"
+        [attr.aria-label]="'safetyProfile.openParams' | translate"
+        (click)="toggleParamsPanel()"
+      >
+        <i class="pi pi-sliders-h" aria-hidden="true"></i>
+        <span>{{ 'safetyProfile.paramsShort' | translate }}</span>
+      </button>
+    </div>
   </header>
+
+  <app-safety-print-dialog
+    [visible]="printDialogOpen()"
+    (visibleChange)="onPrintDialogVisible($event)"
+    [legRenders]="legRenders()"
+    [legPairs]="legPairs()"
+    [circuitLegs]="circuitLegs()"
+    [taskName]="taskName()"
+    [safetyParams]="currentParams()"
+    [basemapId]="basemapId()"
+    [chartLabels]="chartLabels()"
+    [glideRatio]="glideRatio()"
+    [arrivalMarginM]="arrivalMarginM()"
+    [groundMarginM]="groundMarginM()"
+    [noLandables]="noLandables()"
+    [getWaypoint]="getWaypointForPrint"
+    [enabledAirspaceKeysForLeg]="getEnabledAirspaceKeysForPrint"
+    [airspaceBandsForLeg]="airspaceBandsForPrint"
+    [effectiveYMaxForLeg]="effectiveYMaxForPrint"
+    [landableColorsForLeg]="landableColorsForPrint"
+  />
 
   @if (!hasTask()) {
     <div class="safety-profile__empty" role="status">

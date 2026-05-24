@@ -942,6 +942,37 @@ export const en = {
       legBarCompute: 'Leg {{leg}}: computing envelope',
       legBarDone: 'Leg {{leg}}: done'
     },
+    print: {
+      button: 'Print',
+      buttonDisabledLoading: 'Computing profiles…',
+      buttonDisabledIncomplete: 'Terrain profiles incomplete — print unavailable',
+      dialogTitle: 'Print safety profile',
+      optionsAria: 'Print options',
+      previewAria: 'Page preview',
+      previewTitle: 'Planned pages',
+      previewHint:
+        'Page breakdown from your options. Click “Generate preview” to render the PDF in the panel on the right.',
+      previewFrameTitle: 'Generated PDF preview',
+      generatePreview: 'Generate preview',
+      scaleHint: 'Fixed scale 1:250,000 — north up — A4',
+      layoutMode: 'Layout',
+      modeFullCircuit: 'Full circuit (map only)',
+      modePerBranch: 'One page per leg (map + profile)',
+      coneVolumes: '3D cone volumes',
+      coneRings: 'Distance rings',
+      safetyRibbon: 'Min altitude ribbon',
+      airspace: '3D airspace',
+      waypoints: 'Waypoints and legs',
+      mapLabels: 'Map labels (crossings, margins)',
+      profileChart: 'Profile chart below map',
+      metadata: 'Header (title, scale, parameters)',
+      download: 'Download PDF',
+      print: 'Print',
+      close: 'Close',
+      progressStart: 'Generating PDF…',
+      progressPage: 'Page',
+      progressError: 'Generation failed — try again.'
+    },
     warnings: {
       noLandables:
         'No safe landable (airfield / outlanding) in the CUP database: the glide cone is not computed. Load a CUP database to enable this safety helper.',

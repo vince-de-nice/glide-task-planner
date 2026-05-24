@@ -1,0 +1,194 @@
+<p-dialog
+  [visible]="visible()"
+  (visibleChange)="visibleChange.emit($event)"
+  (onShow)="onShow()"
+  (onHide)="onHide()"
+  [modal]="true"
+  [closable]="true"
+  [dismissableMask]="true"
+  [draggable]="false"
+  styleClass="safety-print-dialog"
+  [style]="{ width: 'min(960px, 96vw)', height: 'min(820px, 88vh)' }"
+  [contentStyle]="{
+    display: 'flex',
+    flexDirection: 'column',
+    flex: '1 1 auto',
+    minHeight: '0',
+    overflow: 'hidden'
+  }"
+  [header]="'safetyProfile.print.dialogTitle' | translate"
+>
+  <div class="safety-print">
+    <div class="safety-print__columns">
+      <section class="safety-print__options" [attr.aria-label]="'safetyProfile.print.optionsAria' | translate">
+        <label class="safety-print__field">
+          <span>{{ 'safetyProfile.print.layoutMode' | translate }}</span>
+          <p-select
+            [options]="layoutModeOptions()"
+            [ngModel]="options().layoutMode"
+            (ngModelChange)="patchOptions({ layoutMode: $event })"
+            optionLabel="label"
+            optionValue="value"
+          />
+        </label>
+
+        <label class="safety-print__field">
+          <span>{{ 'map.basemap.title' | translate }}</span>
+          <p-select
+            [options]="basemapOptions()"
+            [ngModel]="options().basemapId"
+            (ngModelChange)="patchOptions({ basemapId: $event })"
+            optionLabel="label"
+            optionValue="value"
+          />
+        </label>
+
+        <div class="safety-print__toggles">
+          <label class="safety-print__toggle">
+            <span>{{ 'safetyProfile.print.coneVolumes' | translate }}</span>
+            <p-toggleswitch
+              [ngModel]="options().coneVolumes3d"
+              (ngModelChange)="patchOptions({ coneVolumes3d: $event })"
+            />
+          </label>
+          <label class="safety-print__toggle">
+            <span>{{ 'safetyProfile.print.coneRings' | translate }}</span>
+            <p-toggleswitch
+              [ngModel]="options().coneDistanceRings"
+              (ngModelChange)="patchOptions({ coneDistanceRings: $event })"
+            />
+          </label>
+          <label class="safety-print__toggle">
+            <span>{{ 'safetyProfile.print.safetyRibbon' | translate }}</span>
+            <p-toggleswitch
+              [ngModel]="options().safetyMinAltitudeRibbon"
+              (ngModelChange)="patchOptions({ safetyMinAltitudeRibbon: $event })"
+            />
+          </label>
+          <label class="safety-print__toggle">
+            <span>{{ 'safetyProfile.print.airspace' | translate }}</span>
+            <p-toggleswitch
+              [ngModel]="options().airspace3d"
+              (ngModelChange)="patchOptions({ airspace3d: $event })"
+            />
+          </label>
+          <label class="safety-print__toggle">
+            <span>{{ 'safetyProfile.print.waypoints' | translate }}</span>
+            <p-toggleswitch
+              [ngModel]="options().waypoints"
+              (ngModelChange)="patchOptions({ waypoints: $event })"
+            />
+          </label>
+          <label class="safety-print__toggle">
+            <span>{{ 'safetyProfile.print.mapLabels' | translate }}</span>
+            <p-toggleswitch
+              [ngModel]="options().map3dLabels"
+              (ngModelChange)="patchOptions({ map3dLabels: $event })"
+            />
+          </label>
+          @if (options().layoutMode === 'perBranch') {
+            <label class="safety-print__toggle">
+              <span>{{ 'safetyProfile.print.profileChart' | translate }}</span>
+              <p-toggleswitch
+                [ngModel]="options().includeProfileChart"
+                (ngModelChange)="patchOptions({ includeProfileChart: $event })"
+              />
+            </label>
+          }
+          <label class="safety-print__toggle">
+            <span>{{ 'safetyProfile.print.metadata' | translate }}</span>
+            <p-toggleswitch
+              [ngModel]="options().includeMetadata"
+              (ngModelChange)="patchOptions({ includeMetadata: $event })"
+            />
+          </label>
+        </div>
+      </section>
+
+      <section class="safety-print__preview" [attr.aria-label]="'safetyProfile.print.previewAria' | translate">
+        <div class="safety-print__preview-header">
+          <p class="safety-print__preview-title">
+            {{ 'safetyProfile.print.previewTitle' | translate }}
+            <span class="safety-print__page-count">({{ previewPageCount() }})</span>
+          </p>
+          <p class="safety-print__scale-hint">{{ 'safetyProfile.print.scaleHint' | translate }}</p>
+        </div>
+
+        <div class="safety-print__preview-body">
+          <div class="safety-print__preview-panel">
+            @if (previewPdfSafeUrl(); as pdfUrl) {
+              <iframe
+                class="safety-print__pdf-frame"
+                [src]="pdfUrl"
+                [title]="'safetyProfile.print.previewFrameTitle' | translate"
+              ></iframe>
+            } @else {
+              <p class="safety-print__preview-hint">{{ 'safetyProfile.print.previewHint' | translate }}</p>
+              <ul class="safety-print__page-list">
+                @for (p of previewPages(); track $index) {
+                  <li>
+                    <span class="safety-print__page-orient">{{ p.orientation === 'landscape' ? '↔' : '↕' }}</span>
+                    {{ p.label }}
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+        </div>
+
+        @if (generating()) {
+          <p class="safety-print__progress" role="status">{{ progressLabel() }}</p>
+        }
+      </section>
+    </div>
+
+    <div class="safety-print__actions">
+      <p-button
+        [label]="'safetyProfile.print.generatePreview' | translate"
+        icon="pi pi-eye"
+        [loading]="generating()"
+        [disabled]="generating()"
+        (onClick)="generatePreview()"
+      />
+      <p-button
+        [label]="'safetyProfile.print.download' | translate"
+        icon="pi pi-download"
+        severity="secondary"
+        [disabled]="generating()"
+        (onClick)="downloadPdf()"
+      />
+      <p-button
+        [label]="'safetyProfile.print.print' | translate"
+        icon="pi pi-print"
+        [disabled]="generating()"
+        (onClick)="printPdf()"
+      />
+      <p-button
+        [label]="'safetyProfile.print.close' | translate"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="close()"
+      />
+    </div>
+  </div>
+</p-dialog>
+
+<div class="safety-print__chart-offscreen" aria-hidden="true">
+  @if (chartLeg(); as leg) {
+    <app-leg-profile-chart
+      [samples]="leg.envelope.samples"
+      [landableCones]="leg.envelope.landableCones"
+      [landableColors]="landableColorsForLeg()(leg)"
+      [fromEndpoint]="leg.fromEndpoint"
+      [toEndpoint]="leg.toEndpoint"
+      [arrivalMarginM]="arrivalMarginM()"
+      [labels]="chartLabels()"
+      [noLandables]="noLandables()"
+      [conesTruncated]="leg.envelope.landableCones.length >= 64"
+      [legStartKm]="leg.envelope.legStartKm"
+      [legEndKm]="leg.envelope.legEndKm"
+      [yMaxM]="effectiveYMax(leg)"
+      [airspaceBands]="airspaceBandsForLeg()(leg)"
+    />
+  }
+</div>

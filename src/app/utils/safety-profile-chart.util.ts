@@ -29,37 +29,38 @@ export function maxTerrainElevationM(
   return max;
 }
 
-/** Plus haute altitude affichée sur la coupe (relief, cônes, sécurité). */
-export function maxProfileElevationM(
-  samples: Pick<
-    EnvelopeSample,
-    'terrainM' | 'safetyM' | 'glideConeM' | 'groundClearanceM'
-  >[]
+/** Plus haute altitude mini (sécurité) sur la coupe, en m MSL. */
+export function maxSafetyMinAltitudeM(
+  samples: Pick<EnvelopeSample, 'safetyM'>[]
 ): number {
   let max = 0;
   for (const s of samples) {
-    for (const v of [s.terrainM, s.safetyM, s.glideConeM, s.groundClearanceM]) {
-      if (v != null && Number.isFinite(v) && v > max) {
-        max = v;
-      }
+    if (s.safetyM != null && Number.isFinite(s.safetyM) && s.safetyM > max) {
+      max = s.safetyM;
     }
   }
   return max;
 }
 
+/** Arrondit une altitude au multiple de 500 m supérieur ou égal. */
+export function ceilTo500M(altitudeM: number): number {
+  const m = Math.round(altitudeM);
+  if (!Number.isFinite(m) || m <= 0) return 500;
+  let cap = 500;
+  while (cap < m) cap += 500;
+  return cap;
+}
+
 /**
- * Échelle verticale par défaut : millier supérieur au plus haut point de la coupe.
- * Ex. max 2 641 m → 3 000 m.
+ * Échelle verticale par défaut : plus haute altitude mini + 500 m,
+ * arrondie au multiple de 500 m supérieur. Ex. max mini 2 140 m → 2 700 m.
  */
 export function defaultLegYMaxM(
-  samples: Pick<
-    EnvelopeSample,
-    'terrainM' | 'safetyM' | 'glideConeM' | 'groundClearanceM'
-  >[]
+  samples: Pick<EnvelopeSample, 'safetyM'>[]
 ): number {
-  const maxElev = maxProfileElevationM(samples);
-  if (maxElev <= 0) return 1000;
-  return Math.ceil(maxElev / 1000) * 1000;
+  const maxMini = maxSafetyMinAltitudeM(samples);
+  if (maxMini <= 0) return 1000;
+  return ceilTo500M(maxMini + 500);
 }
 
 /** Vert : altitude min suivant le cône (relief non contraignant). */

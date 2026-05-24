@@ -54,7 +54,6 @@ import {
   type LegAirspaceProfileBand
 } from '../../utils/leg-airspace-profile-cross-section.util';
 import { configureMapFreeCamera } from '../../utils/map-free-camera.util';
-import { geoJsonFlagEq } from '../../utils/map-expression.util';
 import { isMapStyleActive } from '../../utils/map-runtime.util';
 import {
   DEFAULT_SAFETY_PARAMS,
@@ -73,8 +72,6 @@ import {
   isBasemapId,
   MAP_BASEMAP_STORAGE_KEY,
   MAP_SOURCE,
-  MAP_TEXT_FONT_REGULAR,
-  MAP_TEXT_FONT_BOLD,
   type BasemapId
 } from '../map-view/map-style.constants';
 import {
@@ -83,6 +80,7 @@ import {
   LegProfileChartComponent
 } from './leg-profile-chart.component';
 import { SafetyProfileParamsDrawerComponent } from './safety-profile-params-drawer.component';
+import { SafetyPrintDialogComponent } from './safety-print-dialog/safety-print-dialog.component';
 import { AirspaceTerrariumProgressOverlayComponent } from '../airspace-terrarium-progress-overlay/airspace-terrarium-progress-overlay.component';
 import type { LegSafetyOutgoingPatch } from '../../services/task-state.service';
 import { resolveLegElevationM } from '../../utils/elevation.util';
@@ -97,13 +95,11 @@ import {
 import { buildProfileLegPointsGeoJson } from '../../utils/safety-cone-map-geojson.util';
 import {
   buildSafetyMinAltitudePath,
-  createSafetyMinAltitudeCustomLayer,
   SAFETY_MIN_ALTITUDE_LAYER_ID,
   type SafetyMinAltitudeThreeCustomLayer
 } from '../../utils/safety-min-altitude-three-layer.util';
 import {
   buildSafetyConeMeshSpecs,
-  createSafetyConeCustomLayer,
   SAFETY_CONES_CUSTOM_LAYER_ID,
   type SafetyConeMeshSpec,
   type SafetyConeThreeCustomLayer
@@ -114,10 +110,22 @@ import {
   collectActiveConeCrossings
 } from '../../utils/safety-cone-crossings.util';
 import {
+  buildSafetyMinAltitudeTerrainMarginMapLabelSpecs,
+  buildSafetyMinAltitudeTerrainMarginSections
+} from '../../utils/safety-min-altitude-style.util';
+import {
   projectMap3dLabelsToScreen,
   type Map3dLabelSpec
 } from '../../utils/map-3d-labels.util';
 import { computeProfileLegCameraFit } from '../../utils/safety-profile-map-fit.util';
+import {
+  installSafetyProfileMapLayers,
+  PROFILE_MAP_LAYER,
+  PROFILE_MAP_SOURCE,
+  repositionProfileMapLayers,
+  SAFETY_PROFILE_EMPTY_FC
+} from '../../utils/safety-profile-map-layers.util';
+import { buildBranchLinesGeoJson } from '../../utils/safety-profile-map-render.util';
 import { formatAirspaceVerticalRange } from '../../utils/airspace-altitude.util';
 import { ensureMapterhornGrayProtocolRegistered } from '../../utils/map-basemap.util';
 import {
@@ -131,55 +139,11 @@ export type { LegLandableToggle } from '../../services/safety-profile-terrain.fa
 
 type LegRender = SafetyLegRender;
 
-const EMPTY_FC: FeatureCollection = { type: 'FeatureCollection', features: [] };
-
 const PROFILE_SHARE_STORAGE_KEY = 'gc-safety-profile-share';
 const PROFILE_SHARE_MIN = 16;
 const PROFILE_SHARE_MAX = 72;
 const PROFILE_SHARE_DEFAULT = 52;
 const PROFILE_SHARE_STEP = 6;
-
-/** Sources / calques carte dédiés à l’écran profil de sécurité. */
-const PROFILE_MAP_SOURCE = {
-  BRANCHES: 'safety-profile-branches',
-  POINTS: 'safety-profile-points',
-  LANDABLE_HIGHLIGHT: 'safety-profile-landable-highlight',
-  CURSOR: 'safety-profile-cursor',
-  CURSOR_TRACK: 'safety-profile-cursor-track',
-  AIRSPACE_HOVER_FILL: 'safety-profile-airspace-hover-fill',
-  AIRSPACE_HOVER_LINE: 'safety-profile-airspace-hover-line'
-} as const;
-
-const PROFILE_MAP_LAYER = {
-  BRANCHES: 'safety-profile-branches',
-  BRANCHES_HIT: 'safety-profile-branches-hit',
-  POINTS: 'safety-profile-points',
-  POINT_LABELS: 'safety-profile-point-labels',
-  LANDABLE_HIGHLIGHT_RING: 'safety-profile-landable-highlight-ring',
-  LANDABLE_HIGHLIGHT: 'safety-profile-landable-highlight',
-  LANDABLE_HIGHLIGHT_LABEL: 'safety-profile-landable-highlight-label',
-  CURSOR_TRACK: 'safety-profile-cursor-track',
-  CURSOR_POINT: 'safety-profile-cursor-point',
-  AIRSPACE_HOVER_FILL: 'safety-profile-airspace-hover-fill',
-  AIRSPACE_HOVER_LINE: 'safety-profile-airspace-hover-line'
-} as const;
-
-/** Ordre de superposition des calques métier (bas → haut). */
-const PROFILE_LAYER_STACK: readonly string[] = [
-  SAFETY_CONES_CUSTOM_LAYER_ID,
-  SAFETY_MIN_ALTITUDE_LAYER_ID,
-  PROFILE_MAP_LAYER.BRANCHES_HIT,
-  PROFILE_MAP_LAYER.BRANCHES,
-  PROFILE_MAP_LAYER.POINTS,
-  PROFILE_MAP_LAYER.POINT_LABELS,
-  PROFILE_MAP_LAYER.LANDABLE_HIGHLIGHT_RING,
-  PROFILE_MAP_LAYER.LANDABLE_HIGHLIGHT,
-  PROFILE_MAP_LAYER.LANDABLE_HIGHLIGHT_LABEL,
-  PROFILE_MAP_LAYER.CURSOR_TRACK,
-  PROFILE_MAP_LAYER.CURSOR_POINT,
-  PROFILE_MAP_LAYER.AIRSPACE_HOVER_FILL,
-  PROFILE_MAP_LAYER.AIRSPACE_HOVER_LINE
-];
 
 /** Branches traitées en parallèle (tuiles DEM partagées via cache global). */
 const LEG_PROFILE_PARALLELISM = 3;
@@ -197,6 +161,7 @@ type LegPair = SafetyLegPair;
     MapComponent,
     LegProfileChartComponent,
     SafetyProfileParamsDrawerComponent,
+    SafetyPrintDialogComponent,
     AirspaceTerrariumProgressOverlayComponent,
     TranslatePipe
   ],
@@ -233,6 +198,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   // Reactive state mirror of task state, but with local edits for inputs.
   readonly storedParams = this.taskState.safetyParams;
   readonly circuitLegs = this.taskState.circuitLegs;
+  readonly taskName = this.taskState.taskName;
   readonly waypoints = this.waypointService.waypoints;
 
   glideRatio = signal<number>(DEFAULT_SAFETY_PARAMS.glideRatio);
@@ -253,6 +219,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   /** Style initial — les changements de fond passent par applyBasemapToMap. */
   mapStyle: StyleSpecification = buildBaseMapStyle(DEFAULT_BASEMAP_ID);
   profilesLoading = signal(false);
+  printDialogOpen = signal(false);
   /** Branche en cours de réessai DEM (évite un refresh global déclenché par l’effect). */
   readonly terrainRetryLegIndex = signal<number | null>(null);
   profilesVersion = signal(0);
@@ -385,6 +352,27 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
 
   readonly hasTask = computed(() => this.legPairs().length > 0);
   readonly noLandables = computed(() => this.landables().length === 0);
+
+  readonly canPrint = computed(() => {
+    if (!this.hasTask()) return false;
+    if (this.profilesLoading()) return false;
+    if (this.terrainRetryLegIndex() != null) return false;
+    const pairs = this.legPairs();
+    const renders = this.legRenders();
+    if (renders.length !== pairs.length || pairs.length === 0) return false;
+    return renders.every(r => r != null && r.envelope.samples.length >= 2);
+  });
+
+  readonly canPrintDisabledReason = computed(() => {
+    this.i18n.locale();
+    if (this.profilesLoading() || this.terrainRetryLegIndex() != null) {
+      return this.i18n.t('safetyProfile.print.buttonDisabledLoading');
+    }
+    if (!this.canPrint()) {
+      return this.i18n.t('safetyProfile.print.buttonDisabledIncomplete');
+    }
+    return '';
+  });
 
   readonly chartLabels = computed<LegChartLabels>(() => {
     this.i18n.locale();
@@ -1022,184 +1010,11 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     }
     this.dataLayerAnchorId = SAFETY_CONES_CUSTOM_LAYER_ID;
 
-    this.safetyConesLayer = createSafetyConeCustomLayer();
-    map.addLayer(this.safetyConesLayer);
-    this.safetyMinAltitudeLayer = createSafetyMinAltitudeCustomLayer();
-    map.addLayer(this.safetyMinAltitudeLayer);
+    const layers = installSafetyProfileMapLayers(map);
+    this.safetyConesLayer = layers.safetyConesLayer;
+    this.safetyMinAltitudeLayer = layers.safetyMinAltitudeLayer;
     this.mapLabelRenderHandler = () => this.syncMapLabelScreens();
     map.on('render', this.mapLabelRenderHandler);
-
-    map.addSource(PROFILE_MAP_SOURCE.POINTS, { type: 'geojson', data: EMPTY_FC });
-    map.addLayer({
-      id: PROFILE_MAP_LAYER.POINTS,
-      type: 'circle',
-      source: PROFILE_MAP_SOURCE.POINTS,
-      paint: {
-        'circle-radius': [
-          'match',
-          ['get', 'role'],
-          'from',
-          10,
-          'to',
-          10,
-          'landable',
-          12,
-          8
-        ],
-        'circle-color': ['get', 'color'],
-        'circle-stroke-width': 2.5,
-        'circle-stroke-color': '#ffffff',
-        'circle-opacity': 1
-      }
-    });
-    map.addLayer({
-      id: PROFILE_MAP_LAYER.POINT_LABELS,
-      type: 'symbol',
-      source: PROFILE_MAP_SOURCE.POINTS,
-      layout: {
-        'text-field': ['get', 'label'],
-        'text-font': [...MAP_TEXT_FONT_REGULAR],
-        'text-size': 11,
-        'text-offset': [0, 1.35],
-        'text-anchor': 'top',
-        'text-max-width': 10,
-        'text-optional': true
-      },
-      paint: {
-        'text-color': ['get', 'color'],
-        'text-halo-color': '#ffffff',
-        'text-halo-width': 1.75
-      }
-    });
-
-    map.addSource(PROFILE_MAP_SOURCE.BRANCHES, { type: 'geojson', data: EMPTY_FC });
-    map.addLayer({
-      id: PROFILE_MAP_LAYER.BRANCHES_HIT,
-      type: 'line',
-      source: PROFILE_MAP_SOURCE.BRANCHES,
-      paint: { 'line-width': 14, 'line-opacity': 0 }
-    });
-    map.addLayer({
-      id: PROFILE_MAP_LAYER.BRANCHES,
-      type: 'line',
-      source: PROFILE_MAP_SOURCE.BRANCHES,
-      paint: {
-        'line-color': [
-          'case',
-          geoJsonFlagEq('selected'),
-          SAFETY_PROFILE_SEMANTIC.legRouteActive,
-          SAFETY_PROFILE_SEMANTIC.legRouteInactive
-        ],
-        'line-width': ['case', geoJsonFlagEq('selected'), 6, 3],
-        'line-opacity': ['case', geoJsonFlagEq('selected'), 1, 0.55]
-      }
-    });
-    map.addSource(PROFILE_MAP_SOURCE.LANDABLE_HIGHLIGHT, {
-      type: 'geojson',
-      data: EMPTY_FC
-    });
-    map.addLayer({
-      id: PROFILE_MAP_LAYER.LANDABLE_HIGHLIGHT_RING,
-      type: 'circle',
-      source: PROFILE_MAP_SOURCE.LANDABLE_HIGHLIGHT,
-      paint: {
-        'circle-radius': 22,
-        'circle-color': ['get', 'color'],
-        'circle-opacity': 0.28,
-        'circle-stroke-width': 0
-      }
-    });
-    map.addLayer({
-      id: PROFILE_MAP_LAYER.LANDABLE_HIGHLIGHT,
-      type: 'circle',
-      source: PROFILE_MAP_SOURCE.LANDABLE_HIGHLIGHT,
-      paint: {
-        'circle-radius': 12,
-        'circle-color': ['get', 'color'],
-        'circle-stroke-width': 3.5,
-        'circle-stroke-color': '#ffffff',
-        'circle-opacity': 1
-      }
-    });
-    map.addLayer({
-      id: PROFILE_MAP_LAYER.LANDABLE_HIGHLIGHT_LABEL,
-      type: 'symbol',
-      source: PROFILE_MAP_SOURCE.LANDABLE_HIGHLIGHT,
-      layout: {
-        'text-field': ['get', 'label'],
-        'text-font': [...MAP_TEXT_FONT_BOLD],
-        'text-size': 13,
-        'text-offset': [0, 1.6],
-        'text-anchor': 'top',
-        'text-max-width': 12,
-        'text-optional': true
-      },
-      paint: {
-        'text-color': ['get', 'color'],
-        'text-halo-color': '#ffffff',
-        'text-halo-width': 2.25
-      }
-    });
-
-    map.addSource(PROFILE_MAP_SOURCE.AIRSPACE_HOVER_FILL, {
-      type: 'geojson',
-      data: EMPTY_FC
-    });
-    map.addLayer({
-      id: PROFILE_MAP_LAYER.AIRSPACE_HOVER_FILL,
-      type: 'fill',
-      source: PROFILE_MAP_SOURCE.AIRSPACE_HOVER_FILL,
-      paint: {
-        'fill-color': '#f59e0b',
-        'fill-opacity': 0.38,
-        'fill-outline-color': '#b45309'
-      }
-    });
-    map.addSource(PROFILE_MAP_SOURCE.AIRSPACE_HOVER_LINE, {
-      type: 'geojson',
-      data: EMPTY_FC
-    });
-    map.addLayer({
-      id: PROFILE_MAP_LAYER.AIRSPACE_HOVER_LINE,
-      type: 'line',
-      source: PROFILE_MAP_SOURCE.AIRSPACE_HOVER_LINE,
-      paint: {
-        'line-color': '#b45309',
-        'line-width': 3,
-        'line-opacity': 0.95
-      }
-    });
-
-    map.addSource(PROFILE_MAP_SOURCE.CURSOR_TRACK, {
-      type: 'geojson',
-      data: EMPTY_FC
-    });
-    map.addSource(PROFILE_MAP_SOURCE.CURSOR, {
-      type: 'geojson',
-      data: EMPTY_FC
-    });
-    map.addLayer({
-      id: PROFILE_MAP_LAYER.CURSOR_TRACK,
-      type: 'line',
-      source: PROFILE_MAP_SOURCE.CURSOR_TRACK,
-      paint: {
-        'line-color': SAFETY_PROFILE_SEMANTIC.profileCrosshair,
-        'line-width': 5,
-        'line-opacity': 0.9
-      }
-    });
-    map.addLayer({
-      id: PROFILE_MAP_LAYER.CURSOR_POINT,
-      type: 'circle',
-      source: PROFILE_MAP_SOURCE.CURSOR,
-      paint: {
-        'circle-radius': 9,
-        'circle-color': '#ffffff',
-        'circle-stroke-width': 3,
-        'circle-stroke-color': SAFETY_PROFILE_SEMANTIC.profileCrosshair,
-        'circle-opacity': 1
-      }
-    });
     this.branchClickHandler = (e: MapLayerMouseEvent) => {
       const feat = e.features?.[0];
       if (!feat?.properties) return;
@@ -1362,11 +1177,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   }
 
   defaultYMaxForLeg(leg: LegRender): number {
-    let max = defaultLegYMaxM(leg.envelope.samples);
-    for (const band of this.airspaceProfileBandsForLeg(leg)) {
-      max = Math.max(max, band.ceilingM);
-    }
-    return max;
+    return defaultLegYMaxM(leg.envelope.samples);
   }
 
   airspaceProfileBandsForLeg(leg: LegRender): LegAirspaceProfileBand[] {
@@ -1725,8 +1536,8 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
 
     const key = this.hoveredAirspaceZoneKey();
     if (!key) {
-      (fillSrc as GeoJSONSource).setData(EMPTY_FC);
-      (lineSrc as GeoJSONSource).setData(EMPTY_FC);
+      (fillSrc as GeoJSONSource).setData(SAFETY_PROFILE_EMPTY_FC);
+      (lineSrc as GeoJSONSource).setData(SAFETY_PROFILE_EMPTY_FC);
       return;
     }
 
@@ -1734,15 +1545,15 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       this.airspaceScreenId
     );
     if (!enriched) {
-      (fillSrc as GeoJSONSource).setData(EMPTY_FC);
-      (lineSrc as GeoJSONSource).setData(EMPTY_FC);
+      (fillSrc as GeoJSONSource).setData(SAFETY_PROFILE_EMPTY_FC);
+      (lineSrc as GeoJSONSource).setData(SAFETY_PROFILE_EMPTY_FC);
       return;
     }
 
     const feature = findAirspaceFeatureByKey(enriched, key);
     if (!feature) {
-      (fillSrc as GeoJSONSource).setData(EMPTY_FC);
-      (lineSrc as GeoJSONSource).setData(EMPTY_FC);
+      (fillSrc as GeoJSONSource).setData(SAFETY_PROFILE_EMPTY_FC);
+      (lineSrc as GeoJSONSource).setData(SAFETY_PROFILE_EMPTY_FC);
       return;
     }
 
@@ -1758,7 +1569,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
               }
             ]
           }
-        : EMPTY_FC;
+        : SAFETY_PROFILE_EMPTY_FC;
     (fillSrc as GeoJSONSource).setData(fillFc);
     (lineSrc as GeoJSONSource).setData(airspaceFeatureToHighlightLines(feature));
     this.repositionProfileMapLayers();
@@ -1799,6 +1610,34 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     void this.router.navigate(['/declaration']);
   }
 
+  openPrintDialog(): void {
+    if (!this.canPrint()) return;
+    this.printDialogOpen.set(true);
+  }
+
+  onPrintDialogVisible(open: boolean): void {
+    this.printDialogOpen.set(open);
+  }
+
+  getEnabledAirspaceKeysForLeg(legIndex: number): Set<string> {
+    return this.resolveEnabledAirspaceKeysForLeg(legIndex);
+  }
+
+  readonly getWaypointForPrint = (id: string): Waypoint | undefined =>
+    this.waypointService.getWaypoint(id);
+
+  readonly getEnabledAirspaceKeysForPrint = (legIndex: number): Set<string> =>
+    this.getEnabledAirspaceKeysForLeg(legIndex);
+
+  readonly airspaceBandsForPrint = (leg: LegRender): LegAirspaceProfileBand[] =>
+    this.airspaceProfileBandsForLeg(leg);
+
+  readonly effectiveYMaxForPrint = (leg: LegRender): number =>
+    this.effectiveYMaxForLeg(leg);
+
+  readonly landableColorsForPrint = (leg: LegRender): Record<string, string> =>
+    this.landableColorsRecordForLeg(leg);
+
   private syncProfileMapCursor(): void {
     const map = this.map;
     if (!map) return;
@@ -1816,15 +1655,15 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
 
     const cursor = this.profileMapCursor();
     if (!cursor) {
-      (pointSource as GeoJSONSource).setData(EMPTY_FC);
-      (trackSource as GeoJSONSource).setData(EMPTY_FC);
+      (pointSource as GeoJSONSource).setData(SAFETY_PROFILE_EMPTY_FC);
+      (trackSource as GeoJSONSource).setData(SAFETY_PROFILE_EMPTY_FC);
       return;
     }
 
     const leg = this.legRenders().find(l => l.index === cursor.legIndex);
     if (!leg) {
-      (pointSource as GeoJSONSource).setData(EMPTY_FC);
-      (trackSource as GeoJSONSource).setData(EMPTY_FC);
+      (pointSource as GeoJSONSource).setData(SAFETY_PROFILE_EMPTY_FC);
+      (trackSource as GeoJSONSource).setData(SAFETY_PROFILE_EMPTY_FC);
       return;
     }
 
@@ -1864,11 +1703,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   private repositionProfileMapLayers(): void {
     const map = this.map;
     if (!map) return;
-    for (const layerId of PROFILE_LAYER_STACK) {
-      if (map.getLayer(layerId)) {
-        map.moveLayer(layerId);
-      }
-    }
+    repositionProfileMapLayers(map);
   }
 
   private updateProfileMapPoints(): void {
@@ -1879,7 +1714,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
 
     const leg = this.activeLegRender();
     if (!leg) {
-      (source as GeoJSONSource).setData(EMPTY_FC);
+      (source as GeoJSONSource).setData(SAFETY_PROFILE_EMPTY_FC);
       return;
     }
 
@@ -1927,14 +1762,14 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     const landableId = this.mapHighlightLandableId();
     const leg = this.activeLegRender();
     if (!landableId || !leg || leg.index !== this.selectedLegIndex()) {
-      (source as GeoJSONSource).setData(EMPTY_FC);
+      (source as GeoJSONSource).setData(SAFETY_PROFILE_EMPTY_FC);
       return;
     }
 
     const toggle = leg.landableToggles.find(t => t.id === landableId);
     const wp = this.waypointService.getWaypoint(landableId);
     if (!toggle || !wp) {
-      (source as GeoJSONSource).setData(EMPTY_FC);
+      (source as GeoJSONSource).setData(SAFETY_PROFILE_EMPTY_FC);
       return;
     }
 
@@ -2005,8 +1840,15 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       hits,
       leg!.envelope.samples
     );
-    layer.setCrossingLabels(crossingSpecs);
-    this.refreshMap3dLabelSpecs(crossingSpecs, undefined);
+    const marginSections = buildSafetyMinAltitudeTerrainMarginSections(
+      leg!.envelope.samples
+    );
+    const marginSpecs = buildSafetyMinAltitudeTerrainMarginMapLabelSpecs(
+      marginSections
+    );
+    const mapLabelSpecs = [...crossingSpecs, ...marginSpecs];
+    layer.setCrossingLabels(mapLabelSpecs);
+    this.refreshMap3dLabelSpecs(mapLabelSpecs, undefined);
   }
 
   private refreshMap3dLabelSpecs(
@@ -2155,19 +1997,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     const map = this.map;
     if (!map) return;
     const pairs = this.legPairs();
-    const selected = this.selectedLegIndex();
-    const features = pairs.map((p, idx) => ({
-      type: 'Feature' as const,
-      properties: { legIndex: idx, selected: idx === selected },
-      geometry: {
-        type: 'LineString' as const,
-        coordinates: [
-          [p.from.longitude, p.from.latitude],
-          [p.to.longitude, p.to.latitude]
-        ]
-      } satisfies LineString
-    }));
-    const fc: FeatureCollection = { type: 'FeatureCollection', features };
+    const fc = buildBranchLinesGeoJson(pairs, this.selectedLegIndex());
     const source = map.getSource(PROFILE_MAP_SOURCE.BRANCHES);
     if (source && source.type === 'geojson') {
       (source as GeoJSONSource).setData(fc);

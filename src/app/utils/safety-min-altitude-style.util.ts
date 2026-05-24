@@ -3,6 +3,12 @@
  * rouge = plancher relevé par le relief (groundClearanceM > cône).
  */
 import type { EnvelopeSample } from '../services/glide-envelope.service';
+import { SAFETY_MIN_ALT_CROSSING_LABEL_OFFSET_M } from './safety-cone-crossings.util';
+import type { SafetyMinAltitudeCrossingLabelSpec } from './safety-cone-crossings.util';
+import {
+  landableMapLabelColorFromHex,
+  SAFETY_PROFILE_SEMANTIC
+} from './safety-profile-palette.util';
 
 /** Même seuil que la coupe cône / safety (belowMin). */
 export const SAFETY_MIN_ALTITUDE_TERRAIN_EPS_M = 0.5;
@@ -17,6 +23,25 @@ export interface SafetyMinAltitudeStyledPoint {
 export interface SafetyMinAltitudeChartSegment {
   path: string;
   terrainConstrained: boolean;
+}
+
+/** Section rouge : marge max entre le cône et l'enveloppe min portée par le relief. */
+export interface SafetyMinAltitudeTerrainMarginSection {
+  key: string;
+  startDistanceKm: number;
+  endDistanceKm: number;
+  peakDistanceKm: number;
+  longitude: number;
+  latitude: number;
+  peakSafetyM: number;
+  maxMarginM: number;
+  label: string;
+}
+
+/** Libellé carte / coupe, ex. « + 250 m ». */
+export function formatSafetyTerrainMarginLabel(marginM: number): string {
+  if (!Number.isFinite(marginM) || marginM <= 0) return '';
+  return `+ ${Math.round(marginM).toLocaleString()} m`;
 }
 
 /** true lorsque safetyM est portée par le relief plutôt que par le cône. */
@@ -92,6 +117,87 @@ export function buildSafetyMinAltitudeChartSegments(
   }
 
   return plotPointsToSegments(raw);
+}
+
+/** Sections rouges avec marge max cône → altitude min (pour libellés carte / coupe). */
+export function buildSafetyMinAltitudeTerrainMarginSections(
+  samples: EnvelopeSample[]
+): SafetyMinAltitudeTerrainMarginSection[] {
+  const sections: SafetyMinAltitudeTerrainMarginSection[] = [];
+  let run: EnvelopeSample[] = [];
+
+  const flush = (): void => {
+    if (run.length === 0) return;
+    const startKm = run[0].distanceKm;
+    const endKm = run[run.length - 1].distanceKm;
+    let maxMargin = -Infinity;
+    let peak: EnvelopeSample | null = null;
+    for (const s of run) {
+      const margin = terrainConeMarginM(s);
+      if (margin == null) continue;
+      if (margin > maxMargin) {
+        maxMargin = margin;
+        peak = s;
+      }
+    }
+    run = [];
+    if (peak == null || !Number.isFinite(maxMargin) || maxMargin <= 0) return;
+
+    sections.push({
+      key: `terrain-margin-${sections.length}-${peak.distanceKm.toFixed(3)}`,
+      startDistanceKm: startKm,
+      endDistanceKm: endKm,
+      peakDistanceKm: peak.distanceKm,
+      longitude: peak.longitude,
+      latitude: peak.latitude,
+      peakSafetyM: peak.safetyM!,
+      maxMarginM: maxMargin,
+      label: formatSafetyTerrainMarginLabel(maxMargin)
+    });
+  };
+
+  for (const s of samples) {
+    if (isSafetyMinAltitudeTerrainConstrained(s) && s.safetyM != null) {
+      run.push(s);
+    } else {
+      flush();
+    }
+  }
+  flush();
+  return sections;
+}
+
+/** Libellés 3D au-dessus des tronçons rouges sur la carte. */
+export function buildSafetyMinAltitudeTerrainMarginMapLabelSpecs(
+  sections: readonly SafetyMinAltitudeTerrainMarginSection[]
+): SafetyMinAltitudeCrossingLabelSpec[] {
+  const color = landableMapLabelColorFromHex(
+    SAFETY_PROFILE_SEMANTIC.safetyMinAltitudeTerrain
+  );
+  return sections.map(sec => ({
+    key: sec.key,
+    longitude: sec.longitude,
+    latitude: sec.latitude,
+    altitudeM: sec.peakSafetyM + SAFETY_MIN_ALT_CROSSING_LABEL_OFFSET_M,
+    label: sec.label,
+    color
+  }));
+}
+
+function terrainConeMarginM(s: EnvelopeSample): number | null {
+  if (!isSafetyMinAltitudeTerrainConstrained(s)) return null;
+  const cone = s.glideConeM;
+  const safety = s.safetyM;
+  if (
+    cone == null ||
+    safety == null ||
+    !Number.isFinite(cone) ||
+    !Number.isFinite(safety)
+  ) {
+    return null;
+  }
+  const margin = safety - cone;
+  return margin > SAFETY_MIN_ALTITUDE_TERRAIN_EPS_M ? margin : null;
 }
 
 function styledPointFromSample(s: EnvelopeSample): SafetyMinAltitudeStyledPoint {
