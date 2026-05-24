@@ -35,10 +35,9 @@ import {
 import { formatMetersDisplay } from '../../utils/airspace-altitude.util';
 import {
   buildSafetyMinAltitudeChartSegments,
-  buildSafetyMinAltitudeTerrainMarginSections,
   type SafetyMinAltitudeChartSegment
 } from '../../utils/safety-min-altitude-style.util';
-import { SAFETY_MIN_ALTITUDE_TERRAIN_COLOR } from '../../utils/safety-profile-chart.util';
+import { computeProfileYMinM } from '../../utils/safety-profile-chart.util';
 
 export interface LegEndpointInfo {
   name: string;
@@ -74,6 +73,9 @@ export interface LegChartLabels {
   legendTerrainLowFidelity: string;
   tooltipTerrainLowFidelity: string;
   legendAirspaceZones: string;
+  legendAirspaceTruncated: string;
+  airspaceDisplayedRange: string;
+  airspaceRegulatoryCeiling: string;
 }
 
 interface AirspaceBandDraw {
@@ -85,12 +87,21 @@ interface AirspaceBandDraw {
   fill: string;
   name: string;
   hovered: boolean;
+  ceilingTruncated: boolean;
+  regulatoryCeilingM: number;
+  displayCeilingM: number;
+  truncationMarkX: number;
+  truncationMarkY: number;
+  tooltipTitle: string;
 }
 
 interface ChartGeometry {
   width: number;
   height: number;
   padding: { top: number; right: number; bottom: number; left: number };
+  /** Centre du titre d’axe altitude (rotation −90° autour de ce point). */
+  altitudeTitleX: number;
+  altitudeTitleY: number;
   xMin: number;
   xMax: number;
   yMin: number;
@@ -193,8 +204,20 @@ function chartPadding(width: number, height: number): ChartGeometry['padding'] {
     top: Math.max(16, Math.round(height * 0.06)),
     right: Math.max(20, Math.round(width * 0.028)),
     bottom: Math.max(40, Math.round(height * 0.14)),
-    left: Math.max(44, Math.round(width * 0.06))
+    /** Marge gauche : graduations Y (4 chiffres) + titre d’axe vertical. */
+    left: Math.max(56, Math.round(width * 0.075))
   };
+}
+
+/** Position du libellé « Altitude (m MSL) » à gauche des graduations. */
+function altitudeAxisTitlePosition(
+  padding: ChartGeometry['padding'],
+  height: number
+): { x: number; y: number } {
+  const plotH = height - padding.top - padding.bottom;
+  const x = Math.max(12, Math.round(padding.left * 0.18));
+  const y = padding.top + plotH / 2;
+  return { x, y };
 }
 
 @Component({
@@ -271,7 +294,7 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
       }
     }
     for (const band of this.airspaceBands()) {
-      allYs.push(band.floorM, band.ceilingM);
+      allYs.push(band.displayFloorM, band.displayCeilingM);
     }
     const fromE = this.fromEndpoint().elevationM;
     const toE = this.toEndpoint().elevationM;
@@ -279,23 +302,20 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
     if (toE != null) allYs.push(toE, toE + this.arrivalMarginM());
 
     const yMax = Math.max(1000, this.yMaxM());
-    let yMin: number;
-    if (allYs.length === 0) {
-      yMin = 0;
-    } else {
-      yMin = Math.min(...allYs);
-      const pad = Math.max(50, (yMax - yMin) * 0.05);
-      yMin = Math.max(0, Math.floor((yMin - pad) / 1000) * 1000);
-      if (yMin >= yMax) {
-        yMin = Math.max(0, yMax - 1000);
-      }
-    }
+    const yMin =
+      allYs.length === 0
+        ? 0
+        : computeProfileYMinM(Math.min(...allYs), yMax);
 
     const size = this.chartSize();
+    const padding = chartPadding(size.width, size.height);
+    const altitudeTitle = altitudeAxisTitlePosition(padding, size.height);
     return {
       width: size.width,
       height: size.height,
-      padding: chartPadding(size.width, size.height),
+      padding,
+      altitudeTitleX: altitudeTitle.x,
+      altitudeTitleY: altitudeTitle.y,
       xMin,
       xMax: xMax === xMin ? xMin + 1 : xMax,
       yMin,
@@ -403,28 +423,6 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
     };
   });
 
-  readonly safetyTerrainMarginLabels = computed<SafetyTerrainMarginChartLabel[]>(() => {
-    const data = this.samples();
-    const g = this.geometry();
-    if (data.length === 0) return [];
-
-    const plotW = g.width - g.padding.left - g.padding.right;
-    const plotH = g.height - g.padding.top - g.padding.bottom;
-    const xKm = (km: number): number =>
-      g.padding.left + ((km - g.xMin) / (g.xMax - g.xMin)) * plotW;
-    const yM = (m: number): number =>
-      g.padding.top + plotH - ((m - g.yMin) / (g.yMax - g.yMin)) * plotH;
-
-    return buildSafetyMinAltitudeTerrainMarginSections(data).map(sec => ({
-      key: sec.key,
-      x: xKm(sec.peakDistanceKm),
-      y: yM(sec.peakSafetyM + SAFETY_MARGIN_LABEL_ALT_OFFSET_M),
-      text: sec.label
-    }));
-  });
-
-  protected readonly safetyTerrainMarginLabelColor = SAFETY_MIN_ALTITUDE_TERRAIN_COLOR;
-
   readonly hasTerrainQualityIssues = computed(() =>
     this.samples().some(s => s.terrainQuality !== 'dem')
   );
@@ -487,21 +485,40 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
       g.padding.top + plotH - ((m - g.yMin) / (g.yMax - g.yMin)) * plotH;
 
     const hoveredKey = this.hoveredAirspaceZoneKey();
+    const lbl = this.labels();
     return bands.map(band => {
       const x0 = xKm(band.alongStartKm);
       const x1 = xKm(band.alongEndKm);
-      const yTop = yM(Math.min(band.ceilingM, g.yMax));
-      const yBottom = yM(Math.max(band.floorM, g.yMin));
+      const yTop = yM(Math.min(band.displayCeilingM, g.yMax));
+      const yBottom = yM(Math.max(band.displayFloorM, g.yMin));
+      const top = Math.min(yTop, yBottom);
+      const bottom = Math.max(yTop, yBottom);
+      const centerX = (Math.min(x0, x1) + Math.max(x0, x1)) / 2;
+      const tooltipLines = [
+        band.name,
+        `${lbl.airspaceDisplayedRange}: ${Math.round(band.displayFloorM)}–${Math.round(band.displayCeilingM)} m`
+      ];
+      if (band.ceilingTruncated) {
+        tooltipLines.push(
+          `${lbl.airspaceRegulatoryCeiling}: ${formatMetersDisplay(band.ceilingM)}`
+        );
+      }
       return {
         key: `${band.key}-${band.alongStartKm}-${band.alongEndKm}`,
         x: Math.min(x0, x1),
         width: Math.max(1, Math.abs(x1 - x0)),
-        yTop: Math.min(yTop, yBottom),
-        yBottom: Math.max(yTop, yBottom),
+        yTop: top,
+        yBottom: bottom,
         fill: band.fill,
         stroke: '',
         name: band.name,
-        hovered: hoveredKey != null && hoveredKey === band.key
+        hovered: hoveredKey != null && hoveredKey === band.key,
+        ceilingTruncated: band.ceilingTruncated,
+        regulatoryCeilingM: band.ceilingM,
+        displayCeilingM: band.displayCeilingM,
+        truncationMarkX: centerX,
+        truncationMarkY: top,
+        tooltipTitle: tooltipLines.join('\n')
       };
     });
   });

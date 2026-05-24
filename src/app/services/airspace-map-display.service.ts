@@ -121,6 +121,11 @@ export class AirspaceMapDisplayService {
     this.clearLayersFromMap(map);
   }
 
+  /** Annule les applications async en cours (changement de mode 2D/3D). */
+  bumpInvalidateEpochForMap(map: MaplibreMap): void {
+    this.bumpInvalidateEpoch(map);
+  }
+
   /** @deprecated Préférer clearLayersFromMap ou invalidateAndClearFromMap. */
   removeFromMap(map: MaplibreMap | null | undefined): void {
     this.clearLayersFromMap(map);
@@ -148,7 +153,8 @@ export class AirspaceMapDisplayService {
     map: MaplibreMap,
     screenId: AirspaceScreenId,
     beforeLayerId: string,
-    legDisplayZoneKeys: ReadonlySet<string>
+    legDisplayZoneKeys: ReadonlySet<string>,
+    display?: { volume3d: boolean }
   ): Promise<AirspaceMapApplyOutcome> {
     if (legDisplayZoneKeys.size === 0) {
       this.clearLayersFromMap(map);
@@ -159,7 +165,10 @@ export class AirspaceMapDisplayService {
         filterOptions: this.getFilterOptions(screenId)
       });
     }
-    return this.applyToMap(map, screenId, beforeLayerId, { legDisplayZoneKeys });
+    return this.applyToMap(map, screenId, beforeLayerId, {
+      legDisplayZoneKeys,
+      volume3d: display?.volume3d
+    });
   }
 
   /** Applique les filtres globaux de l’écran (carte tâche). */
@@ -171,6 +180,8 @@ export class AirspaceMapDisplayService {
       forceReload?: boolean;
       legDisplayZoneKeys?: ReadonlySet<string>;
       loadCacheOnly?: boolean;
+      /** Prioritaire sur les préférences persistées (évite les courses async). */
+      volume3d?: boolean;
     } = {}
   ): Promise<AirspaceMapApplyOutcome> {
     return this.runOnMap(map, () =>
@@ -210,13 +221,22 @@ export class AirspaceMapDisplayService {
       forceReload?: boolean;
       legDisplayZoneKeys?: ReadonlySet<string>;
       loadCacheOnly?: boolean;
+      volume3d?: boolean;
     }
   ): Promise<AirspaceMapApplyOutcome> {
     const epoch = this.invalidateEpochByMap.get(map) ?? 0;
 
-    const prefs = this.prefsService.get(screenId);
+    const prefsBase = this.prefsService.get(screenId);
     const legScoped =
       screenId === 'safety-profile' || options.legDisplayZoneKeys != null;
+    const prefs =
+      options.volume3d !== undefined
+        ? {
+            ...prefsBase,
+            visible: options.volume3d || prefsBase.visible,
+            volume3d: options.volume3d
+          }
+        : prefsBase;
     /** Carte circuit : visible piloté par l’appelant (reload uniquement si couche activée). */
     const taskMapApply = screenId === 'task-map';
     if (!taskMapApply && !prefs.visible && !legScoped) {
@@ -250,7 +270,8 @@ export class AirspaceMapDisplayService {
       beforeLayerId,
       prefs,
       options.legDisplayZoneKeys,
-      epoch
+      epoch,
+      options.volume3d
     );
   }
 
@@ -354,7 +375,8 @@ export class AirspaceMapDisplayService {
     beforeLayerId: string,
     prefs: AirspaceScreenPrefs,
     legDisplayZoneKeys: ReadonlySet<string> | undefined,
-    epoch: number
+    epoch: number,
+    volume3dOverride?: boolean
   ): Promise<AirspaceMapApplyOutcome> {
     const sourceId = this.dataSource.activeSourceId();
     const cached = this.cacheBySource.get(sourceId);
@@ -363,11 +385,14 @@ export class AirspaceMapDisplayService {
     }
 
     const { result, enriched } = cached;
-    const useVolume3d = prefs.volume3d;
+    const legScoped = legDisplayZoneKeys != null;
+    const useVolume3d = volume3dOverride ?? prefs.volume3d;
 
     let openAipResult: AirspaceLoadResult = result;
+    /** Sur le profil sécurité : 2D = polygones des zones actives, pas la mosaïque OpenAIP monde. */
+    const allowOpenAipRaster = !useVolume3d && !legScoped;
     if (
-      !useVolume3d &&
+      allowOpenAipRaster &&
       this.airspaceLayer.hasOpenAipKey() &&
       (await this.airspaceLayer.createAirspaceLayer(sourceId))?.source ===
         'openaip'
@@ -412,6 +437,7 @@ export class AirspaceMapDisplayService {
     await applyAirspaceLayersToMap(map, openAipResult, filtered, {
       beforeLayerId,
       volume3d: useVolume3d,
+      legScopedDisplay: legScoped,
       onFeatureClick: e => this.showPopup(map, e)
     });
 

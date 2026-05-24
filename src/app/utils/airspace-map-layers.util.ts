@@ -297,16 +297,25 @@ export async function applyAirspaceLayersToMap(
   options: {
     beforeLayerId: string;
     volume3d: boolean;
+    /** Profil sécurité : ne pas remplacer par le raster OpenAIP global. */
+    legScopedDisplay?: boolean;
     onFeatureClick?: (e: MapLayerMouseEvent) => void;
   }
 ): Promise<void> {
   removeAirspaceLayersFromMap(map);
   registerAirspaceMapTeardown(map);
 
-  if (!options.volume3d && result.source === 'openaip' && result.rasterTileUrl) {
+  const rasterTileUrl = result.rasterTileUrl;
+  const useOpenAipRaster =
+    !options.volume3d &&
+    !options.legScopedDisplay &&
+    result.source === 'openaip' &&
+    rasterTileUrl;
+
+  if (useOpenAipRaster && rasterTileUrl) {
     map.addSource(MAP_SOURCE.OPENAIP, {
       type: 'raster',
-      tiles: [result.rasterTileUrl],
+      tiles: [rasterTileUrl],
       tileSize: 256,
       scheme: 'tms',
       maxzoom: 14

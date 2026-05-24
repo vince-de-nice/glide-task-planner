@@ -270,6 +270,39 @@
       background: color-mix(in srgb, var(--gc-primary) 85%, #000);
     }
   }
+
+  &--airspace {
+    position: relative;
+  }
+
+  &--airspace-2d {
+    background: color-mix(in srgb, var(--gc-primary) 75%, var(--gc-surface));
+    border-color: var(--gc-primary);
+    color: #fff;
+  }
+
+  &--airspace-3d {
+    background: var(--gc-primary);
+    border-color: var(--gc-primary);
+    color: #fff;
+  }
+}
+
+.safety-profile__map-fab-badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  min-width: 1.15rem;
+  padding: 0 0.2rem;
+  border-radius: 4px;
+  background: #fff;
+  color: var(--gc-primary);
+  font-size: 0.55rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.25);
+  pointer-events: none;
 }
 
 .safety-profile__camera-pads {

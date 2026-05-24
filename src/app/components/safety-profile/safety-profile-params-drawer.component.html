@@ -82,6 +82,26 @@
             <p class="param__hint">{{ 'safetyProfile.params.groundMarginHint' | translate }}</p>
           </div>
 
+          <div class="param">
+            <label class="param__label" for="safety-param-airspace-profile-margin">
+              {{ 'safetyProfile.params.airspaceProfileMargin' | translate }}
+            </label>
+            <p-inputnumber
+              inputId="safety-param-airspace-profile-margin"
+              [ngModel]="airspaceProfileMarginM()"
+              (ngModelChange)="airspaceProfileMarginChange.emit($event)"
+              [min]="bounds.airspaceProfileMarginM.min"
+              [max]="bounds.airspaceProfileMarginM.max"
+              [step]="50"
+              [suffix]="' m'"
+              [showButtons]="true"
+              buttonLayout="horizontal"
+              incrementButtonIcon="pi pi-plus"
+              decrementButtonIcon="pi pi-minus"
+            />
+            <p class="param__hint">{{ 'safetyProfile.params.airspaceProfileMarginHint' | translate }}</p>
+          </div>
+
           <div class="param param--reset">
             <p-button
               icon="pi pi-refresh"
@@ -95,6 +115,26 @@
         </div>
       </section>
 
+      <section
+        class="safety-profile__params-section safety-profile__params-section--doc"
+        aria-labelledby="safety-params-profile-doc-heading"
+      >
+        <h3 id="safety-params-profile-doc-heading" class="safety-profile__section-title">
+          {{ 'safetyProfile.params.sectionProfileChart' | translate }}
+        </h3>
+        <div class="safety-profile__profile-doc">
+          <p>{{ 'safetyProfile.params.profileChartDocIntro' | translate }}</p>
+          <ul>
+            <li>{{ 'safetyProfile.params.profileChartDocTerrain' | translate }}</li>
+            <li>{{ 'safetyProfile.params.profileChartDocSafety' | translate }}</li>
+            <li>{{ 'safetyProfile.params.profileChartDocAirspace' | translate }}</li>
+          </ul>
+          <p class="safety-profile__profile-doc-note">
+            {{ 'safetyProfile.params.profileChartDocAirspaceCap' | translate }}
+          </p>
+        </div>
+      </section>
+
       <section class="safety-profile__legend-section" aria-labelledby="safety-params-legend-heading">
         <h3 id="safety-params-legend-heading" class="safety-profile__section-title">
           {{ 'safetyProfile.params.sectionLegend' | translate }}
@@ -102,6 +142,9 @@
         <ul class="safety-profile__legend">
           <li class="legend-item legend-item--terrain">{{ chartLabels().terrain }}</li>
           <li class="legend-item legend-item--airspace">{{ chartLabels().legendAirspaceZones }}</li>
+          <li class="legend-item legend-item--airspace-cap">
+            {{ chartLabels().legendAirspaceTruncated }}
+          </li>
           <li class="legend-item legend-item--ground">{{ chartLabels().groundClearance }}</li>
           <li class="legend-item legend-item--landables">{{ chartLabels().landableColors }}</li>
           <li class="legend-item legend-item--below-min">{{ chartLabels().landableConeBelowMin }}</li>

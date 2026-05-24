@@ -25,8 +25,11 @@ import {
   PRINT_MARGIN_MM,
   PRINT_HEADER_MM,
   PRINT_SCALE_DENOMINATOR,
+  PROFILE_COMBINED_GAP_MM,
+  PROFILE_COMBINED_LABEL_MM,
   scaleBarWidthMm,
-  type PrintPageOrientation
+  type PrintPageOrientation,
+  type ProfileChartPrintLayout
 } from '../utils/print-scale.util';
 
 const MM_TO_PT = 2.834645669;
@@ -70,7 +73,10 @@ export class SafetyPrintService {
         orientation:
           p.kind === 'map'
             ? p.pageSpec.orientation
-            : p.mapPageSpec?.orientation ?? 'portrait'
+            : p.kind === 'profilesCombined'
+              ? 'landscape'
+              : (p.mapPageSpec?.orientation ??
+                (!p.mapPageSpec ? 'landscape' : 'portrait'))
       }))
     };
   }
@@ -86,6 +92,8 @@ export class SafetyPrintService {
     enabledAirspaceKeysForLeg: (legIndex: number) => Set<string>;
     renderProfilePng: (
       legIndex: number,
+      layout: ProfileChartPrintLayout,
+      printContext?: { combinedProfileCount?: number },
       onSubProgress?: (sub: SafetyPrintProfileSubPhase) => void
     ) => Promise<string | null>;
     onProgress?: (p: SafetyPrintProgress) => void;
@@ -177,9 +185,72 @@ export class SafetyPrintService {
             font,
             fontBold
           });
+        } else if (jobPage.kind === 'profilesCombined') {
+          const combinedLabel = combinedProfilesPageLabel(jobPage.legIndices.length);
+          const profileRows: {
+            legIndex: number;
+            png: string;
+            branchLabel: string;
+          }[] = [];
+
+          for (const legIndex of jobPage.legIndices) {
+            const leg = params.legRenders.find(l => l.index === legIndex);
+            const branchLabel = leg
+              ? sanitizePdfText(`${leg.fromWaypoint.name} - ${leg.toWaypoint.name}`)
+              : `Branche ${legIndex + 1}`;
+            advance({
+              phase: 'profile',
+              pageIndex: pdfPageIndex,
+              pageTotal,
+              pageLabel: branchLabel,
+              profileSubPhase: 'prepare'
+            });
+            const png = await params.renderProfilePng(
+              legIndex,
+              'profilesCombined',
+              { combinedProfileCount: jobPage.legIndices.length },
+              sub => {
+                emit({
+                  phase: 'profile',
+                  pageIndex: pdfPageIndex,
+                  pageTotal,
+                  pageLabel: branchLabel,
+                  profileSubPhase: sub
+                });
+              }
+            );
+            if (png) {
+              profileRows.push({ legIndex, png, branchLabel });
+            }
+          }
+
+          advance({
+            phase: 'layout',
+            pageIndex: pdfPageIndex,
+            pageTotal,
+            pageLabel: combinedLabel
+          });
+          const page = pdf.addPage(pageSizePt('landscape'));
+          await this.drawProfilesCombinedPage(page, {
+            profiles: profileRows,
+            metadata: {
+              ...params.metadata,
+              pageLabel: combinedLabel,
+              branchLabel: undefined
+            },
+            options: params.options,
+            font,
+            fontBold
+          });
         } else {
           let mapPng: string | null = null;
-          let orientation: PrintPageOrientation = 'portrait';
+          const profileOnly = jobPage.mapPageSpec == null;
+          let orientation: PrintPageOrientation = profileOnly
+            ? 'landscape'
+            : 'portrait';
+          const profileLayout: ProfileChartPrintLayout = profileOnly
+            ? 'profileOnly'
+            : 'withMap';
           const leg = params.legRenders.find(l => l.index === jobPage.legIndex);
           const branchLabel = leg
             ? sanitizePdfText(`${leg.fromWaypoint.name} - ${leg.toWaypoint.name}`)
@@ -207,6 +278,8 @@ export class SafetyPrintService {
           });
           const profilePng = await params.renderProfilePng(
             jobPage.legIndex,
+            profileLayout,
+            undefined,
             sub => {
               emit({
                 phase: 'profile',
@@ -228,6 +301,7 @@ export class SafetyPrintService {
             mapPng,
             profilePng,
             orientation,
+            profileLayout,
             metadata: {
               ...params.metadata,
               branchLabel
@@ -303,6 +377,7 @@ export class SafetyPrintService {
       mapPng: string | null;
       profilePng: string | null;
       orientation: PrintPageOrientation;
+      profileLayout: ProfileChartPrintLayout;
       metadata: SafetyPrintMetadata;
       options: SafetyPrintOptions;
       pageSpec: { groundWidthM: number } | null;
@@ -330,10 +405,16 @@ export class SafetyPrintService {
 
     const hasMap = params.mapPng != null;
     const hasProfile = params.profilePng != null;
+    const profileOnly =
+      params.profileLayout === 'profileOnly' && hasProfile && !hasMap;
     const chartFrac =
       clampProfileChartHeightPercent(params.options.profileChartHeightPercent) / 100;
 
-    const chartH = hasProfile ? innerH * chartFrac : 0;
+    const chartH = hasProfile
+      ? profileOnly
+        ? innerH
+        : innerH * chartFrac
+      : 0;
     const mapH =
       hasMap && hasProfile
         ? Math.max(0, innerH - chartH - gap)
@@ -370,6 +451,63 @@ export class SafetyPrintService {
           groundWidthM: params.pageSpec.groundWidthM
         });
       }
+    }
+  }
+
+  /** Empile toutes les coupes sur une page paysage (une rangée par branche). */
+  private async drawProfilesCombinedPage(
+    page: PDFPage,
+    params: {
+      profiles: { legIndex: number; png: string; branchLabel: string }[];
+      metadata: SafetyPrintMetadata;
+      options: SafetyPrintOptions;
+      font: Awaited<ReturnType<PDFDocument['embedFont']>>;
+      fontBold: Awaited<ReturnType<PDFDocument['embedFont']>>;
+    }
+  ): Promise<void> {
+    const { width, height } = page.getSize();
+    const margin = PRINT_MARGIN_MM * MM_TO_PT;
+    const headerBottom = this.drawPageHeaderIfNeeded(page, {
+      width,
+      height,
+      margin,
+      metadata: params.metadata,
+      options: params.options,
+      font: params.font,
+      fontBold: params.fontBold
+    });
+
+    const gap = PROFILE_COMBINED_GAP_MM * MM_TO_PT;
+    const labelH = PROFILE_COMBINED_LABEL_MM * MM_TO_PT;
+    const contentTop = headerBottom - 4 * MM_TO_PT;
+    const bottom = margin;
+    const innerW = width - 2 * margin;
+    const innerH = Math.max(0, contentTop - bottom);
+    const n = params.profiles.length;
+    if (n === 0) return;
+
+    const slotH = Math.max(0, (innerH - n * labelH - Math.max(0, n - 1) * gap) / n);
+    let yTop = contentTop;
+
+    for (const row of params.profiles) {
+      yTop -= labelH;
+      page.drawText(row.branchLabel, {
+        x: margin,
+        y: yTop + 2,
+        size: 8,
+        font: params.fontBold,
+        color: rgb(0.15, 0.15, 0.15)
+      });
+      yTop -= slotH;
+      await this.drawPngInBox(page, row.png, {
+        x: margin,
+        y: yTop,
+        width: innerW,
+        height: slotH,
+        fit: 'contain',
+        background: '#ffffff'
+      });
+      yTop -= gap;
     }
   }
 
@@ -599,11 +737,20 @@ function pageLabel(
   return pageLabelForJob(page, legs, index);
 }
 
+function combinedProfilesPageLabel(legCount: number): string {
+  return sanitizePdfText(
+    legCount <= 1 ? 'Coupe profil' : `Coupes profil (${legCount} branches)`
+  );
+}
+
 function pageLabelForJob(
   page: PrintJobPage,
   legs: SafetyLegRender[],
   index: number
 ): string {
+  if (page.kind === 'profilesCombined') {
+    return combinedProfilesPageLabel(page.legIndices.length);
+  }
   if (page.kind === 'map') {
     return `Carte ${page.pageSpec.pageIndex + 1}/${page.pageSpec.totalPages}`;
   }

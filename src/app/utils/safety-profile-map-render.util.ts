@@ -6,10 +6,6 @@ import {
   buildSafetyMinAltitudeCrossingLabelSpecs,
   collectActiveConeCrossings
 } from './safety-cone-crossings.util';
-import {
-  buildSafetyMinAltitudeTerrainMarginMapLabelSpecs,
-  buildSafetyMinAltitudeTerrainMarginSections
-} from './safety-min-altitude-style.util';
 import { buildSafetyMinAltitudePath } from './safety-min-altitude-three-layer.util';
 import {
   buildSafetyConeMeshSpecs,
@@ -123,11 +119,6 @@ export function buildMap3dLabelSpecsForLeg(
     );
     specs.push(
       ...buildSafetyMinAltitudeCrossingLabelSpecs(hits, leg.envelope.samples)
-    );
-    specs.push(
-      ...buildSafetyMinAltitudeTerrainMarginMapLabelSpecs(
-        buildSafetyMinAltitudeTerrainMarginSections(leg.envelope.samples)
-      )
     );
   }
   return specs;

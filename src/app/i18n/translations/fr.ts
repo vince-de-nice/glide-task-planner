@@ -808,6 +808,13 @@ export const fr = {
     airspaceVolume3d: 'Volumes 3D (échelle)',
     airspaceVolume3dHint:
       'Prismes entre plancher et plafond ; AGL/GND avec relief DEM sous le polygone',
+    airspaceDisplayOff: 'Espaces aériens masqués',
+    airspaceDisplayOffHint: 'Cliquer : afficher en 2D (fond OpenAIP)',
+    airspaceDisplay2d: 'Espaces aériens en 2D',
+    airspaceDisplay2dHint: 'Fond cartographique OpenAIP. Cliquer : passer en 3D',
+    airspaceDisplay3d: 'Espaces aériens en 3D',
+    airspaceDisplay3dHint:
+      'Volumes entre plancher et plafond (échelle). Cliquer : masquer',
     lookPadAria:
       'Contrôle du regard : maintenir le clic gauche enfoncé et glisser',
     lookPadHint:
@@ -847,7 +854,20 @@ export const fr = {
       arrivalMargin: 'Altitude tour de piste',
       arrivalMarginHint: 'Hauteur sol requise au-dessus du terrain posable.',
       groundMargin: 'Marge sol / relief',
-      groundMarginHint: 'Marge minimale au-dessus du relief (cols, crêtes).'
+      groundMarginHint: 'Marge minimale au-dessus du relief (cols, crêtes).',
+      airspaceProfileMargin: 'Marge au-dessus du mini (coupe)',
+      airspaceProfileMarginHint:
+        'Limite le plafond affiché des espaces aériens : altitude mini locale + cette marge. Les plafonds réglementaires plus hauts ne sont pas dessinés en entier (trait pointillé ↥).',
+      sectionProfileChart: 'Coupe profil et espaces aériens',
+      profileChartDocIntro:
+        'La coupe verticale montre le relief, l’altitude minimale de sécurité (cônes) et les espaces aériens qui coupent la branche.',
+      profileChartDocTerrain: 'Relief (DEM) et marge sol utilisés pour le calcul des mini.',
+      profileChartDocSafety:
+        'Altitude mini combinée (tous terrains posables actifs) — référence du vol de circuit.',
+      profileChartDocAirspace:
+        'Zones activées dans la liste « espaces aériens », intersectées horizontalement avec la branche.',
+      profileChartDocAirspaceCap:
+        'Les plafonds très élevés (TMA, CTR haute, etc.) sont tronqués au-dessus de l’altitude mini + marge : seule la tranche utile au vol de planeur est dessinée. Le plafond réglementaire reste visible au survol (↥).'
     },
     chart: {
       terrain: 'Relief (DEM)',
@@ -880,7 +900,11 @@ export const fr = {
       tooltipTerrainLowFidelity:
         'Altitude terrain : DEM basse fidélité (tuile de zoom inférieur)',
       legendAirspaceZones:
-        'Espace aérien (intersection zone × branche, plancher/plafond MSL)'
+        'Espace aérien (intersection branche, tranche affichée MSL)',
+      legendAirspaceTruncated:
+        'Plafond tronqué (↥) : plafond réglementaire au-dessus de l’enveloppe de vol',
+      airspaceDisplayedRange: 'Tranche affichée',
+      airspaceRegulatoryCeiling: 'Plafond réglementaire'
     },
     demProgress: {
       title: 'Chargement du relief (DEM)',
@@ -918,11 +942,14 @@ export const fr = {
       profilePlacement: 'Disposition de la coupe',
       profilePlacementWithMap: 'Sur la même page que la carte',
       profilePlacementSeparate: 'Page dédiée (après les cartes)',
+      profilePlacementAllOnOne: 'Toutes les coupes sur une page',
       profilePlacementHint:
         'Si la carte tient sur plusieurs feuilles, la coupe est répétée sous chaque tuile.',
+      profilePlacementAllOnOneHint:
+        'Une seule page paysage en fin de document : toutes les branches empilées (cartes seules avant).',
       profileChartHeight: 'Hauteur de la coupe (% page)',
       profileChartHeightHint:
-        'Part de la zone utile sous le bandeau (défaut 30 %, max 60 %).',
+        'Avec la carte sur la même page uniquement (défaut 30 %, max 60 %). Une page coupe seule utilise le format paysage et toute la hauteur utile.',
       metadata: 'Bandeau (titre, échelle, paramètres)',
       download: 'Télécharger PDF',
       print: 'Imprimer',

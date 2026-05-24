@@ -54,6 +54,9 @@ export function ceilTo500M(altitudeM: number): number {
 /**
  * Échelle verticale par défaut : plus haute altitude mini + 500 m,
  * arrondie au multiple de 500 m supérieur. Ex. max mini 2 140 m → 2 700 m.
+ *
+ * Ne tient pas compte des plafonds réglementaires bruts des espaces aériens
+ * (voir coupe : plafonds tronqués à l'enveloppe de vol).
  */
 export function defaultLegYMaxM(
   samples: Pick<EnvelopeSample, 'safetyM'>[]
@@ -61,6 +64,20 @@ export function defaultLegYMaxM(
   const maxMini = maxSafetyMinAltitudeM(samples);
   if (maxMini <= 0) return 1000;
   return ceilTo500M(maxMini + 500);
+}
+
+/**
+ * Borne basse de l'échelle Y pour la coupe : resserrée sur le contenu utile
+ * (relief, mini, espaces affichés) sans forcer 0 m quand le vol est localisé.
+ */
+export function computeProfileYMinM(contentMinM: number, yMaxM: number): number {
+  if (!Number.isFinite(contentMinM) || !Number.isFinite(yMaxM)) return 0;
+  const pad = Math.max(80, Math.min(400, (yMaxM - contentMinM) * 0.08));
+  let yMin = Math.max(0, Math.floor((contentMinM - pad) / 100) * 100);
+  if (yMin >= yMaxM) {
+    yMin = Math.max(0, yMaxM - 500);
+  }
+  return yMin;
 }
 
 /** Vert : altitude min suivant le cône (relief non contraignant). */

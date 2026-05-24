@@ -26,7 +26,16 @@ export interface PrintJobProfilePage {
   mapPageSpec: PrintPageSpec | null;
 }
 
-export type PrintJobPage = PrintJobMapPage | PrintJobProfilePage;
+/** Toutes les coupes profil sur une seule page paysage. */
+export interface PrintJobProfilesCombinedPage {
+  kind: 'profilesCombined';
+  legIndices: number[];
+}
+
+export type PrintJobPage =
+  | PrintJobMapPage
+  | PrintJobProfilePage
+  | PrintJobProfilesCombinedPage;
 
 /** Nombre d'étapes de rendu (carte, coupe, mise en page, sauvegarde). */
 export function countPrintWorkSteps(pages: PrintJobPage[]): number {
@@ -34,7 +43,9 @@ export function countPrintWorkSteps(pages: PrintJobPage[]): number {
   for (const page of pages) {
     if (page.kind === 'map') {
       steps += 2;
-    } else {
+    } else if (page.kind === 'profilesCombined') {
+      steps += page.legIndices.length * 2 + 1;
+    } else if (page.kind === 'profile') {
       steps += 2;
       if (page.mapPageSpec) steps += 1;
     }
@@ -67,6 +78,10 @@ export function buildPrintJobPages(params: {
   }
 
   const pages: PrintJobPage[] = [];
+  const allProfilesOnOnePage =
+    params.includeProfileChart &&
+    params.profileChartPlacement === 'allOnOnePage';
+
   for (const leg of params.legRenders) {
     const bounds = boundsFromLegRender(
       leg,
@@ -105,7 +120,7 @@ export function buildPrintJobPages(params: {
           focusLegIndex: leg.index
         });
       }
-      if (params.includeProfileChart) {
+      if (params.includeProfileChart && !allProfilesOnOnePage) {
         pages.push({
           kind: 'profile',
           legIndex: leg.index,
@@ -114,5 +129,13 @@ export function buildPrintJobPages(params: {
       }
     }
   }
+
+  if (allProfilesOnOnePage && params.legRenders.length > 0) {
+    pages.push({
+      kind: 'profilesCombined',
+      legIndices: params.legRenders.map(l => l.index)
+    });
+  }
+
   return pages;
 }

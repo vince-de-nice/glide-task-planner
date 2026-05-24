@@ -4,12 +4,14 @@
     [glideRatio]="glideRatio()"
     [arrivalMarginM]="arrivalMarginM()"
     [groundMarginM]="groundMarginM()"
+    [airspaceProfileMarginM]="airspaceProfileMarginM()"
     [chartLabels]="chartLabels()"
     [noLandables]="noLandables()"
     (closePanel)="closeParamsPanel()"
     (glideRatioChange)="onGlideRatioChange($event)"
     (arrivalMarginChange)="onArrivalMarginChange($event)"
     (groundMarginChange)="onGroundMarginChange($event)"
+    (airspaceProfileMarginChange)="onAirspaceProfileMarginChange($event)"
     (resetDefaults)="onResetDefaults()"
   />
 
@@ -179,16 +181,23 @@
             @if (activeLegAirspaceToggles().length > 0) {
               <button
                 type="button"
-                class="safety-profile__map-fab"
-                [class.safety-profile__map-fab--on]="airspaceVolume3d()"
+                class="safety-profile__map-fab safety-profile__map-fab--airspace"
+                [class.safety-profile__map-fab--on]="airspaceDisplayMode() !== 'off'"
+                [class.safety-profile__map-fab--airspace-2d]="airspaceDisplayMode() === '2d'"
+                [class.safety-profile__map-fab--airspace-3d]="airspaceDisplayMode() === '3d'"
                 [class.safety-profile__map-fab--loading]="airspaceLoading()"
                 [disabled]="airspaceLoading()"
-                [attr.aria-label]="'safetyProfile.airspaceVolume3d' | translate"
-                [attr.aria-pressed]="airspaceVolume3d()"
-                [title]="'safetyProfile.airspaceVolume3dHint' | translate"
-                (click)="onAirspaceVolume3dToggle(!airspaceVolume3d())"
+                [attr.aria-label]="airspaceFabAriaLabel()"
+                [attr.aria-pressed]="airspaceDisplayMode() !== 'off'"
+                [title]="airspaceFabHint()"
+                (click)="cycleAirspaceMapDisplay()"
               >
                 <i class="pi pi-vav-airspace-volume" aria-hidden="true"></i>
+                @if (airspaceDisplayMode() === '2d') {
+                  <span class="safety-profile__map-fab-badge" aria-hidden="true">2D</span>
+                } @else if (airspaceDisplayMode() === '3d') {
+                  <span class="safety-profile__map-fab-badge" aria-hidden="true">3D</span>
+                }
               </button>
             }
             <button

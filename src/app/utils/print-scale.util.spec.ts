@@ -70,16 +70,47 @@ describe('print-scale.util', () => {
     expect(clampProfileChartHeightPercent(80)).toBe(60);
   });
 
-  it('derives export pixels from height percent', () => {
+  it('derives export pixels from height percent when combined with map', () => {
     const full = profileChartExportPixelSize({
+      layout: 'withMap',
       includeHeader: true,
       heightPercent: 60
     });
     const small = profileChartExportPixelSize({
+      layout: 'withMap',
       includeHeader: true,
       heightPercent: 30
     });
     expect(small.height).toBeLessThan(full.height);
     expect(small.width).toBe(full.width);
+  });
+
+  it('uses full printable area in landscape for profile-only pages', () => {
+    const profileOnly = profileChartExportPixelSize({
+      layout: 'profileOnly',
+      includeHeader: true
+    });
+    const withMap = profileChartExportPixelSize({
+      layout: 'withMap',
+      includeHeader: true,
+      heightPercent: 30
+    });
+    expect(profileOnly.width).toBeGreaterThan(withMap.width);
+    expect(profileOnly.height).toBeGreaterThan(withMap.height);
+  });
+
+  it('splits height between profiles on a combined page', () => {
+    const one = profileChartExportPixelSize({
+      layout: 'profilesCombined',
+      includeHeader: true,
+      combinedProfileCount: 1
+    });
+    const three = profileChartExportPixelSize({
+      layout: 'profilesCombined',
+      includeHeader: true,
+      combinedProfileCount: 3
+    });
+    expect(three.height).toBeLessThan(one.height);
+    expect(three.width).toBe(one.width);
   });
 });

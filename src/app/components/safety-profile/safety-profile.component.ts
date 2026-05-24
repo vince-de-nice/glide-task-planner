@@ -50,9 +50,9 @@ import {
   mergeDisabledAirspaceKeys
 } from '../../utils/leg-airspace-zone-filter.util';
 import {
-  computeLegAirspaceProfileBands,
+  computeLegAirspaceProfileBandsForChart,
   type LegAirspaceProfileBand
-} from '../../utils/leg-airspace-profile-cross-section.util';
+} from '../../utils/leg-airspace-profile-display.util';
 import { configureMapFreeCamera } from '../../utils/map-free-camera.util';
 import { isMapStyleActive } from '../../utils/map-runtime.util';
 import {
@@ -110,10 +110,6 @@ import {
   collectActiveConeCrossings
 } from '../../utils/safety-cone-crossings.util';
 import {
-  buildSafetyMinAltitudeTerrainMarginMapLabelSpecs,
-  buildSafetyMinAltitudeTerrainMarginSections
-} from '../../utils/safety-min-altitude-style.util';
-import {
   projectMap3dLabelsToScreen,
   type Map3dLabelSpec
 } from '../../utils/map-3d-labels.util';
@@ -127,6 +123,12 @@ import {
 } from '../../utils/safety-profile-map-layers.util';
 import { buildBranchLinesGeoJson } from '../../utils/safety-profile-map-render.util';
 import { formatAirspaceVerticalRange } from '../../utils/airspace-altitude.util';
+import {
+  airspaceModeFromPrefs,
+  applyAirspaceModeToPrefs,
+  cycleAirspaceDisplayMode,
+  type AirspaceMapDisplayMode
+} from '../../utils/airspace-display-mode.util';
 import { ensureMapterhornGrayProtocolRegistered } from '../../utils/map-basemap.util';
 import {
   SafetyProfileTerrainFacade,
@@ -204,15 +206,19 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   glideRatio = signal<number>(DEFAULT_SAFETY_PARAMS.glideRatio);
   arrivalMarginM = signal<number>(DEFAULT_SAFETY_PARAMS.arrivalMarginM);
   groundMarginM = signal<number>(DEFAULT_SAFETY_PARAMS.groundMarginM);
+  airspaceProfileMarginM = signal<number>(
+    DEFAULT_SAFETY_PARAMS.airspaceProfileMarginM
+  );
 
   mapReady = signal(false);
   readonly basemapId = signal<BasemapId>(DEFAULT_BASEMAP_ID);
   basemapPanelExpanded = signal(false);
   /** Volumes 3D des cônes de demi-finesse sur la carte (branche active). */
-  coneVolumes3dVisible = signal(true);
+  coneVolumes3dVisible = signal(false);
   /** Anneaux de distance (cercles) sur la surface des cônes 3D. */
   coneDistanceRingsVisible = signal(true);
-  airspaceVolume3d = signal(true);
+  /** off | 2d (OpenAIP / fond) | 3d (volumes POAFF). */
+  airspaceDisplayMode = signal<AirspaceMapDisplayMode>('3d');
   airspaceLoading = signal(false);
   lookPadActive = signal(false);
   altPadActive = signal(false);
@@ -319,7 +325,8 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   readonly currentParams = computed<SafetyParams>(() => ({
     glideRatio: this.glideRatio(),
     arrivalMarginM: this.arrivalMarginM(),
-    groundMarginM: this.groundMarginM()
+    groundMarginM: this.groundMarginM(),
+    airspaceProfileMarginM: this.airspaceProfileMarginM()
   }));
 
   readonly legPairs = computed<{
@@ -374,6 +381,22 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     return '';
   });
 
+  readonly airspaceFabAriaLabel = computed(() => {
+    this.i18n.locale();
+    const mode = this.airspaceDisplayMode();
+    if (mode === 'off') return this.i18n.t('safetyProfile.airspaceDisplayOff');
+    if (mode === '2d') return this.i18n.t('safetyProfile.airspaceDisplay2d');
+    return this.i18n.t('safetyProfile.airspaceDisplay3d');
+  });
+
+  readonly airspaceFabHint = computed(() => {
+    this.i18n.locale();
+    const mode = this.airspaceDisplayMode();
+    if (mode === 'off') return this.i18n.t('safetyProfile.airspaceDisplayOffHint');
+    if (mode === '2d') return this.i18n.t('safetyProfile.airspaceDisplay2dHint');
+    return this.i18n.t('safetyProfile.airspaceDisplay3dHint');
+  });
+
   readonly chartLabels = computed<LegChartLabels>(() => {
     this.i18n.locale();
     return {
@@ -414,7 +437,16 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       tooltipTerrainLowFidelity: this.i18n.t(
         'safetyProfile.chart.tooltipTerrainLowFidelity'
       ),
-      legendAirspaceZones: this.i18n.t('safetyProfile.chart.legendAirspaceZones')
+      legendAirspaceZones: this.i18n.t('safetyProfile.chart.legendAirspaceZones'),
+      legendAirspaceTruncated: this.i18n.t(
+        'safetyProfile.chart.legendAirspaceTruncated'
+      ),
+      airspaceDisplayedRange: this.i18n.t(
+        'safetyProfile.chart.airspaceDisplayedRange'
+      ),
+      airspaceRegulatoryCeiling: this.i18n.t(
+        'safetyProfile.chart.airspaceRegulatoryCeiling'
+      )
     };
   });
 
@@ -464,6 +496,9 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       this.glideRatio.set(persisted.glideRatio);
       this.arrivalMarginM.set(persisted.arrivalMarginM);
       this.groundMarginM.set(persisted.groundMarginM);
+      this.airspaceProfileMarginM.set(
+        persisted.airspaceProfileMarginM ?? DEFAULT_SAFETY_PARAMS.airspaceProfileMarginM
+      );
     });
 
     // Recalcul des coupes (sérialisé — évite les refresh parallèles qui figent le navigateur).
@@ -498,6 +533,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
 
     effect(() => {
       this.airspaceDataSource.revision();
+      this.airspaceDisplayMode();
       if (this.mapReady()) {
         this.requestAirspaceDisplay(this.selectedLegIndex(), { forceCache: true });
       }
@@ -514,7 +550,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     }
 
     const airPrefs = this.airspaceMapDisplay.readPrefs(this.airspaceScreenId);
-    this.airspaceVolume3d.set(airPrefs.volume3d);
+    this.airspaceDisplayMode.set(airspaceModeFromPrefs(airPrefs));
     this.persistAirspacePrefs();
 
     const storedShare = localStorage.getItem(PROFILE_SHARE_STORAGE_KEY);
@@ -607,9 +643,13 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     this.updateSafetyCones3d();
   }
 
-  onAirspaceVolume3dToggle(on: boolean): void {
-    this.airspaceVolume3d.set(on);
+  cycleAirspaceMapDisplay(): void {
+    this.airspaceDisplayMode.update(m => cycleAirspaceDisplayMode(m));
     this.persistAirspacePrefs();
+    const map = this.map;
+    if (map) {
+      this.airspaceMapDisplay.bumpInvalidateEpochForMap(map);
+    }
     this.requestAirspaceDisplay(this.selectedLegIndex());
   }
 
@@ -625,11 +665,10 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
 
   private persistAirspacePrefs(): void {
     const current = this.airspaceMapDisplay.readPrefs(this.airspaceScreenId);
-    this.airspaceMapDisplay.writePrefs(this.airspaceScreenId, {
-      ...current,
-      visible: true,
-      volume3d: this.airspaceVolume3d()
-    });
+    this.airspaceMapDisplay.writePrefs(
+      this.airspaceScreenId,
+      applyAirspaceModeToPrefs(current, this.airspaceDisplayMode())
+    );
   }
 
   /** Point d’entrée unique : cache POAFF → catalogues → calques pour une branche. */
@@ -652,6 +691,11 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (this.airspaceDisplayMode() === 'off') {
+      this.airspaceMapDisplay.clearLayersFromMap(map);
+      return;
+    }
+
     this.airspaceLoading.set(true);
     try {
       const cacheOutcome = await this.airspaceMapDisplay.ensureEnrichedCache(
@@ -669,11 +713,13 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       if (!this.isMapSessionActive(session, map)) return;
 
       const keys = this.resolveEnabledAirspaceKeysForLeg(legIndex);
+      const volume3d = this.airspaceDisplayMode() === '3d';
       const outcome = await this.airspaceMapDisplay.applyLegZonesToMap(
         map,
         this.airspaceScreenId,
         PROFILE_MAP_LAYER.POINTS,
-        keys
+        keys,
+        { volume3d }
       );
       if (!this.isMapSessionActive(session, map)) return;
       if (!outcome.ok) {
@@ -1118,6 +1164,13 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
     this.lastEnvelopeInputKey = '';
   }
 
+  onAirspaceProfileMarginChange(value: number | null | undefined): void {
+    if (value == null || !Number.isFinite(value)) return;
+    this.airspaceProfileMarginM.set(value);
+    this.taskState.setSafetyParams({ airspaceProfileMarginM: value });
+    // Recalcul des bandes espaces aériens uniquement (pas des enveloppes DEM).
+  }
+
   onResetDefaults(): void {
     this.taskState.resetSafetyParams();
     this.lastEnvelopeInputKey = '';
@@ -1195,7 +1248,7 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
         ? samples[samples.length - 1].distanceKm
         : leg.distanceKm;
 
-    return computeLegAirspaceProfileBands(
+    return computeLegAirspaceProfileBandsForChart(
       {
         fromLng: leg.fromWaypoint.longitude,
         fromLat: leg.fromWaypoint.latitude,
@@ -1206,7 +1259,9 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
         profileEndKm: profileEndKm
       },
       enriched,
-      keys
+      keys,
+      leg.envelope.samples,
+      this.currentParams().airspaceProfileMarginM
     );
   }
 
@@ -1837,15 +1892,8 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
       hits,
       leg!.envelope.samples
     );
-    const marginSections = buildSafetyMinAltitudeTerrainMarginSections(
-      leg!.envelope.samples
-    );
-    const marginSpecs = buildSafetyMinAltitudeTerrainMarginMapLabelSpecs(
-      marginSections
-    );
-    const mapLabelSpecs = [...crossingSpecs, ...marginSpecs];
-    layer.setCrossingLabels(mapLabelSpecs);
-    this.refreshMap3dLabelSpecs(mapLabelSpecs, undefined);
+    layer.setCrossingLabels(crossingSpecs);
+    this.refreshMap3dLabelSpecs(crossingSpecs, undefined);
   }
 
   private refreshMap3dLabelSpecs(

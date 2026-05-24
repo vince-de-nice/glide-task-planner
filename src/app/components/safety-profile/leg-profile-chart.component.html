@@ -36,7 +36,7 @@
       />
       <text
         class="leg-chart__axis-label"
-        [attr.x]="g.padding.left - 8"
+        [attr.x]="g.padding.left - 10"
         [attr.y]="tick.position + 4"
         text-anchor="end"
       >{{ tick.label }}</text>
@@ -111,8 +111,25 @@
         [attr.height]="band.yBottom - band.yTop"
         [attr.fill]="band.fill"
       >
-        <title>{{ band.name }}</title>
+        <title>{{ band.tooltipTitle }}</title>
       </rect>
+      @if (band.ceilingTruncated && band.yBottom - band.yTop > 6) {
+        <line
+          class="leg-chart__airspace-cap"
+          [attr.x1]="band.x"
+          [attr.x2]="band.x + band.width"
+          [attr.y1]="band.yTop"
+          [attr.y2]="band.yTop"
+        />
+        @if (band.width > 36) {
+          <text
+            class="leg-chart__airspace-cap-label"
+            [attr.x]="band.truncationMarkX"
+            [attr.y]="band.truncationMarkY - 4"
+            text-anchor="middle"
+          >↥ {{ formatAltitude(band.regulatoryCeilingM) }}</text>
+        }
+      }
     }
 
     @for (mark of lowMarks; track mark.key) {
@@ -227,17 +244,6 @@
       />
     }
 
-    @for (margin of safetyTerrainMarginLabels(); track margin.key) {
-      <text
-        class="leg-chart__safety-margin-label"
-        [attr.x]="margin.x"
-        [attr.y]="margin.y"
-        [attr.fill]="safetyTerrainMarginLabelColor"
-        text-anchor="middle"
-        dominant-baseline="auto"
-      >{{ margin.text }}</text>
-    }
-
     @for (hit of intersections; track hit.key) {
       <circle
         class="leg-chart__intersection-dot"
@@ -321,11 +327,12 @@
       text-anchor="middle"
     >{{ lbl.distance }}</text>
     <text
-      class="leg-chart__axis-title"
-      [attr.x]="-(g.padding.top + (g.height - g.padding.top - g.padding.bottom) / 2)"
-      [attr.y]="14"
+      class="leg-chart__axis-title leg-chart__axis-title--altitude"
+      [attr.x]="g.altitudeTitleX"
+      [attr.y]="g.altitudeTitleY"
+      [attr.transform]="'rotate(-90 ' + g.altitudeTitleX + ' ' + g.altitudeTitleY + ')'"
       text-anchor="middle"
-      transform="rotate(-90)"
+      dominant-baseline="middle"
     >{{ lbl.altitude }}</text>
 
     @if (hover) {

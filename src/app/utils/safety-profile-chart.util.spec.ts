@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ceilTo500M,
+  computeProfileYMinM,
   defaultLegYMaxM,
   maxSafetyMinAltitudeM
 } from './safety-profile-chart.util';
@@ -54,5 +55,16 @@ describe('defaultLegYMaxM', () => {
   it('returns 1000 m when no safety min altitude is available', () => {
     expect(defaultLegYMaxM([{ safetyM: null }])).toBe(1000);
     expect(defaultLegYMaxM([])).toBe(1000);
+  });
+});
+
+describe('computeProfileYMinM', () => {
+  it('stays below yMax with padding around content', () => {
+    expect(computeProfileYMinM(280, 1400)).toBe(100);
+    expect(computeProfileYMinM(280, 1400)).toBeLessThan(1400);
+  });
+
+  it('does not force zero when content is well above sea level', () => {
+    expect(computeProfileYMinM(1800, 3500)).toBeGreaterThan(0);
   });
 });

@@ -257,6 +257,18 @@
     }
   }
 
+  &--airspace-cap {
+    color: #6d28d9;
+
+    &::before {
+      height: 0;
+      border-top: 2px dashed currentColor;
+      background: none;
+      width: 1.1rem;
+      margin-top: 0.55em;
+    }
+  }
+
   &--muted {
     opacity: 0.45;
 
@@ -264,4 +276,35 @@
       opacity: 0.5;
     }
   }
+}
+
+.safety-profile__params-section--doc {
+  border-top: 1px solid var(--gc-border);
+  padding-top: 0.75rem;
+}
+
+.safety-profile__profile-doc {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--gc-text-secondary);
+
+  p {
+    margin: 0 0 0.5rem;
+  }
+
+  ul {
+    margin: 0 0 0.65rem;
+    padding-left: 1.15rem;
+  }
+
+  li {
+    margin-bottom: 0.35rem;
+  }
+}
+
+.safety-profile__profile-doc-note {
+  font-size: 0.8rem;
+  color: var(--gc-text-muted);
+  font-style: italic;
 }

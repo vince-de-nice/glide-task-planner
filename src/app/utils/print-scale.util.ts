@@ -69,22 +69,61 @@ export function clampProfileChartHeightPercent(value: unknown): number {
   return Math.min(60, Math.max(10, Math.round(n)));
 }
 
-/** Taille d’export PNG de la coupe alignée sur la mise en page PDF. */
+/** Mise en page de la coupe dans le PDF. */
+export type ProfileChartPrintLayout = 'withMap' | 'profileOnly' | 'profilesCombined';
+
+/** Hauteur réservée au libellé de branche sur une page multi-coupes (mm). */
+export const PROFILE_COMBINED_LABEL_MM = 5;
+/** Espace entre deux coupes sur une page multi-coupes (mm). */
+export const PROFILE_COMBINED_GAP_MM = 3;
+
+/**
+ * Taille d’export PNG de la coupe alignée sur la mise en page PDF.
+ *
+ * - `withMap` : bandeau en bas de la page (fraction `heightPercent` de la hauteur utile).
+ * - `profileOnly` : page dédiée en paysage, coupe sur toute la zone sous le bandeau.
+ * - `profilesCombined` : une rangée sur une page multi-coupes (`combinedProfileCount` ≥ 2).
+ */
 export function profileChartExportPixelSize(params: {
+  layout: ProfileChartPrintLayout;
   orientation?: PrintPageOrientation;
   includeHeader: boolean;
-  heightPercent: number;
+  /** Utilisé uniquement pour `layout: 'withMap'`. */
+  heightPercent?: number;
+  /** Nombre de coupes sur la même page (layout `profilesCombined`). */
+  combinedProfileCount?: number;
   dpi?: number;
 }): { width: number; height: number } {
   const dpi = params.dpi ?? PRINT_DPI;
-  const frac = clampProfileChartHeightPercent(params.heightPercent) / 100;
-  const { widthMm, heightMm } = printableMapSizeMm(
-    params.orientation ?? 'portrait',
-    params.includeHeader
-  );
+  const useLandscape =
+    params.layout === 'profileOnly' || params.layout === 'profilesCombined';
+  const orientation = useLandscape ? 'landscape' : (params.orientation ?? 'portrait');
+  const { widthMm, heightMm } = printableMapSizeMm(orientation, params.includeHeader);
   const width = Math.round((widthMm / 25.4) * dpi);
-  const height = Math.max(240, Math.round((heightMm * frac / 25.4) * dpi));
-  return { width, height };
+
+  if (params.layout === 'profileOnly') {
+    return {
+      width,
+      height: Math.max(240, Math.round((heightMm / 25.4) * dpi))
+    };
+  }
+
+  if (params.layout === 'profilesCombined') {
+    const n = Math.max(1, Math.round(params.combinedProfileCount ?? 1));
+    const labelsMm = n * PROFILE_COMBINED_LABEL_MM;
+    const gapsMm = Math.max(0, n - 1) * PROFILE_COMBINED_GAP_MM;
+    const slotMm = Math.max(40, (heightMm - labelsMm - gapsMm) / n);
+    return {
+      width,
+      height: Math.max(120, Math.round((slotMm / 25.4) * dpi))
+    };
+  }
+
+  const frac = clampProfileChartHeightPercent(params.heightPercent) / 100;
+  return {
+    width,
+    height: Math.max(240, Math.round((heightMm * frac / 25.4) * dpi))
+  };
 }
 
 /** Dimensions utiles de la zone carte sur une page (mm). */

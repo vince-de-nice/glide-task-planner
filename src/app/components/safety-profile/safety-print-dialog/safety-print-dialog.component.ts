@@ -41,7 +41,8 @@ import {
 import { defaultLegYMaxM } from '../../../utils/safety-profile-chart.util';
 import {
   clampProfileChartHeightPercent,
-  profileChartExportPixelSize
+  profileChartExportPixelSize,
+  type ProfileChartPrintLayout
 } from '../../../utils/print-scale.util';
 import type { LegAirspaceProfileBand } from '../../../utils/leg-airspace-profile-cross-section.util';
 
@@ -169,6 +170,10 @@ export class SafetyPrintDialogComponent {
       {
         label: this.i18n.t('safetyProfile.print.profilePlacementSeparate'),
         value: 'separatePage' as const
+      },
+      {
+        label: this.i18n.t('safetyProfile.print.profilePlacementAllOnOne'),
+        value: 'allOnOnePage' as const
       }
     ];
   });
@@ -271,8 +276,8 @@ export class SafetyPrintDialogComponent {
         },
         getWaypoint: this.getWaypoint(),
         enabledAirspaceKeysForLeg: this.enabledAirspaceKeysForLeg(),
-        renderProfilePng: (legIndex, onSubProgress) =>
-          this.renderProfilePngForLeg(legIndex, onSubProgress),
+        renderProfilePng: (legIndex, layout, printContext, onSubProgress) =>
+          this.renderProfilePngForLeg(legIndex, layout, printContext, onSubProgress),
         onProgress: p => this.progress.set(p)
       });
       const blob = new Blob([result.bytes.slice()], { type: 'application/pdf' });
@@ -314,6 +319,8 @@ export class SafetyPrintDialogComponent {
 
   private async renderProfilePngForLeg(
     legIndex: number,
+    layout: ProfileChartPrintLayout,
+    printContext?: { combinedProfileCount?: number },
     onSubProgress?: (sub: 'prepare' | 'rasterize') => void
   ): Promise<string | null> {
     const leg = this.legRenders().find(l => l.index === legIndex);
@@ -326,6 +333,7 @@ export class SafetyPrintDialogComponent {
     if (!chart) return null;
     const printOpts = this.options();
     const { width, height } = profileChartExportPixelSize({
+      layout,
       includeHeader: printOpts.includeMetadata,
       heightPercent: printOpts.profileChartHeightPercent
     });
@@ -373,7 +381,9 @@ export class SafetyPrintDialogComponent {
         profileChartPlacement:
           parsed.profileChartPlacement === 'separatePage'
             ? 'separatePage'
-            : 'withMap'
+            : parsed.profileChartPlacement === 'allOnOnePage'
+              ? 'allOnOnePage'
+              : 'withMap'
       };
     } catch {
       return { ...DEFAULT_SAFETY_PRINT_OPTIONS };

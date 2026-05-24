@@ -60,6 +60,11 @@
   fill: var(--gc-text-secondary);
   font-family: var(--gc-font, sans-serif);
   font-weight: 600;
+
+  &--altitude {
+    /* À gauche des graduations ; évite le chevauchement à l’export impression. */
+    pointer-events: none;
+  }
 }
 
 .leg-chart__airspace-band {
@@ -72,6 +77,23 @@
     stroke-width: 1.5;
     filter: brightness(1.08);
   }
+}
+
+/** Limite d'affichage lorsque le plafond réglementaire dépasse l'enveloppe de vol. */
+.leg-chart__airspace-cap {
+  stroke: color-mix(in srgb, #7c3aed 70%, #1e1b4b);
+  stroke-width: 1.25;
+  stroke-dasharray: 5 3;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.leg-chart__airspace-cap-label {
+  font-size: 9px;
+  fill: color-mix(in srgb, #5b21b6 85%, #1e1b4b);
+  font-family: var(--gc-font, sans-serif);
+  font-weight: 600;
+  pointer-events: none;
 }
 
 .leg-chart__terrain-area {
@@ -240,16 +262,6 @@
   &--terrain {
     stroke: #dc2626;
   }
-}
-
-.leg-chart__safety-margin-label {
-  font-size: 9px;
-  font-weight: 700;
-  font-family: var(--gc-font, sans-serif);
-  pointer-events: none;
-  paint-order: stroke fill;
-  stroke: var(--gc-surface);
-  stroke-width: 2.5px;
 }
 
 .leg-chart__intersection-dot {

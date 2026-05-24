@@ -23,6 +23,7 @@ export class SafetyProfileParamsDrawerComponent {
   readonly glideRatio = input.required<number>();
   readonly arrivalMarginM = input.required<number>();
   readonly groundMarginM = input.required<number>();
+  readonly airspaceProfileMarginM = input.required<number>();
   readonly chartLabels = input.required<LegChartLabels>();
   readonly noLandables = input(false);
 
@@ -32,5 +33,6 @@ export class SafetyProfileParamsDrawerComponent {
   readonly glideRatioChange = output<number>();
   readonly arrivalMarginChange = output<number>();
   readonly groundMarginChange = output<number>();
+  readonly airspaceProfileMarginChange = output<number>();
   readonly resetDefaults = output<void>();
 }

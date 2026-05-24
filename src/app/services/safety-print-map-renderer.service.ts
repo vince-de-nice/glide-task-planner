@@ -235,7 +235,8 @@ export class SafetyPrintMapRendererService {
           map,
           'safety-profile',
           PROFILE_MAP_LAYER.POINTS,
-          keys
+          keys,
+          { volume3d: true }
         );
       }
     } else if (options.airspace3d && focusLegIndex == null) {
@@ -249,7 +250,8 @@ export class SafetyPrintMapRendererService {
           map,
           'safety-profile',
           PROFILE_MAP_LAYER.POINTS,
-          allKeys
+          allKeys,
+          { volume3d: true }
         );
       }
     }

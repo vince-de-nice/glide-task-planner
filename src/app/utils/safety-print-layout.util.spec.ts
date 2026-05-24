@@ -127,4 +127,31 @@ describe('buildPrintJobPages profileChartPlacement', () => {
     expect(profilePages).toHaveLength(1);
     expect(profilePages[0].mapPageSpec).toBeNull();
   });
+
+  it('adds one combined profile page when placement is allOnOnePage', () => {
+    const leg2 = { index: 1 } as SafetyLegRender;
+    const pages = buildPrintJobPages({
+      layoutMode: 'perBranch',
+      legRenders: [leg, leg2],
+      legPairs: [
+        legPairs[0],
+        {
+          from: { id: 'b', name: 'B', latitude: 44.5, longitude: 5.5 } as never,
+          to: { id: 'c', name: 'C', latitude: 45, longitude: 6 } as never
+        }
+      ],
+      includeHeader: true,
+      includeProfileChart: true,
+      profileChartPlacement: 'allOnOnePage',
+      cones3d: false,
+      getWaypoint: () => undefined
+    });
+    const combined = pages.filter(p => p.kind === 'profilesCombined');
+    const profilePages = pages.filter(p => p.kind === 'profile');
+    expect(profilePages).toHaveLength(0);
+    expect(combined).toHaveLength(1);
+    expect(combined[0].kind === 'profilesCombined' && combined[0].legIndices).toEqual([
+      0, 1
+    ]);
+  });
 });

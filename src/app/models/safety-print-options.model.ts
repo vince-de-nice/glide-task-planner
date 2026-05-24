@@ -2,8 +2,13 @@ import type { BasemapId } from '../components/map-view/map-style.constants';
 
 export type SafetyPrintLayoutMode = 'fullCircuit' | 'perBranch';
 
-/** Coupe sur la même feuille que la carte, ou page dédiée. */
-export type SafetyPrintProfilePlacement = 'withMap' | 'separatePage';
+/**
+ * Disposition des coupes profil (mode « une page par branche »).
+ * - withMap : carte + coupe sur chaque feuille carte
+ * - separatePage : une page paysage par branche
+ * - allOnOnePage : toutes les coupes empilées sur une seule page paysage
+ */
+export type SafetyPrintProfilePlacement = 'withMap' | 'separatePage' | 'allOnOnePage';
 
 export interface SafetyPrintOptions {
   layoutMode: SafetyPrintLayoutMode;

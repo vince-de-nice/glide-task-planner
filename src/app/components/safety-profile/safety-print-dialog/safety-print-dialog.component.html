@@ -108,19 +108,29 @@
                   'safetyProfile.print.profilePlacementHint' | translate
                 }}</span>
               </label>
-              <label class="safety-print__field safety-print__field--profile-nested">
-                <span>{{ 'safetyProfile.print.profileChartHeight' | translate }}</span>
-                <p-select
-                  [options]="profileHeightOptions()"
-                  [ngModel]="options().profileChartHeightPercent"
-                  (ngModelChange)="patchOptions({ profileChartHeightPercent: $event })"
-                  optionLabel="label"
-                  optionValue="value"
-                />
-                <span class="safety-print__field-hint">{{
-                  'safetyProfile.print.profileChartHeightHint' | translate
-                }}</span>
-              </label>
+              @if (options().profileChartPlacement === 'withMap') {
+                <label class="safety-print__field safety-print__field--profile-nested">
+                  <span>{{ 'safetyProfile.print.profileChartHeight' | translate }}</span>
+                  <p-select
+                    [options]="profileHeightOptions()"
+                    [ngModel]="options().profileChartHeightPercent"
+                    (ngModelChange)="patchOptions({ profileChartHeightPercent: $event })"
+                    optionLabel="label"
+                    optionValue="value"
+                  />
+                  <span class="safety-print__field-hint">{{
+                    'safetyProfile.print.profileChartHeightHint' | translate
+                  }}</span>
+                </label>
+              } @else if (options().profileChartPlacement === 'separatePage') {
+                <p class="safety-print__field-hint safety-print__field-hint--standalone">
+                  {{ 'safetyProfile.print.profileChartHeightHint' | translate }}
+                </p>
+              } @else {
+                <p class="safety-print__field-hint safety-print__field-hint--standalone">
+                  {{ 'safetyProfile.print.profilePlacementAllOnOneHint' | translate }}
+                </p>
+              }
             }
           }
           <label class="safety-print__toggle">

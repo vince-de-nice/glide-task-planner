@@ -858,6 +858,12 @@ export const en = {
     airspaceVolume3d: '3D volumes (true scale)',
     airspaceVolume3dHint:
       'Prisms from floor to ceiling; AGL/GND uses DEM ground under the polygon',
+    airspaceDisplayOff: 'Airspace hidden',
+    airspaceDisplayOffHint: 'Click: show in 2D (OpenAIP background)',
+    airspaceDisplay2d: 'Airspace in 2D',
+    airspaceDisplay2dHint: 'OpenAIP map background. Click: switch to 3D',
+    airspaceDisplay3d: 'Airspace in 3D',
+    airspaceDisplay3dHint: 'Volumes floor to ceiling (true scale). Click: hide',
     lookPadAria:
       'Look control: hold left mouse button and drag',
     lookPadHint:
@@ -897,7 +903,20 @@ export const en = {
       arrivalMargin: 'Pattern altitude',
       arrivalMarginHint: 'Required height above the landable airfield.',
       groundMargin: 'Ground / ridge margin',
-      groundMarginHint: 'Minimum clearance above terrain (passes, ridges).'
+      groundMarginHint: 'Minimum clearance above terrain (passes, ridges).',
+      airspaceProfileMargin: 'Margin above min altitude (profile)',
+      airspaceProfileMarginHint:
+        'Caps airspace display on the profile: local min altitude + this margin. Higher regulatory ceilings are not drawn in full (dashed line ↥).',
+      sectionProfileChart: 'Profile chart and airspace',
+      profileChartDocIntro:
+        'The vertical profile shows terrain, combined minimum safety altitude (cones), and airspace that crosses the leg.',
+      profileChartDocTerrain: 'Terrain (DEM) and ground margin used for min-altitude computation.',
+      profileChartDocSafety:
+        'Combined minimum altitude (all active landables) — reference for circuit flight.',
+      profileChartDocAirspace:
+        'Zones enabled in the airspace list, intersected horizontally with the leg.',
+      profileChartDocAirspaceCap:
+        'Very high ceilings (TMA, upper CTR, etc.) are truncated above min altitude + margin: only the slice relevant to glider circuit flight is drawn. Regulatory ceiling remains on hover (↥).'
     },
     chart: {
       terrain: 'Terrain (DEM)',
@@ -930,7 +949,11 @@ export const en = {
       tooltipTerrainLowFidelity:
         'Terrain altitude: low-fidelity DEM (lower-zoom tile)',
       legendAirspaceZones:
-        'Airspace (zone ∩ leg segment, floor/ceiling MSL)'
+        'Airspace (leg intersection, displayed MSL slice)',
+      legendAirspaceTruncated:
+        'Truncated ceiling (↥): regulatory ceiling above flight envelope',
+      airspaceDisplayedRange: 'Displayed slice',
+      airspaceRegulatoryCeiling: 'Regulatory ceiling'
     },
     demProgress: {
       title: 'Loading terrain (DEM)',
@@ -968,11 +991,14 @@ export const en = {
       profilePlacement: 'Profile chart layout',
       profilePlacementWithMap: 'On the same page as the map',
       profilePlacementSeparate: 'Separate page (after map pages)',
+      profilePlacementAllOnOne: 'All profiles on one page',
       profilePlacementHint:
         'If the map spans several sheets, the profile is repeated below each tile.',
+      profilePlacementAllOnOneHint:
+        'One landscape page at the end: every branch stacked (map-only pages first).',
       profileChartHeight: 'Profile chart height (% of page)',
       profileChartHeightHint:
-        'Share of printable area below the header (default 30%, max 60%).',
+        'When the map is on the same page only (default 30%, max 60%). A profile-only page uses landscape and the full usable height.',
       metadata: 'Header (title, scale, parameters)',
       download: 'Download PDF',
       print: 'Print',

@@ -15,25 +15,46 @@ export interface LegAirspaceProfileLeg {
   profileEndKm: number;
 }
 
-/** Bande d'espace aérien sur la coupe verticale (intersection avec le segment de branche). */
+/**
+ * Bande d'espace aérien sur la coupe verticale (intersection zone × branche).
+ *
+ * - `floorM` / `ceilingM` : bornes réglementaires MSL (données zone).
+ * - `displayFloorM` / `displayCeilingM` : tracé sur la coupe après plafonnement
+ *   à l'enveloppe de vol (altitude mini + marge) — voir `applyAirspaceProfileDisplayLimits`.
+ */
 export interface LegAirspaceProfileBand {
   key: string;
   name: string;
   alongStartKm: number;
   alongEndKm: number;
+  /** Plancher réglementaire MSL. */
   floorM: number;
+  /** Plafond réglementaire MSL. */
   ceilingM: number;
+  /** Plancher tracé (souvent identique au réglementaire). */
+  displayFloorM: number;
+  /** Plafond tracé (≤ plafond réglementaire). */
+  displayCeilingM: number;
+  /** Vrai si le plafond réglementaire dépasse la partie affichée. */
+  ceilingTruncated: boolean;
   /** Couleur de remplissage (hex ou rgba). */
   fill: string;
 }
 
+/** Bande horizontale avant plafonnement à l'enveloppe de vol (calcul d'affichage). */
+export type LegAirspaceProfileBandRaw = Pick<
+  LegAirspaceProfileBand,
+  'key' | 'name' | 'alongStartKm' | 'alongEndKm' | 'floorM' | 'ceilingM' | 'fill'
+>;
+
 const ALONG_EPS_KM = 1e-4;
 
+/** Intersections horizontales zone × branche (plancher/plafond réglementaires bruts). */
 export function computeLegAirspaceProfileBands(
   leg: LegAirspaceProfileLeg,
   collection: FeatureCollection<Geometry, AirspaceVolumeProperties>,
   enabledKeys: ReadonlySet<string>
-): LegAirspaceProfileBand[] {
+): LegAirspaceProfileBandRaw[] {
   if (enabledKeys.size === 0 || leg.legLengthKm <= 0) return [];
 
   const clipStart = Math.max(0, Math.min(leg.profileStartKm, leg.profileEndKm));
@@ -42,7 +63,7 @@ export function computeLegAirspaceProfileBands(
   const to: [number, number] = [leg.toLng, leg.toLat];
   const projector = buildLegProjector(from, to, leg.legLengthKm);
 
-  const bands: LegAirspaceProfileBand[] = [];
+  const bands: LegAirspaceProfileBandRaw[] = [];
 
   for (let i = 0; i < collection.features.length; i++) {
     const feature = collection.features[i];
