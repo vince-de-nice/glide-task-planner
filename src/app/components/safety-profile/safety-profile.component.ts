@@ -1632,9 +1632,6 @@ export class SafetyProfileComponent implements OnInit, OnDestroy {
   readonly airspaceBandsForPrint = (leg: LegRender): LegAirspaceProfileBand[] =>
     this.airspaceProfileBandsForLeg(leg);
 
-  readonly effectiveYMaxForPrint = (leg: LegRender): number =>
-    this.effectiveYMaxForLeg(leg);
-
   readonly landableColorsForPrint = (leg: LegRender): Record<string, string> =>
     this.landableColorsRecordForLeg(leg);
 

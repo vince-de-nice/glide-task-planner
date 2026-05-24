@@ -965,12 +965,20 @@ export const en = {
       waypoints: 'Waypoints and legs',
       mapLabels: 'Map labels (crossings, margins)',
       profileChart: 'Profile chart below map',
+      profileChartHeight: 'Profile chart height (% of page)',
+      profileChartHeightHint:
+        'Share of printable area below the header (default 30%, max 60%).',
       metadata: 'Header (title, scale, parameters)',
       download: 'Download PDF',
       print: 'Print',
       close: 'Close',
-      progressStart: 'Generating PDF…',
-      progressPage: 'Page',
+      progressOverall: 'Step {{step}} / {{total}} — {{percent}} %',
+      progressInit: 'Preparing document…',
+      progressMap: 'Rendering map — {{label}}',
+      progressProfilePrepare: 'Profile chart — {{label}} — preparing graph',
+      progressProfileRasterize: 'Profile chart — {{label}} — rasterizing',
+      progressLayout: 'PDF layout — {{label}}',
+      progressSave: 'Finalizing and saving PDF…',
       progressError: 'Generation failed — try again.'
     },
     warnings: {

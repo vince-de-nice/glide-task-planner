@@ -25,6 +25,20 @@ export interface PrintJobProfilePage {
 
 export type PrintJobPage = PrintJobMapPage | PrintJobProfilePage;
 
+/** Nombre d'étapes de rendu (carte, coupe, mise en page, sauvegarde). */
+export function countPrintWorkSteps(pages: PrintJobPage[]): number {
+  let steps = 1;
+  for (const page of pages) {
+    if (page.kind === 'map') {
+      steps += 2;
+    } else {
+      steps += 2;
+      if (page.mapPageSpec) steps += 1;
+    }
+  }
+  return steps;
+}
+
 export function buildPrintJobPages(params: {
   layoutMode: SafetyPrintLayoutMode;
   legRenders: SafetyLegRender[];

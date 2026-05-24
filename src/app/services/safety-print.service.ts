@@ -1,6 +1,11 @@
 import { Injectable, inject } from '@angular/core';
 import { PDFDocument, rgb, StandardFonts, type PDFPage } from 'pdf-lib';
-import type { SafetyPrintOptions, SafetyPrintMetadata, SafetyPrintProgress } from '../models/safety-print-options.model';
+import type {
+  SafetyPrintOptions,
+  SafetyPrintMetadata,
+  SafetyPrintProgress,
+  SafetyPrintProfileSubPhase
+} from '../models/safety-print-options.model';
 import type { SafetyLegRender } from './safety-profile-terrain.facade';
 import type { Waypoint } from '../models/waypoint.model';
 import type { CircuitLeg } from '../models/circuit.model';
@@ -8,9 +13,14 @@ import {
   SafetyPrintMapRendererService,
   type PrintMapRenderContext
 } from './safety-print-map-renderer.service';
-import { buildPrintJobPages, type PrintJobPage } from '../utils/safety-print-layout.util';
+import {
+  buildPrintJobPages,
+  countPrintWorkSteps,
+  type PrintJobPage
+} from '../utils/safety-print-layout.util';
 import { formatPdfInteger, sanitizePdfText } from '../utils/print-pdf-text.util';
 import {
+  clampProfileChartHeightPercent,
   pickScaleBarMeters,
   PRINT_MARGIN_MM,
   PRINT_HEADER_MM,
@@ -73,7 +83,10 @@ export class SafetyPrintService {
     metadata: SafetyPrintMetadata;
     getWaypoint: (id: string) => Waypoint | undefined;
     enabledAirspaceKeysForLeg: (legIndex: number) => Set<string>;
-    renderProfilePng: (legIndex: number) => Promise<string | null>;
+    renderProfilePng: (
+      legIndex: number,
+      onSubProgress?: (sub: SafetyPrintProfileSubPhase) => void
+    ) => Promise<string | null>;
     onProgress?: (p: SafetyPrintProgress) => void;
   }): Promise<SafetyPrintPdfResult> {
     const jobPages = buildPrintJobPages({
@@ -86,6 +99,28 @@ export class SafetyPrintService {
       cones3d: params.options.coneVolumes3d,
       getWaypoint: params.getWaypoint
     });
+
+    const stepTotal = countPrintWorkSteps(jobPages);
+    const pageTotal = jobPages.length;
+    let step = 0;
+    let pdfPageIndex = 0;
+
+    const emit = (
+      partial: Omit<SafetyPrintProgress, 'step' | 'stepTotal'>
+    ): void => {
+      params.onProgress?.({
+        step,
+        stepTotal,
+        ...partial
+      });
+    };
+
+    const advance = (
+      partial: Omit<SafetyPrintProgress, 'step' | 'stepTotal'>
+    ): void => {
+      step++;
+      emit(partial);
+    };
 
     const pdf = await PDFDocument.create();
     const font = await pdf.embedFont(StandardFonts.Helvetica);
@@ -102,22 +137,29 @@ export class SafetyPrintService {
       enabledAirspaceKeysForLeg: params.enabledAirspaceKeysForLeg
     };
 
-    let step = 0;
-    const total = jobPages.length;
+    advance({ phase: 'init' });
 
     try {
       for (const jobPage of jobPages) {
-        step++;
-        params.onProgress?.({
-          phase: 'map',
-          current: step,
-          total
-        });
+        pdfPageIndex++;
+        const pageLabel = pageLabelForJob(jobPage, params.legRenders, pdfPageIndex);
 
         if (jobPage.kind === 'map') {
+          advance({
+            phase: 'map',
+            pageIndex: pdfPageIndex,
+            pageTotal,
+            pageLabel
+          });
           ctx.focusLegIndex = jobPage.focusLegIndex;
           const png = await this.mapRenderer.renderPage(jobPage.pageSpec, ctx);
           await pauseMs(80);
+          advance({
+            phase: 'layout',
+            pageIndex: pdfPageIndex,
+            pageTotal,
+            pageLabel
+          });
           const orientation = jobPage.pageSpec.orientation;
           const page = pdf.addPage(pageSizePt(orientation));
           await this.drawMapPage(page, {
@@ -136,14 +178,49 @@ export class SafetyPrintService {
         } else {
           let mapPng: string | null = null;
           let orientation: PrintPageOrientation = 'portrait';
+          const leg = params.legRenders.find(l => l.index === jobPage.legIndex);
+          const branchLabel = leg
+            ? sanitizePdfText(`${leg.fromWaypoint.name} - ${leg.toWaypoint.name}`)
+            : pageLabel;
+
           if (jobPage.mapPageSpec) {
+            advance({
+              phase: 'map',
+              pageIndex: pdfPageIndex,
+              pageTotal,
+              pageLabel: branchLabel
+            });
             ctx.focusLegIndex = jobPage.legIndex;
             mapPng = await this.mapRenderer.renderPage(jobPage.mapPageSpec, ctx);
             await pauseMs(80);
             orientation = jobPage.mapPageSpec.orientation;
           }
-          const profilePng = await params.renderProfilePng(jobPage.legIndex);
-          const leg = params.legRenders.find(l => l.index === jobPage.legIndex);
+
+          advance({
+            phase: 'profile',
+            pageIndex: pdfPageIndex,
+            pageTotal,
+            pageLabel: branchLabel,
+            profileSubPhase: 'prepare'
+          });
+          const profilePng = await params.renderProfilePng(
+            jobPage.legIndex,
+            sub => {
+              emit({
+                phase: 'profile',
+                pageIndex: pdfPageIndex,
+                pageTotal,
+                pageLabel: branchLabel,
+                profileSubPhase: sub
+              });
+            }
+          );
+          advance({
+            phase: 'layout',
+            pageIndex: pdfPageIndex,
+            pageTotal,
+            pageLabel: branchLabel
+          });
           const page = pdf.addPage(pageSizePt(orientation));
           await this.drawProfilePage(page, {
             mapPng,
@@ -151,9 +228,7 @@ export class SafetyPrintService {
             orientation,
             metadata: {
               ...params.metadata,
-              branchLabel: leg
-                ? sanitizePdfText(`${leg.fromWaypoint.name} - ${leg.toWaypoint.name}`)
-                : undefined
+              branchLabel
             },
             options: params.options,
             pageSpec: jobPage.mapPageSpec,
@@ -166,6 +241,7 @@ export class SafetyPrintService {
       this.mapRenderer.dispose();
     }
 
+    advance({ phase: 'save' });
     const bytes = await pdf.save();
     const safeName = params.metadata.taskName.replace(/[^\w\-]+/g, '_').slice(0, 48);
     return {
@@ -256,42 +332,90 @@ export class SafetyPrintService {
     }
 
     const bottom = margin;
-    const innerH = contentTop - margin * 0.25 - bottom;
+    const gap = 3 * MM_TO_PT;
     const innerW = width - 2 * margin;
+    const innerH = contentTop - gap - bottom;
 
-    const gap = margin * 0.35;
-    const chartH = params.profilePng ? innerH * 0.38 : 0;
-    const mapH = params.mapPng ? (params.profilePng ? innerH * 0.55 : innerH) : 0;
+    const hasMap = params.mapPng != null;
+    const hasProfile = params.profilePng != null;
+    const chartFrac =
+      clampProfileChartHeightPercent(params.options.profileChartHeightPercent) / 100;
 
-    if (params.profilePng) {
-      const pngBytes = dataUrlToBytes(params.profilePng);
-      const img = await page.doc.embedPng(pngBytes);
-      page.drawImage(img, {
-        x: margin,
-        y: bottom,
-        width: innerW,
-        height: chartH
-      });
+    let chartH = 0;
+    let mapH = 0;
+    if (hasProfile && hasMap) {
+      chartH = innerH * chartFrac;
+      mapH = Math.max(0, innerH - chartH - gap);
+    } else if (hasProfile) {
+      chartH = innerH * chartFrac;
+    } else if (hasMap) {
+      mapH = innerH;
     }
 
-    if (params.mapPng) {
-      const mapY = bottom + chartH + (params.profilePng ? gap : 0);
-      const pngBytes = dataUrlToBytes(params.mapPng);
-      const img = await page.doc.embedPng(pngBytes);
-      page.drawImage(img, {
+    let yCursor = contentTop - gap;
+
+    if (hasMap && params.mapPng) {
+      yCursor -= mapH;
+      await this.drawPngInBox(page, params.mapPng, {
         x: margin,
-        y: mapY,
+        y: yCursor,
         width: innerW,
-        height: mapH
+        height: mapH,
+        fit: 'fill'
       });
       if (params.pageSpec) {
         this.drawScaleBar(page, {
           x: margin + innerW - 80 * MM_TO_PT,
-          y: mapY + 4 * MM_TO_PT,
+          y: yCursor + 4 * MM_TO_PT,
           groundWidthM: params.pageSpec.groundWidthM
         });
       }
+      yCursor -= gap;
     }
+
+    if (hasProfile && params.profilePng) {
+      yCursor -= chartH;
+      await this.drawPngInBox(page, params.profilePng, {
+        x: margin,
+        y: yCursor,
+        width: innerW,
+        height: chartH,
+        fit: 'contain'
+      });
+    }
+  }
+
+  private async drawPngInBox(
+    page: PDFPage,
+    dataUrl: string,
+    box: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      fit: 'fill' | 'contain';
+    }
+  ): Promise<void> {
+    const pngBytes = dataUrlToBytes(dataUrl);
+    const img = await page.doc.embedPng(pngBytes);
+    if (box.fit === 'fill' || box.width <= 0 || box.height <= 0) {
+      page.drawImage(img, {
+        x: box.x,
+        y: box.y,
+        width: box.width,
+        height: box.height
+      });
+      return;
+    }
+    const scale = Math.min(box.width / img.width, box.height / img.height);
+    const drawW = img.width * scale;
+    const drawH = img.height * scale;
+    page.drawImage(img, {
+      x: box.x + (box.width - drawW) / 2,
+      y: box.y + (box.height - drawH) / 2,
+      width: drawW,
+      height: drawH
+    });
   }
 
   private drawMetadataBlock(
@@ -428,11 +552,21 @@ function pageLabel(
   legs: SafetyLegRender[],
   index: number
 ): string {
+  return pageLabelForJob(page, legs, index);
+}
+
+function pageLabelForJob(
+  page: PrintJobPage,
+  legs: SafetyLegRender[],
+  index: number
+): string {
   if (page.kind === 'map') {
     return `Carte ${page.pageSpec.pageIndex + 1}/${page.pageSpec.totalPages}`;
   }
   const leg = legs.find(l => l.index === page.legIndex);
-  const name = leg ? `${leg.fromWaypoint.name} → ${leg.toWaypoint.name}` : `Branche ${page.legIndex + 1}`;
+  const name = leg
+    ? `${leg.fromWaypoint.name} → ${leg.toWaypoint.name}`
+    : `Branche ${page.legIndex + 1}`;
   return page.mapPageSpec ? `${name} (carte + coupe)` : `${name} (coupe)`;
 }
 

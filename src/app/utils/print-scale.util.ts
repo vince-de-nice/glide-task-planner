@@ -61,6 +61,31 @@ export function zoomForFixedScale(
   return Math.log2(mpp0 / metersPerPixel);
 }
 
+/** Fraction de la hauteur utile page (10–60 %). */
+export function clampProfileChartHeightPercent(value: unknown): number {
+  const fallback = 30;
+  const n = typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+  return Math.min(60, Math.max(10, Math.round(n)));
+}
+
+/** Taille d’export PNG de la coupe alignée sur la mise en page PDF. */
+export function profileChartExportPixelSize(params: {
+  orientation?: PrintPageOrientation;
+  includeHeader: boolean;
+  heightPercent: number;
+  dpi?: number;
+}): { width: number; height: number } {
+  const dpi = params.dpi ?? PRINT_DPI;
+  const frac = clampProfileChartHeightPercent(params.heightPercent) / 100;
+  const { widthMm, heightMm } = printableMapSizeMm(
+    params.orientation ?? 'portrait',
+    params.includeHeader
+  );
+  const width = Math.round((widthMm / 25.4) * dpi);
+  const height = Math.max(240, Math.round((heightMm * frac / 25.4) * dpi));
+  return { width, height };
+}
+
 /** Dimensions utiles de la zone carte sur une page (mm). */
 export function printableMapSizeMm(
   orientation: PrintPageOrientation,

@@ -28,6 +28,8 @@ import {
   type TerrainBandQuality
 } from '../../utils/leg-profile-chart.geometry';
 import type { LegAirspaceProfileBand } from '../../utils/leg-airspace-profile-cross-section.util';
+import { injectLegProfileChartPrintStyles } from '../../utils/leg-profile-chart-print-styles.util';
+import { inlineSvgComputedStyles } from '../../utils/svg-print-inline-styles.util';
 import { formatMetersDisplay } from '../../utils/airspace-altitude.util';
 import {
   buildSafetyMinAltitudeChartSegments,
@@ -175,8 +177,9 @@ interface AxisTick {
   label: string;
 }
 
-export const LEG_PROFILE_PRINT_WIDTH = 1800;
-export const LEG_PROFILE_PRINT_HEIGHT = 420;
+export const LEG_PROFILE_PRINT_WIDTH = 2000;
+export const LEG_PROFILE_PRINT_HEIGHT = 560;
+export const LEG_PROFILE_PRINT_RASTER_SCALE = 2;
 
 const CHART_WIDTH_DEFAULT = 800;
 const CHART_HEIGHT_DEFAULT = 280;
@@ -242,7 +245,12 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
   readonly geometry = computed<ChartGeometry>(() => {
     const data = this.samples();
     const xMin = 0;
-    const xMax = data.length > 0 ? data[data.length - 1].distanceKm : 1;
+    const dataEndKm = data.length > 0 ? data[data.length - 1].distanceKm : 1;
+    const legEnd = this.legEndKm();
+    const xMax =
+      legEnd != null && Number.isFinite(legEnd) && legEnd > xMin
+        ? legEnd
+        : dataEndKm;
     const allYs: number[] = [];
     for (const s of data) {
       if (s.terrainM != null) allYs.push(s.terrainM);
@@ -730,10 +738,14 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
     const svg = host?.querySelector('svg.leg-chart__svg');
     if (!svg) return null;
     const { width, height } = this.chartSize();
-    const clone = svg.cloneNode(true) as SVGSVGElement;
+    const source = svg as SVGSVGElement;
+    const clone = source.cloneNode(true) as SVGSVGElement;
     clone.setAttribute('width', String(width));
     clone.setAttribute('height', String(height));
     clone.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    clone.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    injectLegProfileChartPrintStyles(clone);
+    inlineSvgStylesForPrint(source, clone);
     return new XMLSerializer().serializeToString(clone);
   }
 
@@ -742,17 +754,19 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
     const svgMarkup = this.serializeSvgForPrint();
     if (!svgMarkup) return null;
     const { width, height } = this.chartSize();
+    const scale = LEG_PROFILE_PRINT_RASTER_SCALE;
     const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     try {
       const img = await loadChartImage(url);
       const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
+      canvas.width = width * scale;
+      canvas.height = height * scale;
       const ctx = canvas.getContext('2d');
       if (!ctx) return null;
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, width, height);
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.scale(scale, scale);
       ctx.drawImage(img, 0, 0, width, height);
       return canvas.toDataURL('image/png');
     } finally {
@@ -985,6 +999,20 @@ function niceTicks(min: number, max: number, target: number): number[] {
     ticks.push(Number(v.toFixed(6)));
   }
   return ticks;
+}
+
+function inlineSvgStylesForPrint(
+  source: SVGSVGElement,
+  clone: SVGSVGElement
+): void {
+  const w = clone.getAttribute('width') ?? '100%';
+  const h = clone.getAttribute('height') ?? '100%';
+  const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  bg.setAttribute('width', w);
+  bg.setAttribute('height', h);
+  bg.setAttribute('fill', '#ffffff');
+  clone.insertBefore(bg, clone.firstChild);
+  inlineSvgComputedStyles(source, clone);
 }
 
 function loadChartImage(url: string): Promise<HTMLImageElement> {

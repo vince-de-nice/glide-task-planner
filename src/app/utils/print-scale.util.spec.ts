@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildPrintPageLayout,
+  clampProfileChartHeightPercent,
   groundSpanMetersPerPage,
   orientationForBounds,
   pickScaleBarMeters,
   PRINT_SCALE_DENOMINATOR,
+  profileChartExportPixelSize,
   zoomForFixedScale
 } from './print-scale.util';
 
@@ -60,5 +62,24 @@ describe('print-scale.util', () => {
 
   it('picks a round scale bar length', () => {
     expect(pickScaleBarMeters(50_000)).toBe(5_000);
+  });
+
+  it('clamps profile chart height percent', () => {
+    expect(clampProfileChartHeightPercent(30)).toBe(30);
+    expect(clampProfileChartHeightPercent(5)).toBe(10);
+    expect(clampProfileChartHeightPercent(80)).toBe(60);
+  });
+
+  it('derives export pixels from height percent', () => {
+    const full = profileChartExportPixelSize({
+      includeHeader: true,
+      heightPercent: 60
+    });
+    const small = profileChartExportPixelSize({
+      includeHeader: true,
+      heightPercent: 30
+    });
+    expect(small.height).toBeLessThan(full.height);
+    expect(small.width).toBe(full.width);
   });
 });

@@ -15,6 +15,8 @@ export interface SafetyPrintOptions {
   map3dLabels: boolean;
   includeProfileChart: boolean;
   includeMetadata: boolean;
+  /** Hauteur max de la coupe (% de la zone utile sous le bandeau). */
+  profileChartHeightPercent: number;
 }
 
 export const SAFETY_PRINT_OPTIONS_STORAGE_KEY = 'gc-safety-print-options';
@@ -31,7 +33,8 @@ export const DEFAULT_SAFETY_PRINT_OPTIONS: SafetyPrintOptions = {
   landableHighlights: true,
   map3dLabels: true,
   includeProfileChart: true,
-  includeMetadata: true
+  includeMetadata: true,
+  profileChartHeightPercent: 30
 };
 
 export interface SafetyPrintMetadata {
@@ -44,8 +47,25 @@ export interface SafetyPrintMetadata {
   pageLabel?: string;
 }
 
+export type SafetyPrintProgressPhase =
+  | 'init'
+  | 'map'
+  | 'profile'
+  | 'layout'
+  | 'save';
+
+export type SafetyPrintProfileSubPhase = 'prepare' | 'rasterize';
+
 export interface SafetyPrintProgress {
-  phase: string;
-  current: number;
-  total: number;
+  phase: SafetyPrintProgressPhase;
+  /** Étape courante (1-based) dans le plan global. */
+  step: number;
+  stepTotal: number;
+  /** Page PDF en cours (1-based). */
+  pageIndex?: number;
+  pageTotal?: number;
+  /** Libellé lisible (branche, « carte N », etc.). */
+  pageLabel?: string;
+  /** Sous-étape de la coupe profil. */
+  profileSubPhase?: SafetyPrintProfileSubPhase;
 }

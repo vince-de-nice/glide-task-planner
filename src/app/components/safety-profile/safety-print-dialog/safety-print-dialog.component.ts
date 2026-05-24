@@ -20,7 +20,8 @@ import { TranslateService } from '../../../i18n/translate.service';
 import {
   DEFAULT_SAFETY_PRINT_OPTIONS,
   SAFETY_PRINT_OPTIONS_STORAGE_KEY,
-  type SafetyPrintOptions
+  type SafetyPrintOptions,
+  type SafetyPrintProgress
 } from '../../../models/safety-print-options.model';
 import type { SafetyLegRender } from '../../../services/safety-profile-terrain.facade';
 import type { Waypoint } from '../../../models/waypoint.model';
@@ -38,6 +39,10 @@ import {
   type LegChartLabels
 } from '../leg-profile-chart.component';
 import { defaultLegYMaxM } from '../../../utils/safety-profile-chart.util';
+import {
+  clampProfileChartHeightPercent,
+  profileChartExportPixelSize
+} from '../../../utils/print-scale.util';
 import type { LegAirspaceProfileBand } from '../../../utils/leg-airspace-profile-cross-section.util';
 
 @Component({
@@ -79,15 +84,43 @@ export class SafetyPrintDialogComponent {
   getWaypoint = input.required<(id: string) => Waypoint | undefined>();
   enabledAirspaceKeysForLeg = input.required<(legIndex: number) => Set<string>>();
   airspaceBandsForLeg = input.required<(leg: SafetyLegRender) => LegAirspaceProfileBand[]>();
-  effectiveYMaxForLeg = input.required<(leg: SafetyLegRender) => number>();
   landableColorsForLeg = input.required<(leg: SafetyLegRender) => Record<string, string>>();
 
   private readonly chartRef = viewChild(LegProfileChartComponent);
 
   readonly options = signal<SafetyPrintOptions>(this.loadStoredOptions());
   readonly generating = signal(false);
-  readonly progressLabel = signal('');
+  readonly generationError = signal<string | null>(null);
+  readonly progress = signal<SafetyPrintProgress | null>(null);
   readonly previewPages = signal<{ label: string; orientation: string }[]>([]);
+
+  readonly progressPercent = computed(() => {
+    const p = this.progress();
+    if (!p || p.stepTotal <= 0) return 0;
+    return Math.min(100, Math.round((p.step / p.stepTotal) * 100));
+  });
+
+  readonly progressPhaseLabel = computed(() => {
+    this.i18n.locale();
+    const p = this.progress();
+    if (!p) return '';
+    return this.formatProgressPhaseLabel(p);
+  });
+
+  readonly progressOverallLabel = computed(() => {
+    this.i18n.locale();
+    const p = this.progress();
+    if (!p) return '';
+    const percent = Math.min(
+      100,
+      Math.round((p.step / Math.max(1, p.stepTotal)) * 100)
+    );
+    return this.i18n.t('safetyProfile.print.progressOverall', {
+      step: p.step,
+      total: p.stepTotal,
+      percent
+    });
+  });
   readonly chartLeg = signal<SafetyLegRender | null>(null);
   readonly lastPdfBlob = signal<Blob | null>(null);
   readonly lastPdfFilename = signal('profil_securite.pdf');
@@ -118,6 +151,13 @@ export class SafetyPrintDialogComponent {
       label: this.i18n.t(p.labelKey)
     }));
   });
+
+  readonly profileHeightOptions = computed(() =>
+    [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60].map(value => ({
+      value,
+      label: `${value} %`
+    }))
+  );
 
   onShow(): void {
     const stored = this.loadStoredOptions();
@@ -153,6 +193,8 @@ export class SafetyPrintDialogComponent {
       this.persistOptions(next);
       return next;
     });
+    this.lastPdfBlob.set(null);
+    this.revokePreviewUrl();
     this.refreshPreview();
   }
 
@@ -196,7 +238,8 @@ export class SafetyPrintDialogComponent {
   private async runGenerate(runOpts: { download: boolean }): Promise<void> {
     if (this.generating()) return;
     this.generating.set(true);
-    this.progressLabel.set(this.i18n.t('safetyProfile.print.progressStart'));
+    this.generationError.set(null);
+    this.progress.set({ phase: 'init', step: 0, stepTotal: 1 });
     try {
       const printOptions = this.options();
       const result = await this.printService.generatePdf({
@@ -214,12 +257,9 @@ export class SafetyPrintDialogComponent {
         },
         getWaypoint: this.getWaypoint(),
         enabledAirspaceKeysForLeg: this.enabledAirspaceKeysForLeg(),
-        renderProfilePng: legIndex => this.renderProfilePngForLeg(legIndex),
-        onProgress: p => {
-          this.progressLabel.set(
-            `${this.i18n.t('safetyProfile.print.progressPage')} ${p.current}/${p.total}`
-          );
-        }
+        renderProfilePng: (legIndex, onSubProgress) =>
+          this.renderProfilePngForLeg(legIndex, onSubProgress),
+        onProgress: p => this.progress.set(p)
       });
       const blob = new Blob([result.bytes.slice()], { type: 'application/pdf' });
       this.lastPdfBlob.set(blob);
@@ -230,23 +270,54 @@ export class SafetyPrintDialogComponent {
       }
     } catch (e) {
       console.error('[safety-print]', e);
-      this.progressLabel.set(this.i18n.t('safetyProfile.print.progressError'));
+      this.generationError.set(this.i18n.t('safetyProfile.print.progressError'));
     } finally {
       this.generating.set(false);
+      this.progress.set(null);
       this.chartLeg.set(null);
     }
   }
 
-  private async renderProfilePngForLeg(legIndex: number): Promise<string | null> {
+  private formatProgressPhaseLabel(p: SafetyPrintProgress): string {
+    const label = p.pageLabel ?? '';
+    switch (p.phase) {
+      case 'init':
+        return this.i18n.t('safetyProfile.print.progressInit');
+      case 'map':
+        return this.i18n.t('safetyProfile.print.progressMap', { label });
+      case 'profile':
+        return p.profileSubPhase === 'rasterize'
+          ? this.i18n.t('safetyProfile.print.progressProfileRasterize', { label })
+          : this.i18n.t('safetyProfile.print.progressProfilePrepare', { label });
+      case 'layout':
+        return this.i18n.t('safetyProfile.print.progressLayout', { label });
+      case 'save':
+        return this.i18n.t('safetyProfile.print.progressSave');
+      default:
+        return '';
+    }
+  }
+
+  private async renderProfilePngForLeg(
+    legIndex: number,
+    onSubProgress?: (sub: 'prepare' | 'rasterize') => void
+  ): Promise<string | null> {
     const leg = this.legRenders().find(l => l.index === legIndex);
     if (!leg) return null;
+    onSubProgress?.('prepare');
     this.chartLeg.set(leg);
     await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
     await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
     const chart = this.chartRef();
     if (!chart) return null;
-    chart.setChartSizeForPrint();
+    const printOpts = this.options();
+    const { width, height } = profileChartExportPixelSize({
+      includeHeader: printOpts.includeMetadata,
+      heightPercent: printOpts.profileChartHeightPercent
+    });
+    chart.setChartSizeForPrint(width, height);
     await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    onSubProgress?.('rasterize');
     return chart.rasterizeSvgForPrint();
   }
 
@@ -281,7 +352,10 @@ export class SafetyPrintDialogComponent {
         basemapId:
           parsed.basemapId != null && isBasemapId(parsed.basemapId)
             ? parsed.basemapId
-            : DEFAULT_SAFETY_PRINT_OPTIONS.basemapId
+            : DEFAULT_SAFETY_PRINT_OPTIONS.basemapId,
+        profileChartHeightPercent: clampProfileChartHeightPercent(
+          parsed.profileChartHeightPercent
+        )
       };
     } catch {
       return { ...DEFAULT_SAFETY_PRINT_OPTIONS };
@@ -296,8 +370,9 @@ export class SafetyPrintDialogComponent {
     }
   }
 
-  effectiveYMax(leg: SafetyLegRender): number {
-    return this.effectiveYMaxForLeg()(leg);
+  /** Échelle verticale dédiée à l’impression (altitude mini + 500 m, pas la surcharge UI). */
+  printYMax(leg: SafetyLegRender): number {
+    return defaultLegYMaxM(leg.envelope.samples);
   }
 
   defaultYMax(leg: SafetyLegRender): number {

@@ -915,12 +915,20 @@ export const fr = {
       waypoints: 'Waypoints et branches',
       mapLabels: 'Libellés carte (croisements, marges)',
       profileChart: 'Coupe profil sous la carte',
+      profileChartHeight: 'Hauteur de la coupe (% page)',
+      profileChartHeightHint:
+        'Part de la zone utile sous le bandeau (défaut 30 %, max 60 %).',
       metadata: 'Bandeau (titre, échelle, paramètres)',
       download: 'Télécharger PDF',
       print: 'Imprimer',
       close: 'Fermer',
-      progressStart: 'Génération du PDF…',
-      progressPage: 'Page',
+      progressOverall: 'Étape {{step}} / {{total}} — {{percent}} %',
+      progressInit: 'Préparation du document…',
+      progressMap: 'Rendu de la carte — {{label}}',
+      progressProfilePrepare: 'Coupe profil — {{label}} — préparation du graphique',
+      progressProfileRasterize: 'Coupe profil — {{label}} — conversion en image',
+      progressLayout: 'Mise en page PDF — {{label}}',
+      progressSave: 'Finalisation et enregistrement du PDF…',
       progressError: 'Échec de la génération — réessayez.'
     },
     warnings: {

@@ -94,6 +94,21 @@
                 (ngModelChange)="patchOptions({ includeProfileChart: $event })"
               />
             </label>
+            @if (options().includeProfileChart) {
+              <label class="safety-print__field safety-print__field--profile-height">
+                <span>{{ 'safetyProfile.print.profileChartHeight' | translate }}</span>
+                <p-select
+                  [options]="profileHeightOptions()"
+                  [ngModel]="options().profileChartHeightPercent"
+                  (ngModelChange)="patchOptions({ profileChartHeightPercent: $event })"
+                  optionLabel="label"
+                  optionValue="value"
+                />
+                <span class="safety-print__field-hint">{{
+                  'safetyProfile.print.profileChartHeightHint' | translate
+                }}</span>
+              </label>
+            }
           }
           <label class="safety-print__toggle">
             <span>{{ 'safetyProfile.print.metadata' | translate }}</span>
@@ -136,8 +151,27 @@
           </div>
         </div>
 
+        @if (generationError(); as err) {
+          <p class="safety-print__progress-error" role="alert">{{ err }}</p>
+        }
         @if (generating()) {
-          <p class="safety-print__progress" role="status">{{ progressLabel() }}</p>
+          <div class="safety-print__progress" role="status" aria-live="polite" aria-busy="true">
+            <div
+              class="safety-print__progress-track"
+              role="progressbar"
+              [attr.aria-valuenow]="progressPercent()"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              [attr.aria-label]="progressPhaseLabel()"
+            >
+              <div
+                class="safety-print__progress-fill"
+                [style.width.%]="progressPercent()"
+              ></div>
+            </div>
+            <p class="safety-print__progress-phase">{{ progressPhaseLabel() }}</p>
+            <p class="safety-print__progress-overall">{{ progressOverallLabel() }}</p>
+          </div>
         }
       </section>
     </div>
@@ -187,7 +221,7 @@
       [conesTruncated]="leg.envelope.landableCones.length >= 64"
       [legStartKm]="leg.envelope.legStartKm"
       [legEndKm]="leg.envelope.legEndKm"
-      [yMaxM]="effectiveYMax(leg)"
+      [yMaxM]="printYMax(leg)"
       [airspaceBands]="airspaceBandsForLeg()(leg)"
     />
   }
