@@ -236,11 +236,17 @@
 
 .safety-print__chart-offscreen {
   position: fixed;
-  left: -12000px;
+  left: -16000px;
   top: 0;
-  width: 1800px;
-  height: 420px;
-  overflow: hidden;
+  overflow: visible;
   pointer-events: none;
-  opacity: 0;
+  visibility: hidden;
+  z-index: -1;
+
+  .leg-chart {
+    background: #fff;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+  }
 }

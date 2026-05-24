@@ -28,8 +28,10 @@ import {
   type TerrainBandQuality
 } from '../../utils/leg-profile-chart.geometry';
 import type { LegAirspaceProfileBand } from '../../utils/leg-airspace-profile-cross-section.util';
-import { injectLegProfileChartPrintStyles } from '../../utils/leg-profile-chart-print-styles.util';
-import { inlineSvgComputedStyles } from '../../utils/svg-print-inline-styles.util';
+import {
+  inlineSvgPresentationTree,
+  prependSvgPrintBackground
+} from '../../utils/svg-print-inline-styles.util';
 import { formatMetersDisplay } from '../../utils/airspace-altitude.util';
 import {
   buildSafetyMinAltitudeChartSegments,
@@ -744,8 +746,8 @@ export class LegProfileChartComponent implements AfterViewInit, OnDestroy {
     clone.setAttribute('height', String(height));
     clone.setAttribute('viewBox', `0 0 ${width} ${height}`);
     clone.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-    injectLegProfileChartPrintStyles(clone);
-    inlineSvgStylesForPrint(source, clone);
+    inlineSvgPresentationTree(source, clone);
+    prependSvgPrintBackground(clone, width, height);
     return new XMLSerializer().serializeToString(clone);
   }
 
@@ -999,20 +1001,6 @@ function niceTicks(min: number, max: number, target: number): number[] {
     ticks.push(Number(v.toFixed(6)));
   }
   return ticks;
-}
-
-function inlineSvgStylesForPrint(
-  source: SVGSVGElement,
-  clone: SVGSVGElement
-): void {
-  const w = clone.getAttribute('width') ?? '100%';
-  const h = clone.getAttribute('height') ?? '100%';
-  const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-  bg.setAttribute('width', w);
-  bg.setAttribute('height', h);
-  bg.setAttribute('fill', '#ffffff');
-  clone.insertBefore(bg, clone.firstChild);
-  inlineSvgComputedStyles(source, clone);
 }
 
 function loadChartImage(url: string): Promise<HTMLImageElement> {

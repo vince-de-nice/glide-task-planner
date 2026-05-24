@@ -263,31 +263,29 @@ export class SafetyPrintService {
     }
   ): Promise<void> {
     const { width, height } = page.getSize();
-    const headerH = params.options.includeMetadata ? PRINT_HEADER_MM * MM_TO_PT : 0;
     const margin = PRINT_MARGIN_MM * MM_TO_PT;
-    let y = height - margin;
+    const headerBottom = this.drawPageHeaderIfNeeded(page, {
+      width,
+      height,
+      margin,
+      metadata: params.metadata,
+      options: params.options,
+      font: params.font,
+      fontBold: params.fontBold
+    });
 
-    if (params.options.includeMetadata) {
-      y = this.drawMetadataBlock(page, params.metadata, params.options, params.font, params.fontBold, {
-        x: margin,
-        y: height - margin,
-        width: width - 2 * margin,
-        height: headerH
-      });
-    }
-
-    const mapTop = y - margin * 0.25;
-    const mapBottom = margin;
-    const mapH = mapTop - mapBottom;
+    const gap = 4 * MM_TO_PT;
     const mapW = width - 2 * margin;
+    const mapBottom = margin;
+    const mapTop = headerBottom - gap;
+    const mapH = Math.max(0, mapTop - mapBottom);
 
-    const pngBytes = dataUrlToBytes(params.mapPng);
-    const img = await page.doc.embedPng(pngBytes);
-    page.drawImage(img, {
+    await this.drawPngInBox(page, params.mapPng, {
       x: margin,
       y: mapBottom,
       width: mapW,
-      height: mapH
+      height: mapH,
+      fit: 'fill'
     });
 
     this.drawScaleBar(page, {
@@ -311,28 +309,20 @@ export class SafetyPrintService {
     }
   ): Promise<void> {
     const { width, height } = page.getSize();
-    const headerH = params.options.includeMetadata ? PRINT_HEADER_MM * MM_TO_PT : 0;
     const margin = PRINT_MARGIN_MM * MM_TO_PT;
-    let contentTop = height - margin;
-
-    if (params.options.includeMetadata) {
-      contentTop = this.drawMetadataBlock(
-        page,
-        params.metadata,
-        params.options,
-        params.font,
-        params.fontBold,
-        {
-          x: margin,
-          y: height - margin,
-          width: width - 2 * margin,
-          height: headerH
-        }
-      );
-    }
+    const headerBottom = this.drawPageHeaderIfNeeded(page, {
+      width,
+      height,
+      margin,
+      metadata: params.metadata,
+      options: params.options,
+      font: params.font,
+      fontBold: params.fontBold
+    });
 
     const bottom = margin;
-    const gap = 3 * MM_TO_PT;
+    const gap = 4 * MM_TO_PT;
+    const contentTop = headerBottom - gap;
     const innerW = width - 2 * margin;
     const innerH = contentTop - gap - bottom;
 
@@ -341,24 +331,32 @@ export class SafetyPrintService {
     const chartFrac =
       clampProfileChartHeightPercent(params.options.profileChartHeightPercent) / 100;
 
-    let chartH = 0;
-    let mapH = 0;
-    if (hasProfile && hasMap) {
-      chartH = innerH * chartFrac;
-      mapH = Math.max(0, innerH - chartH - gap);
-    } else if (hasProfile) {
-      chartH = innerH * chartFrac;
-    } else if (hasMap) {
-      mapH = innerH;
+    const chartH = hasProfile ? innerH * chartFrac : 0;
+    const mapH =
+      hasMap && hasProfile
+        ? Math.max(0, innerH - chartH - gap)
+        : hasMap
+          ? innerH
+          : 0;
+
+    const chartY = bottom;
+    const mapY = bottom + chartH + (hasProfile && hasMap ? gap : 0);
+
+    if (hasProfile && params.profilePng) {
+      await this.drawPngInBox(page, params.profilePng, {
+        x: margin,
+        y: chartY,
+        width: innerW,
+        height: chartH,
+        fit: 'contain',
+        background: '#ffffff'
+      });
     }
 
-    let yCursor = contentTop - gap;
-
     if (hasMap && params.mapPng) {
-      yCursor -= mapH;
       await this.drawPngInBox(page, params.mapPng, {
         x: margin,
-        y: yCursor,
+        y: mapY,
         width: innerW,
         height: mapH,
         fit: 'fill'
@@ -366,22 +364,10 @@ export class SafetyPrintService {
       if (params.pageSpec) {
         this.drawScaleBar(page, {
           x: margin + innerW - 80 * MM_TO_PT,
-          y: yCursor + 4 * MM_TO_PT,
+          y: mapY + 4 * MM_TO_PT,
           groundWidthM: params.pageSpec.groundWidthM
         });
       }
-      yCursor -= gap;
-    }
-
-    if (hasProfile && params.profilePng) {
-      yCursor -= chartH;
-      await this.drawPngInBox(page, params.profilePng, {
-        x: margin,
-        y: yCursor,
-        width: innerW,
-        height: chartH,
-        fit: 'contain'
-      });
     }
   }
 
@@ -394,11 +380,25 @@ export class SafetyPrintService {
       width: number;
       height: number;
       fit: 'fill' | 'contain';
+      background?: string;
     }
   ): Promise<void> {
     const pngBytes = dataUrlToBytes(dataUrl);
     const img = await page.doc.embedPng(pngBytes);
-    if (box.fit === 'fill' || box.width <= 0 || box.height <= 0) {
+    if (box.width <= 0 || box.height <= 0) return;
+
+    if (box.background) {
+      page.drawRectangle({
+        x: box.x,
+        y: box.y,
+        width: box.width,
+        height: box.height,
+        color: rgb(1, 1, 1),
+        borderWidth: 0
+      });
+    }
+
+    if (box.fit === 'fill') {
       page.drawImage(img, {
         x: box.x,
         y: box.y,
@@ -407,6 +407,7 @@ export class SafetyPrintService {
       });
       return;
     }
+
     const scale = Math.min(box.width / img.width, box.height / img.height);
     const drawW = img.width * scale;
     const drawH = img.height * scale;
@@ -441,6 +442,15 @@ export class SafetyPrintService {
         : [])
     ];
 
+    page.drawRectangle({
+      x: box.x,
+      y: box.y - box.height,
+      width: box.width,
+      height: box.height + 2,
+      color: rgb(1, 1, 1),
+      borderWidth: 0
+    });
+
     let y = box.y - 2;
     page.drawText(lines[0], {
       x: box.x,
@@ -462,7 +472,39 @@ export class SafetyPrintService {
     }
 
     this.drawNorthArrow(page, box.x + box.width - 28, box.y - 8);
-    return box.y - box.height;
+    return y - 6;
+  }
+
+  /** Y (baseline PDF) sous lequel le contenu carte / coupe peut commencer. */
+  private drawPageHeaderIfNeeded(
+    page: PDFPage,
+    params: {
+      width: number;
+      height: number;
+      margin: number;
+      metadata: SafetyPrintMetadata;
+      options: SafetyPrintOptions;
+      font: Awaited<ReturnType<PDFDocument['embedFont']>>;
+      fontBold: Awaited<ReturnType<PDFDocument['embedFont']>>;
+    }
+  ): number {
+    if (!params.options.includeMetadata) {
+      return params.height - params.margin;
+    }
+    const headerH = PRINT_HEADER_MM * MM_TO_PT;
+    return this.drawMetadataBlock(
+      page,
+      params.metadata,
+      params.options,
+      params.font,
+      params.fontBold,
+      {
+        x: params.margin,
+        y: params.height - params.margin,
+        width: params.width - 2 * params.margin,
+        height: headerH
+      }
+    );
   }
 
   private drawNorthArrow(page: PDFPage, x: number, y: number): void {

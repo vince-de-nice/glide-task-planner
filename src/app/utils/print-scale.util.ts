@@ -10,7 +10,8 @@ export const A4_HEIGHT_MM = 297;
 
 /** Marges papier (hors bandeau métadonnées). */
 export const PRINT_MARGIN_MM = 8;
-export const PRINT_HEADER_MM = 14;
+/** Réserve haute pour le bandeau (titre + 4–6 lignes de métadonnées). */
+export const PRINT_HEADER_MM = 22;
 
 const METERS_PER_PIXEL_ZOOM_0 = 156543.03;
 const M_PER_DEG_LAT = 111_320;
