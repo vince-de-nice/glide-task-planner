@@ -159,6 +159,20 @@ export class SafetyPrintDialogComponent {
     }))
   );
 
+  readonly profilePlacementOptions = computed(() => {
+    this.i18n.locale();
+    return [
+      {
+        label: this.i18n.t('safetyProfile.print.profilePlacementWithMap'),
+        value: 'withMap' as const
+      },
+      {
+        label: this.i18n.t('safetyProfile.print.profilePlacementSeparate'),
+        value: 'separatePage' as const
+      }
+    ];
+  });
+
   onShow(): void {
     const stored = this.loadStoredOptions();
     this.options.set({ ...stored, basemapId: this.basemapId() });
@@ -355,7 +369,11 @@ export class SafetyPrintDialogComponent {
             : DEFAULT_SAFETY_PRINT_OPTIONS.basemapId,
         profileChartHeightPercent: clampProfileChartHeightPercent(
           parsed.profileChartHeightPercent
-        )
+        ),
+        profileChartPlacement:
+          parsed.profileChartPlacement === 'separatePage'
+            ? 'separatePage'
+            : 'withMap'
       };
     } catch {
       return { ...DEFAULT_SAFETY_PRINT_OPTIONS };

@@ -2,6 +2,9 @@ import type { BasemapId } from '../components/map-view/map-style.constants';
 
 export type SafetyPrintLayoutMode = 'fullCircuit' | 'perBranch';
 
+/** Coupe sur la même feuille que la carte, ou page dédiée. */
+export type SafetyPrintProfilePlacement = 'withMap' | 'separatePage';
+
 export interface SafetyPrintOptions {
   layoutMode: SafetyPrintLayoutMode;
   basemapId: BasemapId;
@@ -14,6 +17,8 @@ export interface SafetyPrintOptions {
   landableHighlights: boolean;
   map3dLabels: boolean;
   includeProfileChart: boolean;
+  /** withMap : carte + coupe sur chaque feuille carte ; separatePage : coupe seule ensuite. */
+  profileChartPlacement: SafetyPrintProfilePlacement;
   includeMetadata: boolean;
   /** Hauteur max de la coupe (% de la zone utile sous le bandeau). */
   profileChartHeightPercent: number;
@@ -33,6 +38,7 @@ export const DEFAULT_SAFETY_PRINT_OPTIONS: SafetyPrintOptions = {
   landableHighlights: true,
   map3dLabels: true,
   includeProfileChart: true,
+  profileChartPlacement: 'withMap',
   includeMetadata: true,
   profileChartHeightPercent: 30
 };

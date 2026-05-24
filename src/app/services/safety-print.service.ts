@@ -59,6 +59,7 @@ export class SafetyPrintService {
       includeHeader: options.includeMetadata,
       includeProfileChart:
         options.layoutMode === 'perBranch' && options.includeProfileChart,
+      profileChartPlacement: options.profileChartPlacement,
       cones3d: options.coneVolumes3d,
       getWaypoint
     });
@@ -96,6 +97,7 @@ export class SafetyPrintService {
       includeHeader: params.options.includeMetadata,
       includeProfileChart:
         params.options.layoutMode === 'perBranch' && params.options.includeProfileChart,
+      profileChartPlacement: params.options.profileChartPlacement,
       cones3d: params.options.coneVolumes3d,
       getWaypoint: params.getWaypoint
     });
@@ -609,7 +611,14 @@ function pageLabelForJob(
   const name = leg
     ? `${leg.fromWaypoint.name} → ${leg.toWaypoint.name}`
     : `Branche ${page.legIndex + 1}`;
-  return page.mapPageSpec ? `${name} (carte + coupe)` : `${name} (coupe)`;
+  if (!page.mapPageSpec) {
+    return `${name} (coupe)`;
+  }
+  const mapPart =
+    page.mapPageSpec.totalPages > 1
+      ? `carte ${page.mapPageSpec.pageIndex + 1}/${page.mapPageSpec.totalPages} + coupe`
+      : 'carte + coupe';
+  return `${name} (${mapPart})`;
 }
 
 function branchLabelFor(ctx: PrintMapRenderContext, legIndex: number | null): string | undefined {

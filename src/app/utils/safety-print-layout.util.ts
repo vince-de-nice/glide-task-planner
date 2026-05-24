@@ -1,4 +1,7 @@
-import type { SafetyPrintLayoutMode } from '../models/safety-print-options.model';
+import type {
+  SafetyPrintLayoutMode,
+  SafetyPrintProfilePlacement
+} from '../models/safety-print-options.model';
 import type { SafetyLegRender } from '../services/safety-profile-terrain.facade';
 import type { Waypoint } from '../models/waypoint.model';
 import {
@@ -45,6 +48,7 @@ export function buildPrintJobPages(params: {
   legPairs: { from: Waypoint; to: Waypoint }[];
   includeHeader: boolean;
   includeProfileChart: boolean;
+  profileChartPlacement: SafetyPrintProfilePlacement;
   cones3d: boolean;
   getWaypoint: (id: string) => Waypoint | undefined;
 }): PrintJobPage[] {
@@ -75,12 +79,24 @@ export function buildPrintJobPages(params: {
       boundsPaddingFraction: 0.08
     });
 
-    if (params.includeProfileChart && mapSpecs.length === 1) {
-      pages.push({
-        kind: 'profile',
-        legIndex: leg.index,
-        mapPageSpec: mapSpecs[0]
-      });
+    const profileOnMap =
+      params.includeProfileChart && params.profileChartPlacement === 'withMap';
+
+    if (profileOnMap) {
+      for (const pageSpec of mapSpecs) {
+        pages.push({
+          kind: 'profile',
+          legIndex: leg.index,
+          mapPageSpec: pageSpec
+        });
+      }
+      if (mapSpecs.length === 0) {
+        pages.push({
+          kind: 'profile',
+          legIndex: leg.index,
+          mapPageSpec: null
+        });
+      }
     } else {
       for (const pageSpec of mapSpecs) {
         pages.push({

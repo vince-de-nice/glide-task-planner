@@ -95,7 +95,20 @@
               />
             </label>
             @if (options().includeProfileChart) {
-              <label class="safety-print__field safety-print__field--profile-height">
+              <label class="safety-print__field safety-print__field--profile-nested">
+                <span>{{ 'safetyProfile.print.profilePlacement' | translate }}</span>
+                <p-select
+                  [options]="profilePlacementOptions()"
+                  [ngModel]="options().profileChartPlacement"
+                  (ngModelChange)="patchOptions({ profileChartPlacement: $event })"
+                  optionLabel="label"
+                  optionValue="value"
+                />
+                <span class="safety-print__field-hint">{{
+                  'safetyProfile.print.profilePlacementHint' | translate
+                }}</span>
+              </label>
+              <label class="safety-print__field safety-print__field--profile-nested">
                 <span>{{ 'safetyProfile.print.profileChartHeight' | translate }}</span>
                 <p-select
                   [options]="profileHeightOptions()"
