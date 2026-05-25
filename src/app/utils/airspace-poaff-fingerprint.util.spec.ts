@@ -25,4 +25,20 @@ describe('poaffCollectionFingerprint', () => {
     });
     expect(a).not.toBe(b);
   });
+
+  it('distingue le filtre AREA/GEO de la source', () => {
+    const fc = {
+      type: 'FeatureCollection' as const,
+      features: [
+        {
+          type: 'Feature' as const,
+          properties: { id: '1', lower: 'GND', upper: 'FL100' },
+          geometry: { type: 'Point' as const, coordinates: [0, 0] }
+        }
+      ]
+    };
+    expect(poaffCollectionFingerprint(fc)).not.toBe(
+      poaffCollectionFingerprint(fc, { includeAreaGeo: true })
+    );
+  });
 });

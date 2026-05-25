@@ -7,7 +7,6 @@ import {
 } from './airspace-altitude.util';
 import type { AirspaceVolumeProperties } from './airspace-volume-enrich.util';
 
-import { isAreaOrGeoAirspaceZone } from './airspace-datasource-filter.util';
 import { wireframeColorFromProps } from './airspace-vfr-style.util';
 import { haversineKm } from './geo.util';
 import { ringLngLatBounds, type WireframeLngLatBounds } from './airspace-wireframe-perf.util';
@@ -23,6 +22,15 @@ export const TERRAIN_RING_MAX_VERTICES = 384;
 /** Emprise > N km : pas de volume 3D (GEO France, etc.). */
 const WIREFRAME_MAX_DIAGONAL_KM = 350;
 const MIN_VOLUME_HEIGHT_M = 1;
+/** Hauteur mini d'une arête de paroi (m) — en dessous, quad quasi horizontal. */
+const MIN_WALL_EDGE_HEIGHT_M = 8;
+/** Arête horizontale max (km) pour une paroi remplie — au-delà, fil de fer seul (évite dalles globe). */
+const MAX_WALL_HORIZONTAL_EDGE_KM = 48;
+/** Emprise max (km) pour toute paroi remplie d'un volume. */
+const WALL_FILL_MAX_SPEC_DIAGONAL_KM = 100;
+
+/** Opacité des parois latérales semi-transparentes (0 = traits uniquement). */
+export const WIREFRAME_WALL_FILL_OPACITY = 0.22;
 
 export interface AirspaceWireframeVolumeSpec {
   id: string;
@@ -259,17 +267,31 @@ export function buildAirspaceCeilingMeshBuffers(
 }
 
 function shouldSkipWireframeVolume(
-  props: AirspaceVolumeProperties,
+  _props: AirspaceVolumeProperties,
   ring: { lng: number; lat: number }[]
 ): boolean {
-  if (isAreaOrGeoAirspaceZone(props)) return true;
-
   const b = ringLngLatBounds(ring);
   const diagKm = haversineKm([b.west, b.south], [b.east, b.north]);
   return diagKm > WIREFRAME_MAX_DIAGONAL_KM;
 }
 
-/** Plans verticaux (parois) entre plancher et plafond — 2 triangles par arête du polygone. */
+/**
+ * Aire signée en lon/lat (>0 ≈ contour CCW vu du dessus, convention GeoJSON courante).
+ * Sert à orienter les parois vers l'extérieur (FrontSide).
+ */
+export function ringSignedAreaLngLat(
+  ring: readonly { lng: number; lat: number }[]
+): number {
+  let sum = 0;
+  const n = ring.length;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    sum += ring[i].lng * ring[j].lat - ring[j].lng * ring[i].lat;
+  }
+  return sum * 0.5;
+}
+
+/** Plans verticaux (parois) entre plancher et plafond — pas de couvercle horizontal. */
 export function buildAirspaceWallMeshBuffers(
   specs: readonly AirspaceWireframeVolumeSpec[],
   map: MaplibreMap | null
@@ -279,23 +301,60 @@ export function buildAirspaceWallMeshBuffers(
   let vertexBase = 0;
 
   for (const spec of specs) {
+    const b = spec.bounds;
+    const specDiagKm = haversineKm([b.west, b.south], [b.east, b.north]);
+    if (specDiagKm > WALL_FILL_MAX_SPEC_DIAGONAL_KM) continue;
+
+    const ring = ringForWireframeElevation(spec, map);
     const corners = buildVolumeMercatorCorners(spec, map);
     if (!corners) continue;
     const n = corners.bottom.length;
+    const ccw = ringSignedAreaLngLat(spec.ring) >= 0;
+
     for (let i = 0; i < n; i++) {
       const j = (i + 1) % n;
-      pushMercator(vertList, corners.bottom[i]);
-      pushMercator(vertList, corners.bottom[j]);
-      pushMercator(vertList, corners.top[j]);
-      pushMercator(vertList, corners.top[i]);
-      indexList.push(
-        vertexBase,
-        vertexBase + 1,
-        vertexBase + 2,
-        vertexBase,
-        vertexBase + 2,
-        vertexBase + 3
+      const bi = corners.bottom[i];
+      const bj = corners.bottom[j];
+      const ti = corners.top[i];
+      const tj = corners.top[j];
+
+      const horizKm = haversineKm(
+        [ring[i].lng, ring[i].lat],
+        [ring[j].lng, ring[j].lat]
       );
+      if (horizKm > MAX_WALL_HORIZONTAL_EDGE_KM) continue;
+
+      if (edgeHeightMetersMsl(bi, ti) < MIN_WALL_EDGE_HEIGHT_M) {
+        continue;
+      }
+
+      if (ccw) {
+        pushMercator(vertList, bi);
+        pushMercator(vertList, ti);
+        pushMercator(vertList, tj);
+        pushMercator(vertList, bj);
+        indexList.push(
+          vertexBase,
+          vertexBase + 1,
+          vertexBase + 2,
+          vertexBase,
+          vertexBase + 2,
+          vertexBase + 3
+        );
+      } else {
+        pushMercator(vertList, bi);
+        pushMercator(vertList, bj);
+        pushMercator(vertList, tj);
+        pushMercator(vertList, ti);
+        indexList.push(
+          vertexBase,
+          vertexBase + 1,
+          vertexBase + 2,
+          vertexBase,
+          vertexBase + 2,
+          vertexBase + 3
+        );
+      }
       vertexBase += 4;
     }
   }
@@ -316,9 +375,9 @@ export function buildAirspaceWireframePositions(
 ): Float32Array {
   let segmentCount = 0;
   for (const spec of specs) {
-    const n = spec.ring.length;
+    const n = ringForWireframeElevation(spec, map).length;
     if (n < 3) continue;
-    segmentCount += n;
+    segmentCount += n * 2;
   }
 
   const positions = new Float32Array(segmentCount * 2 * 3);
@@ -342,10 +401,22 @@ function appendVolumeWireframe(
 
   const n = corners.bottom.length;
   for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
     offset = writeSegment(buffer, offset, corners.bottom[i], corners.top[i]);
+    offset = writeSegment(buffer, offset, corners.top[i], corners.top[j]);
   }
 
   return offset;
+}
+
+/** Hauteur MSL approximative entre deux coins Mercator (m). */
+function edgeHeightMetersMsl(a: MercatorCoordinate, b: MercatorCoordinate): number {
+  const scale = a.meterInMercatorCoordinateUnits();
+  if (!Number.isFinite(scale) || scale <= 0) return 0;
+  const dz = Math.abs(b.z - a.z) / scale;
+  const dx = (b.x - a.x) / scale;
+  const dy = (b.y - a.y) / scale;
+  return Math.sqrt(dx * dx + dy * dy + dz * dz);
 }
 
 function pushMercator(list: number[], mc: MercatorCoordinate): void {

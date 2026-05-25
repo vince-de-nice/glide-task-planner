@@ -118,6 +118,11 @@ export class AirspaceDataSourceService {
 
     if (!isFeatureCollection(data)) return null;
 
+    const filtered = this.applyDatasourceFilter(
+      data as FeatureCollection<Geometry, AirspaceZoneClassTypeProps>
+    );
+    if (!filtered.features.length) return null;
+
     const id = newCustomAirspaceSourceId();
     const displayLabel =
       label?.trim() ||
@@ -125,7 +130,7 @@ export class AirspaceDataSourceService {
       file.name;
 
     try {
-      await this.writeCustomGeoJson(id, data);
+      await this.writeCustomGeoJson(id, filtered);
     } catch {
       return null;
     }
@@ -134,7 +139,7 @@ export class AirspaceDataSourceService {
       id,
       label: displayLabel,
       importedAt: new Date().toISOString(),
-      featureCount: data.features.length
+      featureCount: filtered.features.length
     };
 
     const nextCatalog = [...this.customSources(), meta];
@@ -172,10 +177,14 @@ export class AirspaceDataSourceService {
     if (typeof indexedDB === 'undefined') return null;
     try {
       const db = await this.openCustomDb();
-      return await idbGet<FeatureCollection<Geometry, unknown>>(
+      const raw = await idbGet<FeatureCollection<Geometry, unknown>>(
         db,
         AIRSPACE_CUSTOM_IDB_STORE,
         sourceId
+      );
+      if (!raw?.features?.length) return null;
+      return this.applyDatasourceFilter(
+        raw as FeatureCollection<Geometry, AirspaceZoneClassTypeProps>
       );
     } catch (err) {
       console.warn('[airspace-data-source] read custom failed:', err);

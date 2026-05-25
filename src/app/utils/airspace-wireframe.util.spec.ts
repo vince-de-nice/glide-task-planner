@@ -7,13 +7,68 @@ import {
   buildWireframeVerticalModel,
   densifyRingVertices,
   ringForWireframeElevation,
+  ringSignedAreaLngLat,
   wireframeVertexBaseM,
   wireframeVertexTopM
 } from './airspace-wireframe.util';
 import { FL999_CEILING_M } from './airspace-altitude.util';
 
 describe('airspace-wireframe.util', () => {
+  it('ringSignedAreaLngLat détecte CCW vs CW', () => {
+    const ccw = [
+      { lng: 0, lat: 0 },
+      { lng: 1, lat: 0 },
+      { lng: 1, lat: 1 },
+      { lng: 0, lat: 1 }
+    ];
+    const cw = [...ccw].reverse();
+    expect(ringSignedAreaLngLat(ccw)).toBeGreaterThan(0);
+    expect(ringSignedAreaLngLat(cw)).toBeLessThan(0);
+  });
+
   it('génère plancher + plafond + verticales pour un carré MSL', () => {
+    const specs = buildAirspaceWireframeSpecs({
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: {
+            hasVolume: true,
+            extrusionBaseM: 1000,
+            extrusionTopM: 2000,
+            lower: 'FL100',
+            upper: 'FL200',
+            stroke: '#ff00ff'
+          },
+          geometry: {
+            type: 'Polygon',
+            coordinates: [
+              [
+                [1, 2],
+                [1.02, 2],
+                [1.02, 2.02],
+                [1, 2.02],
+                [1, 2]
+              ]
+            ]
+          }
+        }
+      ]
+    });
+
+    expect(specs).toHaveLength(1);
+    expect(specs[0].useTerrainBase).toBe(false);
+    expect(specs[0].useTerrainTop).toBe(false);
+
+    const positions = buildAirspaceWireframePositions(specs, null);
+    expect(positions.length).toBe(4 * 2 * 2 * 3);
+
+    const walls = buildAirspaceWallMeshBuffers(specs, null);
+    expect(walls.indices.length).toBe(4 * 6);
+    expect(walls.positions.length).toBe(4 * 4 * 3);
+  });
+
+  it('omet le remplissage des parois sur arêtes ou emprises très grandes', () => {
     const specs = buildAirspaceWireframeSpecs({
       type: 'FeatureCollection',
       features: [
@@ -43,16 +98,8 @@ describe('airspace-wireframe.util', () => {
       ]
     });
 
-    expect(specs).toHaveLength(1);
-    expect(specs[0].useTerrainBase).toBe(false);
-    expect(specs[0].useTerrainTop).toBe(false);
-
-    const positions = buildAirspaceWireframePositions(specs, null);
-    expect(positions.length).toBe(4 * 2 * 3);
-
     const walls = buildAirspaceWallMeshBuffers(specs, null);
-    expect(walls.indices.length).toBe(4 * 6);
-    expect(walls.positions.length).toBe(4 * 4 * 3);
+    expect(walls.indices.length).toBe(0);
   });
 
   it('utilise FL999 pour le plafond MSL du volume', () => {
@@ -68,7 +115,7 @@ describe('airspace-wireframe.util', () => {
     expect(model?.useTerrainTop).toBe(false);
   });
 
-  it('exclut GEO et très grandes emprises du fil de fer 3D', () => {
+  it('exclut les très grandes emprises du fil de fer 3D', () => {
     const franceRing = [
       { lng: -5, lat: 42 },
       { lng: 9, lat: 42 },

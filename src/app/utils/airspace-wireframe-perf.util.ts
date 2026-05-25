@@ -9,6 +9,12 @@ export interface WireframeLngLatBounds {
   north: number;
 }
 
+/**
+ * `false` = toutes les zones chargées, pas de sync GeoJSON au pan (carte circuit).
+ * Le fil de fer ne rebuild plus au zoom ; culling viewport optionnel si `true`.
+ */
+export const AIRSPACE_VIEWPORT_CULLING_ENABLED = false;
+
 /** Marge autour du viewport pour inclure les zones qui effleurent le bord. */
 const VIEW_BOUNDS_PAD_RATIO = 0.02;
 
@@ -99,6 +105,10 @@ export function filterWireframeSpecsForViewport(
   specs: readonly AirspaceWireframeVolumeSpec[],
   map: MaplibreMap
 ): AirspaceWireframeVolumeSpec[] {
+  if (!AIRSPACE_VIEWPORT_CULLING_ENABLED) {
+    return specs.filter(s => s.ring.length >= 3);
+  }
+
   const view = mapViewBounds(map);
   const zoom = map.getZoom();
   const inView: AirspaceWireframeVolumeSpec[] = [];
@@ -151,6 +161,10 @@ export function filterAirspaceFeaturesForViewport<T extends { geometry: Geometry
   features: readonly T[],
   map: MaplibreMap
 ): T[] {
+  if (!AIRSPACE_VIEWPORT_CULLING_ENABLED) {
+    return [...features];
+  }
+
   const view = mapViewBounds(map);
   const inView: T[] = [];
 

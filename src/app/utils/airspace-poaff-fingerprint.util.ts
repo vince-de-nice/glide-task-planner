@@ -1,9 +1,15 @@
 import type { FeatureCollection, Geometry } from 'geojson';
 import type { PoaffProperties } from '../services/airspace-layer.service';
 
+export interface PoaffCollectionFingerprintOptions {
+  /** Aligné sur {@link AirspaceDataSourceService#includeAreaGeoZones}. */
+  includeAreaGeo?: boolean;
+}
+
 /** Empreinte rapide du GeoJSON brut (détecte un remplacement de fichier même nom). */
 export function poaffCollectionFingerprint(
-  collection: FeatureCollection<Geometry, PoaffProperties>
+  collection: FeatureCollection<Geometry, PoaffProperties>,
+  options?: PoaffCollectionFingerprintOptions
 ): string {
   const n = collection.features.length;
   let acc = 0;
@@ -18,5 +24,6 @@ export function poaffCollectionFingerprint(
       (p.lowerM ?? 0) +
       (p.upperM ?? 0);
   }
-  return `${n}:${acc}`;
+  const areaGeo = options?.includeAreaGeo ? 1 : 0;
+  return `${n}:${acc}:${areaGeo}`;
 }

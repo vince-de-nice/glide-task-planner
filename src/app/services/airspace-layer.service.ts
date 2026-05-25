@@ -254,7 +254,7 @@ export class AirspaceLayerService {
           lastFailure = 'parse';
           continue;
         }
-        return { geojson: data };
+        return { geojson: this.filterLoadedGeoJson(data) };
       } catch {
         lastFailure = 'network';
       }

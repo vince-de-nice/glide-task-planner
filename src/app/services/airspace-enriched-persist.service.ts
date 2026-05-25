@@ -113,10 +113,12 @@ export class AirspaceEnrichedPersistService {
   }
 
   fingerprintFromGeoJson(
-    geojson: FeatureCollection<Geometry, unknown>
+    geojson: FeatureCollection<Geometry, unknown>,
+    includeAreaGeo = false
   ): string {
     return poaffCollectionFingerprint(
-      geojson as FeatureCollection<Geometry, import('../services/airspace-layer.service').PoaffProperties>
+      geojson as FeatureCollection<Geometry, import('../services/airspace-layer.service').PoaffProperties>,
+      { includeAreaGeo }
     );
   }
 

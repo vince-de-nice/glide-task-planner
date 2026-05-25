@@ -305,7 +305,10 @@ export class AirspaceMapDisplayService {
 
       result = loaded.result;
       const poaffFc = result.geojson as FeatureCollection<Geometry, PoaffProperties>;
-      const sourceFingerprint = this.enrichedPersist.fingerprintFromGeoJson(poaffFc);
+      const sourceFingerprint = this.enrichedPersist.fingerprintFromGeoJson(
+        poaffFc,
+        this.dataSource.includeAreaGeoZones()
+      );
 
       const persisted = await this.enrichedPersist.read(sourceId);
       if (

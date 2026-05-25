@@ -23,5 +23,8 @@ export function filterAreaGeoFromAirspaceCollection<P extends AirspaceZoneClassT
   const features = collection.features.filter(
     f => !isAreaOrGeoAirspaceZone(f.properties)
   );
+  if (features.length === collection.features.length) {
+    return collection;
+  }
   return { type: 'FeatureCollection', features };
 }

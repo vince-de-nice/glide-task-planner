@@ -9,7 +9,10 @@ import type { AirspaceLoadResult } from '../services/airspace-layer.service';
 import type { PoaffProperties } from '../services/airspace-layer.service';
 import type { AirspaceVolumeProperties } from './airspace-volume-enrich.util';
 import { buildAirspaceBoundaryLineCollection } from './airspace-boundary-lines.util';
-import { filterAirspaceFeaturesForViewport } from './airspace-wireframe-perf.util';
+import {
+  AIRSPACE_VIEWPORT_CULLING_ENABLED,
+  filterAirspaceFeaturesForViewport
+} from './airspace-wireframe-perf.util';
 import {
   AIRSPACE_WIREFRAME_LAYER_ID,
   buildAirspaceWireframeSpecs
@@ -157,6 +160,7 @@ function refreshAirspaceViewportData(map: MaplibreMap): void {
 }
 
 function bindAirspaceViewportSync(map: MaplibreMap): void {
+  if (!AIRSPACE_VIEWPORT_CULLING_ENABLED) return;
   if (!isMapStyleActive(map) || viewportSyncHandlerByMap.has(map)) return;
 
   let raf = 0;

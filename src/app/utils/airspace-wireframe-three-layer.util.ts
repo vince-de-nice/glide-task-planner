@@ -7,19 +7,21 @@ import {
   type CustomRenderMethodInput,
   type Map as MaplibreMap
 } from 'maplibre-gl';
-import { filterWireframeSpecsForViewport } from './airspace-wireframe-perf.util';
+import {
+  AIRSPACE_VIEWPORT_CULLING_ENABLED,
+  filterWireframeSpecsForViewport
+} from './airspace-wireframe-perf.util';
 import {
   AIRSPACE_WIREFRAME_LAYER_ID,
   buildAirspaceWallMeshBuffers,
   buildAirspaceWireframePositions,
+  WIREFRAME_WALL_FILL_OPACITY,
   type AirspaceWireframeVolumeSpec
 } from './airspace-wireframe.util';
 
 export { AIRSPACE_WIREFRAME_LAYER_ID };
 
-/** Parois verticales semi-transparentes (carte 2D : pas de remplissage). */
-const WALL_FILL_OPACITY = 0.22;
-/** Arêtes verticales / horizontales du volume, au-dessus des parois. */
+/** Arêtes du volume (verticales + contour plafond). */
 const WIREFRAME_LINE_OPACITY = 1;
 
 export function createAirspaceWireframeCustomLayer(): AirspaceWireframeThreeCustomLayer {
@@ -28,7 +30,7 @@ export function createAirspaceWireframeCustomLayer(): AirspaceWireframeThreeCust
 
 interface ColorGroupRenderBundle {
   specs: AirspaceWireframeVolumeSpec[];
-  walls: THREE.Mesh;
+  walls: THREE.Mesh | null;
   lines: THREE.LineSegments;
 }
 
@@ -45,36 +47,14 @@ export class AirspaceWireframeThreeCustomLayer implements CustomLayerInterface {
   private allSpecs: AirspaceWireframeVolumeSpec[] = [];
   private visible = false;
   private positionsDirty = true;
-
-  private mapChangeRaf = 0;
-  private lastViewportKey = '';
-
-  private readonly onMapChange = (): void => {
-    cancelAnimationFrame(this.mapChangeRaf);
-    this.mapChangeRaf = requestAnimationFrame(() => {
-      const key = this.viewportKey();
-      if (key === this.lastViewportKey) return;
-      this.lastViewportKey = key;
-      this.positionsDirty = true;
-      this.rebuildBundles();
-      this.map?.triggerRepaint();
-    });
-  };
-
-  private viewportKey(): string {
-    const map = this.map;
-    if (!map) return '';
-    const c = map.getCenter();
-    const z = map.getZoom();
-    const p = map.getPitch();
-    const b = map.getBearing();
-    return `${c.lng.toFixed(5)},${c.lat.toFixed(5)},${z.toFixed(2)},${p.toFixed(1)},${b.toFixed(1)}`;
-  }
+  private demResyncGeneration = 0;
+  private demIdleHandler: (() => void) | null = null;
 
   setSpecs(specs: AirspaceWireframeVolumeSpec[]): void {
     this.allSpecs = specs;
     this.positionsDirty = true;
     this.rebuildBundles();
+    this.scheduleDemResync();
     this.map?.triggerRepaint();
   }
 
@@ -91,9 +71,8 @@ export class AirspaceWireframeThreeCustomLayer implements CustomLayerInterface {
       antialias: false
     });
     this.renderer.autoClear = false;
-    map.on('moveend', this.onMapChange);
-    this.lastViewportKey = '';
     this.rebuildBundles();
+    this.scheduleDemResync();
   }
 
   onRemove(): void {
@@ -103,15 +82,7 @@ export class AirspaceWireframeThreeCustomLayer implements CustomLayerInterface {
   /** Libération GPU / listeners sans passer par map.removeLayer (carte déjà détruite). */
   dispose(): void {
     if (!this.map && !this.renderer && this.bundles.length === 0) return;
-    cancelAnimationFrame(this.mapChangeRaf);
-    const map = this.map;
-    if (map) {
-      try {
-        map.off('moveend', this.onMapChange);
-      } catch {
-        /* ignore */
-      }
-    }
+    this.clearDemIdleHandler();
     this.visible = false;
     this.disposeBundles();
     this.renderer = null;
@@ -136,7 +107,9 @@ export class AirspaceWireframeThreeCustomLayer implements CustomLayerInterface {
     this.camera.projectionMatrix = projection;
 
     for (const bundle of this.bundles) {
-      this.renderer.render(bundle.walls, this.camera);
+      if (bundle.walls) {
+        this.renderer.render(bundle.walls, this.camera);
+      }
       this.renderer.render(bundle.lines, this.camera);
     }
   }
@@ -144,7 +117,48 @@ export class AirspaceWireframeThreeCustomLayer implements CustomLayerInterface {
   private activeSpecs(): AirspaceWireframeVolumeSpec[] {
     const map = this.map;
     if (!map || this.allSpecs.length === 0) return [];
+    if (!AIRSPACE_VIEWPORT_CULLING_ENABLED) {
+      return this.allSpecs.filter(s => s.ring.length >= 3);
+    }
     return filterWireframeSpecsForViewport(this.allSpecs, map);
+  }
+
+  /** Re-synchronise les altitudes terrain une fois les tuiles DEM disponibles (pas au zoom). */
+  private scheduleDemResync(): void {
+    const map = this.map;
+    if (!map || !this.hasTerrainSpecs()) return;
+
+    this.clearDemIdleHandler();
+    const gen = ++this.demResyncGeneration;
+    const onIdle = (): void => {
+      this.clearDemIdleHandler();
+      if (gen !== this.demResyncGeneration || !this.visible || this.bundles.length === 0) {
+        return;
+      }
+      this.positionsDirty = true;
+      map.triggerRepaint();
+    };
+    this.demIdleHandler = onIdle;
+    map.once('idle', onIdle);
+  }
+
+  private clearDemIdleHandler(): void {
+    const map = this.map;
+    const handler = this.demIdleHandler;
+    if (map && handler) {
+      try {
+        map.off('idle', handler);
+      } catch {
+        /* carte détruite */
+      }
+    }
+    this.demIdleHandler = null;
+  }
+
+  private hasTerrainSpecs(): boolean {
+    return this.allSpecs.some(
+      s => s.needsTerrainSampling || s.useTerrainBase || s.useTerrainTop
+    );
   }
 
   private rebuildBundles(): void {
@@ -160,22 +174,30 @@ export class AirspaceWireframeThreeCustomLayer implements CustomLayerInterface {
       byColor.set(key, list);
     }
 
-    for (const [color, group] of byColor) {
-      const wallGeom = new THREE.BufferGeometry();
-      wallGeom.setAttribute(
-        'position',
-        new THREE.BufferAttribute(new Float32Array(0), 3)
-      );
-      wallGeom.setIndex(new THREE.BufferAttribute(new Uint32Array(0), 1));
+    const wallFillEnabled = WIREFRAME_WALL_FILL_OPACITY > 0.001;
 
-      const wallMat = new THREE.MeshBasicMaterial({
-        color: new THREE.Color(color),
-        transparent: true,
-        opacity: WALL_FILL_OPACITY,
-        depthTest: true,
-        depthWrite: false,
-        side: THREE.DoubleSide
-      });
+    for (const [color, group] of byColor) {
+      let walls: THREE.Mesh | null = null;
+      if (wallFillEnabled) {
+        const wallGeom = new THREE.BufferGeometry();
+        wallGeom.setAttribute(
+          'position',
+          new THREE.BufferAttribute(new Float32Array(0), 3)
+        );
+        wallGeom.setIndex(new THREE.BufferAttribute(new Uint32Array(0), 1));
+
+        const wallMat = new THREE.MeshBasicMaterial({
+          color: new THREE.Color(color),
+          transparent: true,
+          opacity: WIREFRAME_WALL_FILL_OPACITY,
+          depthTest: true,
+          depthWrite: false,
+          side: THREE.FrontSide
+        });
+        walls = new THREE.Mesh(wallGeom, wallMat);
+        walls.frustumCulled = false;
+        this.scene.add(walls);
+      }
 
       const lineGeom = new THREE.BufferGeometry();
       lineGeom.setAttribute(
@@ -192,12 +214,9 @@ export class AirspaceWireframeThreeCustomLayer implements CustomLayerInterface {
         linewidth: 2
       });
 
-      const walls = new THREE.Mesh(wallGeom, wallMat);
       const lines = new THREE.LineSegments(lineGeom, lineMat);
-      walls.frustumCulled = false;
       lines.frustumCulled = false;
 
-      this.scene.add(walls);
       this.scene.add(lines);
       this.bundles.push({ specs: group, walls, lines });
     }
@@ -210,15 +229,25 @@ export class AirspaceWireframeThreeCustomLayer implements CustomLayerInterface {
     if (!map) return;
 
     for (const bundle of this.bundles) {
-      const walls = buildAirspaceWallMeshBuffers(bundle.specs, map);
-      if (walls.indices.length > 0) {
-        bundle.walls.geometry.setAttribute(
-          'position',
-          new THREE.BufferAttribute(walls.positions, 3)
-        );
-        bundle.walls.geometry.setIndex(
-          new THREE.BufferAttribute(walls.indices, 1)
-        );
+      if (bundle.walls) {
+        const walls = buildAirspaceWallMeshBuffers(bundle.specs, map);
+        if (walls.indices.length > 0) {
+          bundle.walls.geometry.setAttribute(
+            'position',
+            new THREE.BufferAttribute(walls.positions, 3)
+          );
+          bundle.walls.geometry.setIndex(
+            new THREE.BufferAttribute(walls.indices, 1)
+          );
+        } else {
+          bundle.walls.geometry.setAttribute(
+            'position',
+            new THREE.BufferAttribute(new Float32Array(0), 3)
+          );
+          bundle.walls.geometry.setIndex(
+            new THREE.BufferAttribute(new Uint32Array(0), 1)
+          );
+        }
       }
 
       const linePos = buildAirspaceWireframePositions(bundle.specs, map);
@@ -234,7 +263,8 @@ export class AirspaceWireframeThreeCustomLayer implements CustomLayerInterface {
   private disposeBundles(): void {
     const disposedMaterials = new Set<THREE.Material>();
     for (const bundle of this.bundles) {
-      for (const obj of [bundle.walls, bundle.lines]) {
+      const objs = bundle.walls ? [bundle.walls, bundle.lines] : [bundle.lines];
+      for (const obj of objs) {
         obj.geometry.dispose();
         const mat = obj.material;
         const materials = Array.isArray(mat) ? mat : [mat];

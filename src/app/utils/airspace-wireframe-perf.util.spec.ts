@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AIRSPACE_VIEWPORT_CULLING_ENABLED,
   filterAirspaceFeaturesForViewport,
   filterWireframeSpecsForViewport,
   maxRingVerticesForZoom
@@ -38,7 +39,9 @@ describe('airspace-wireframe-perf.util', () => {
     expect(maxRingVerticesForZoom(14)).toBe(32);
   });
 
-  it('garde toutes les zones dans le viewport, exclut les hors vue', () => {
+  it.skipIf(!AIRSPACE_VIEWPORT_CULLING_ENABLED)(
+    'garde toutes les zones dans le viewport, exclut les hors vue',
+    () => {
     const map = {
       getZoom: () => 12,
       getBounds: () => ({
@@ -59,7 +62,8 @@ describe('airspace-wireframe-perf.util', () => {
     const filtered = filterWireframeSpecsForViewport(specs, map);
     expect(filtered.length).toBe(3);
     expect(filtered.some(s => s.id.startsWith('s-10'))).toBe(false);
-  });
+    }
+  );
 
   it('ne décime pas les anneaux AGL/GND (suivi relief)', () => {
     const denseRing = Array.from({ length: 120 }, (_, i) => ({
@@ -89,7 +93,9 @@ describe('airspace-wireframe-perf.util', () => {
     expect(filtered[0].ring.length).toBe(120);
   });
 
-  it('ne plafonne pas le nombre de features GeoJSON visibles', () => {
+  it.skipIf(!AIRSPACE_VIEWPORT_CULLING_ENABLED)(
+    'ne plafonne pas le nombre de features GeoJSON visibles',
+    () => {
     const map = {
       getZoom: () => 11,
       getBounds: () => ({
@@ -122,5 +128,6 @@ describe('airspace-wireframe-perf.util', () => {
     });
 
     expect(filterAirspaceFeaturesForViewport(features, map).length).toBe(50);
-  });
+    }
+  );
 });
