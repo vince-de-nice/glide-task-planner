@@ -3,8 +3,10 @@ import {
   buildAirspaceWallMeshBuffers,
   buildAirspaceWireframePositions,
   buildAirspaceWireframeSpecs,
+  buildVolumeMercatorCorners,
   buildWireframeVerticalModel,
   densifyRingVertices,
+  ringForWireframeElevation,
   wireframeVertexBaseM,
   wireframeVertexTopM
 } from './airspace-wireframe.util';
@@ -190,6 +192,41 @@ describe('airspace-wireframe.util', () => {
     });
     expect(agl[0].ring.length).toBeGreaterThan(fl[0].ring.length);
     expect(agl[0].needsTerrainSampling).toBe(true);
+  });
+
+  it('ringForWireframeElevation densifie plus que l’anneau brut (AGL)', () => {
+    const sparse = [
+      { lng: 6.0, lat: 45.0 },
+      { lng: 6.5, lat: 45.0 },
+      { lng: 6.5, lat: 45.4 },
+      { lng: 6.0, lat: 45.4 }
+    ];
+    const spec = {
+      ring: sparse,
+      needsTerrainSampling: true,
+      useTerrainBase: true,
+      useTerrainTop: false
+    };
+    const map = { queryTerrainElevation: () => 1200 } as never;
+    const expanded = ringForWireframeElevation(spec, map);
+    expect(expanded.length).toBeGreaterThan(sparse.length);
+    const corners = buildVolumeMercatorCorners(
+      {
+        id: 't',
+        ring: sparse,
+        bounds: { west: 6, south: 45, east: 6.5, north: 45.4 },
+        color: '#f00',
+        baseM: 0,
+        topM: 2000,
+        useTerrainBase: true,
+        useTerrainTop: false,
+        baseOffsetM: 0,
+        topOffsetM: 300,
+        needsTerrainSampling: true
+      },
+      map
+    );
+    expect(corners?.bottom.length).toBeGreaterThan(sparse.length);
   });
 
   it('varie le plancher selon le relief par sommet (AGL)', () => {

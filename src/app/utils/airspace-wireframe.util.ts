@@ -15,11 +15,11 @@ import { ringLngLatBounds, type WireframeLngLatBounds } from './airspace-wirefra
 export const AIRSPACE_WIREFRAME_LAYER_ID = 'airspace-wireframe-3d';
 
 /** Sommets max pour limites MSL (FL / AMSL) à la construction. */
-const FLAT_RING_MAX_VERTICES_BUILD = 32;
+const FLAT_RING_MAX_VERTICES_BUILD = 96;
 /** Espacement max (km) entre sommets le long du contour pour zones AGL/GND. */
-export const TERRAIN_RING_MAX_SEGMENT_KM = 0.6;
+export const TERRAIN_RING_MAX_SEGMENT_KM = 0.3;
 /** Plafond de sommets après densification (perf). */
-export const TERRAIN_RING_MAX_VERTICES = 220;
+export const TERRAIN_RING_MAX_VERTICES = 384;
 /** Emprise > N km : pas de volume 3D (GEO France, etc.). */
 const WIREFRAME_MAX_DIAGONAL_KM = 350;
 const MIN_VOLUME_HEIGHT_M = 1;
@@ -68,7 +68,7 @@ export function buildAirspaceWireframeSpecs(
 
       const needsTerrain =
         vertical.useTerrainBase || vertical.useTerrainTop;
-      const prepared = prepareRingVertices(ring, needsTerrain);
+      const prepared = prepareAirspaceFootprintRing(ring, needsTerrain);
       specs.push({
         id: `${id}-${r}`,
         ring: prepared,
@@ -174,12 +174,33 @@ export interface VolumeMercatorCorners {
   top: MercatorCoordinate[];
 }
 
+/**
+ * Anneau utilisé pour les parois : densifié le long des arêtes afin que chaque segment
+ * interroge le relief (évite les « cordes » qui ne suivent pas la trace au sol).
+ */
+export function ringForWireframeElevation(
+  spec: Pick<AirspaceWireframeVolumeSpec, 'ring' | 'needsTerrainSampling' | 'useTerrainBase' | 'useTerrainTop'>,
+  map: MaplibreMap | null
+): ReadonlyArray<{ lng: number; lat: number }> {
+  const sampleTerrain =
+    map != null &&
+    (spec.needsTerrainSampling || spec.useTerrainBase || spec.useTerrainTop);
+  if (!sampleTerrain) return spec.ring;
+
+  let ring = densifyRingVertices(spec.ring, TERRAIN_RING_MAX_SEGMENT_KM);
+  if (ring.length > TERRAIN_RING_MAX_VERTICES) {
+    ring = decimateRing(ring, TERRAIN_RING_MAX_VERTICES);
+  }
+  return ring;
+}
+
 /** Coins plancher / plafond en coordonnées Mercator (mise à jour avec le DEM). */
 export function buildVolumeMercatorCorners(
   spec: AirspaceWireframeVolumeSpec,
   map: MaplibreMap | null
 ): VolumeMercatorCorners | null {
-  const n = spec.ring.length;
+  const ring = ringForWireframeElevation(spec, map);
+  const n = ring.length;
   if (n < 3) return null;
 
   const bottom: MercatorCoordinate[] = [];
@@ -187,7 +208,7 @@ export function buildVolumeMercatorCorners(
   const sampleTerrain =
     map != null && (spec.needsTerrainSampling || spec.useTerrainBase || spec.useTerrainTop);
 
-  for (const p of spec.ring) {
+  for (const p of ring) {
     const groundM = sampleTerrain
       ? (map.queryTerrainElevation([p.lng, p.lat]) ?? null)
       : null;
@@ -411,7 +432,8 @@ export function densifyRingVertices(
   return out;
 }
 
-function prepareRingVertices(
+/** Anneau horizontal partagé trace 2D + emprise fil de fer (AGL/GND densifié). */
+export function prepareAirspaceFootprintRing(
   ring: { lng: number; lat: number }[],
   needsTerrain: boolean
 ): { lng: number; lat: number }[] {

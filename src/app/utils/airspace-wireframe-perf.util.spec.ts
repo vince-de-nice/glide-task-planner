@@ -61,6 +61,34 @@ describe('airspace-wireframe-perf.util', () => {
     expect(filtered.some(s => s.id.startsWith('s-10'))).toBe(false);
   });
 
+  it('ne décime pas les anneaux AGL/GND (suivi relief)', () => {
+    const denseRing = Array.from({ length: 120 }, (_, i) => ({
+      lng: 6 + i * 0.001,
+      lat: 45
+    }));
+    const terrainSpec: AirspaceWireframeVolumeSpec = {
+      ...specAt(6, 45, 0.1),
+      id: 'terrain-dense',
+      ring: denseRing,
+      needsTerrainSampling: true,
+      useTerrainBase: true,
+      useTerrainTop: true
+    };
+    const map = {
+      getZoom: () => 10,
+      getBounds: () => ({
+        getWest: () => 5,
+        getSouth: () => 44,
+        getEast: () => 8,
+        getNorth: () => 46
+      })
+    } as never;
+
+    const filtered = filterWireframeSpecsForViewport([terrainSpec], map);
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0].ring.length).toBe(120);
+  });
+
   it('ne plafonne pas le nombre de features GeoJSON visibles', () => {
     const map = {
       getZoom: () => 11,

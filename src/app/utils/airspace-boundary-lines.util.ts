@@ -6,6 +6,10 @@ import type {
   Position
 } from 'geojson';
 import type { AirspaceVolumeProperties } from './airspace-volume-enrich.util';
+import {
+  buildWireframeVerticalModel,
+  prepareAirspaceFootprintRing
+} from './airspace-wireframe.util';
 
 /** Contours fermés (arêtes) de chaque polygone POAFF pour calques `line`. */
 export function buildAirspaceBoundaryLineCollection(
@@ -17,14 +21,23 @@ export function buildAirspaceBoundaryLineCollection(
     const rings = exteriorRings(feature.geometry);
     if (rings.length === 0) continue;
     const props = feature.properties ?? ({} as AirspaceVolumeProperties);
+    const vertical = props.hasVolume ? buildWireframeVerticalModel(props) : null;
+    const needsTerrain = !!(
+      vertical &&
+      (vertical.useTerrainBase || vertical.useTerrainTop)
+    );
 
     for (const ring of rings) {
-      if (ring.length < 2) continue;
+      const open = openExteriorRing(ring);
+      if (open.length < 2) continue;
+      const footprint = prepareAirspaceFootprintRing(open, needsTerrain);
       features.push({
         type: 'Feature',
         geometry: {
           type: 'LineString',
-          coordinates: closeRing(ring)
+          coordinates: closeRing(
+            footprint.map(p => [p.lng, p.lat] as Position)
+          )
         },
         properties: { ...props }
       });
@@ -44,6 +57,18 @@ function exteriorRings(geometry: Geometry): Position[][] {
       .filter((ring): ring is Position[] => ring != null);
   }
   return [];
+}
+
+function openExteriorRing(ring: Position[]): { lng: number; lat: number }[] {
+  const pts = ring.map(p => ({ lng: p[0], lat: p[1] }));
+  if (pts.length > 1) {
+    const first = pts[0];
+    const last = pts[pts.length - 1];
+    if (first.lng === last.lng && first.lat === last.lat) {
+      pts.pop();
+    }
+  }
+  return pts;
 }
 
 /** Ferme le contour pour un tracé `line` continu. */

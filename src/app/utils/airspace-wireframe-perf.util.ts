@@ -105,9 +105,13 @@ export function filterWireframeSpecsForViewport(
 
   for (const spec of specs) {
     if (!boundsIntersect(spec.bounds, view)) continue;
-    const maxVerts = spec.needsTerrainSampling
-      ? maxRingVerticesForTerrainZoom(zoom)
-      : maxRingVerticesForZoom(zoom);
+    // Zones AGL/GND : anneau déjà densifié à la construction — ne pas ré-decimer au zoom
+    // (sinon parois en cordes droites ≠ trace au sol MapLibre).
+    if (spec.needsTerrainSampling) {
+      if (spec.ring.length >= 3) inView.push(spec);
+      continue;
+    }
+    const maxVerts = maxRingVerticesForZoom(zoom);
     const ring = decimateRingForZoom(spec.ring, maxVerts);
     if (ring.length < 3) continue;
     inView.push(ring === spec.ring ? spec : { ...spec, ring });
