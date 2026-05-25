@@ -302,12 +302,15 @@ Fichier : [`src/app/utils/airspace-map-layers.util.ts`](../src/app/utils/airspac
 
 ## Annexe A — Checklist revue style (avant merge UI)
 
-- [ ] Classe D/C lisible en bleu (profil VFR) vs rouge POAFF documenté
-- [ ] Zones R en rouge, pas violet (profil VFR)
-- [ ] Zones HX en tirets visibles à zoom 10–12
-- [ ] Fond topo : pas de relief 3D en impression
+- [x] Classe D/C lisible en bleu (symbologie VFR dans `airspace-vfr-style.util.ts`)
+- [x] Zones R en rouge, pas violet POAFF brut
+- [x] Zones HX / TIMSH en tirets (`line-dasharray` sur `activationCode`)
+- [x] Halo coloré selon famille (plus blanc fixe)
+- [x] Fil de fer 3D aligné sur palette VFR
+- [ ] Fond topo : pas de relief 3D en impression (déjà traité côté print)
 - [ ] Barre d’échelle PDF cohérente avec emprise slot carte
-- [ ] Popup / récap : nom, freq, limites, activation
+- [x] Popup : nom, type, limites, activation
+- [ ] Libellés FL le long des bords (phase ultérieure)
 
 ## Annexe B — Correspondance rapide `class` POAFF
 

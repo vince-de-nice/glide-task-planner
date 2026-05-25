@@ -13,6 +13,7 @@ import {
 } from '../config/map-airspace.config';
 import { AirspaceDataSourceService } from './airspace-data-source.service';
 import { formatAirspaceVerticalRange } from '../utils/airspace-altitude.util';
+import { resolveAirspaceVfrPaint } from '../utils/airspace-vfr-style.util';
 
 export type AirspaceSource = 'openaip' | 'poaff' | 'none';
 
@@ -186,12 +187,13 @@ export class AirspaceLayerService {
 
   poaffPaint(feature: Feature<Geometry, PoaffProperties>): PoaffPaintProps {
     const p = feature.properties ?? {};
+    const vfr = resolveAirspaceVfrPaint(p);
     return {
-      stroke: p.stroke ?? '#c026d3',
-      strokeWidth: p['stroke-width'] ?? 1.5,
-      strokeOpacity: p['stroke-opacity'] ?? 0.85,
-      fill: p.fill ?? '#f0abfc',
-      fillOpacity: Math.min((p['fill-opacity'] ?? 0.45) * 0.55, 0.45)
+      stroke: vfr.stroke,
+      strokeWidth: vfr.strokeWidth,
+      strokeOpacity: 0.9,
+      fill: vfr.fill,
+      fillOpacity: vfr.fillOpacity
     };
   }
 
@@ -204,10 +206,14 @@ export class AirspaceLayerService {
       p.lowerM,
       p.upperM
     );
+    const activation = formatPoaffActivationLine(p);
     return (
       `<div class="gc-airspace-popup"><strong>${this.escapeHtml(name)}</strong>` +
-      (p.class ? `<p>Type : ${this.escapeHtml(p.class)}</p>` : '') +
+      (p.class || p.type
+        ? `<p>${this.escapeHtml([p.class, p.type].filter(Boolean).join(' · '))}</p>`
+        : '') +
       (vertical ? `<p>${this.escapeHtml(vertical)}</p>` : '') +
+      (activation ? `<p>${this.escapeHtml(activation)}</p>` : '') +
       (p.desc ? `<p class="gc-airspace-popup__desc">${this.escapeHtml(p.desc)}</p>` : '') +
       `</div>`
     );
@@ -264,4 +270,11 @@ export class AirspaceLayerService {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
   }
+}
+
+function formatPoaffActivationLine(p: PoaffProperties): string | null {
+  const code = p.activationCode?.trim();
+  const desc = p.activationDesc?.trim();
+  if (code && desc) return `${code} — ${desc}`;
+  return code || desc || null;
 }

@@ -8,6 +8,7 @@ import {
 import type { AirspaceVolumeProperties } from './airspace-volume-enrich.util';
 
 import { isAreaOrGeoAirspaceZone } from './airspace-datasource-filter.util';
+import { wireframeColorFromProps } from './airspace-vfr-style.util';
 import { haversineKm } from './geo.util';
 import { ringLngLatBounds, type WireframeLngLatBounds } from './airspace-wireframe-perf.util';
 
@@ -54,7 +55,7 @@ export function buildAirspaceWireframeSpecs(
     if (!props?.hasVolume) continue;
 
     const rings = exteriorRings(feature.geometry);
-    const color = normalizeWireframeColor(props.stroke);
+    const color = wireframeColorFromProps(props);
     const id = String(props.id ?? props.GUId ?? i);
 
     for (let r = 0; r < rings.length; r++) {
@@ -367,12 +368,6 @@ function openRingVertices(ring: Position[]): { lng: number; lat: number }[] {
     }
   }
   return pts;
-}
-
-function normalizeWireframeColor(raw?: string): string {
-  const s = raw?.trim();
-  if (s && /^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$/.test(s)) return s;
-  return '#c026d3';
 }
 
 function decimateRing<T>(pts: readonly T[], maxCount: number): T[] {

@@ -1,10 +1,5 @@
-import type {
-  ExpressionSpecification,
-  GeoJSONSource,
-  MapLayerMouseEvent,
-  Map as MaplibreMap
-} from 'maplibre-gl';
-import type { Feature, FeatureCollection, Geometry } from 'geojson';
+import type { GeoJSONSource, MapLayerMouseEvent, Map as MaplibreMap } from 'maplibre-gl';
+import type { FeatureCollection, Geometry } from 'geojson';
 import {
   MAP_LAYER,
   MAP_SOURCE,
@@ -21,6 +16,13 @@ import {
 } from './airspace-wireframe.util';
 import { geoJsonFlagEq } from './map-expression.util';
 import {
+  enrichAirspaceCollectionVfrStyles,
+  type AirspaceFeatureProperties,
+  airspaceVfrHaloWidthExpression,
+  airspaceVfrLineDashExpression,
+  airspaceVfrLineWidthExpression
+} from './airspace-vfr-style.util';
+import {
   isMapStyleActive,
   registerMapTeardown,
   withActiveMap
@@ -32,33 +34,9 @@ const wireframeLayersByMap = new WeakMap<MaplibreMap, AirspaceWireframeLayer>();
 const airspaceTeardownRegistered = new WeakSet<MaplibreMap>();
 const fullAirspaceByMap = new WeakMap<
   MaplibreMap,
-  FeatureCollection<Geometry, AirspaceVolumeProperties>
+  FeatureCollection<Geometry, AirspaceFeatureProperties>
 >();
 const viewportSyncHandlerByMap = new WeakMap<MaplibreMap, () => void>();
-
-const AIRSPACE_EDGE_WIDTH: ExpressionSpecification = [
-  'interpolate',
-  ['linear'],
-  ['zoom'],
-  8,
-  1.5,
-  12,
-  2.25,
-  16,
-  3
-];
-
-const AIRSPACE_EDGE_HALO_WIDTH: ExpressionSpecification = [
-  'interpolate',
-  ['linear'],
-  ['zoom'],
-  8,
-  3,
-  12,
-  4.5,
-  16,
-  5.5
-];
 
 const AIRSPACE_CLICK_LAYERS = [
   MAP_LAYER.AIRSPACE_FILL,
@@ -67,8 +45,6 @@ const AIRSPACE_CLICK_LAYERS = [
   MAP_LAYER.AIRSPACE_LINE_HALO,
   MAP_LAYER.AIRSPACE_LINE
 ] as const;
-
-const airspaceEdgeColor: ExpressionSpecification = ['coalesce', ['get', 'stroke'], '#c026d3'];
 
 let clickHandler: ((e: MapLayerMouseEvent) => void) | null = null;
 let enterHandler: (() => void) | null = null;
@@ -146,12 +122,21 @@ async function applyAirspaceWireframeLayer(
 
 function viewportAirspaceCollection(
   map: MaplibreMap,
-  full: FeatureCollection<Geometry, AirspaceVolumeProperties>
-): FeatureCollection<Geometry, AirspaceVolumeProperties> {
+  full: FeatureCollection<Geometry, AirspaceFeatureProperties>
+): FeatureCollection<Geometry, AirspaceFeatureProperties> {
   return {
     type: 'FeatureCollection',
     features: filterAirspaceFeaturesForViewport(full.features, map)
   };
+}
+
+function buildVisibleEdgeCollection(
+  visible: FeatureCollection<Geometry, AirspaceFeatureProperties>
+): ReturnType<typeof buildAirspaceBoundaryLineCollection> {
+  if (visible.features.length === 0) {
+    return { type: 'FeatureCollection', features: [] };
+  }
+  return buildAirspaceBoundaryLineCollection(visible);
 }
 
 function refreshAirspaceViewportData(map: MaplibreMap): void {
@@ -167,15 +152,7 @@ function refreshAirspaceViewportData(map: MaplibreMap): void {
 
   const edgeSrc = map.getSource(MAP_SOURCE.AIRSPACE_EDGES);
   if (edgeSrc && 'setData' in edgeSrc) {
-    const flat = visible.features.filter(f => f.properties?.hasVolume !== true);
-    (edgeSrc as GeoJSONSource).setData(
-      flat.length > 0
-        ? buildAirspaceBoundaryLineCollection({
-            type: 'FeatureCollection',
-            features: flat
-          })
-        : { type: 'FeatureCollection', features: [] }
-    );
+    (edgeSrc as GeoJSONSource).setData(buildVisibleEdgeCollection(visible));
   }
 }
 
@@ -267,9 +244,9 @@ function addAirspaceEdgeLayers(
       source: MAP_SOURCE.AIRSPACE_EDGES,
       layout: { 'line-join': 'round', 'line-cap': 'round' },
       paint: {
-        'line-color': '#ffffff',
-        'line-width': AIRSPACE_EDGE_HALO_WIDTH,
-        'line-opacity': 0.85
+        'line-color': ['get', 'vfrStroke'],
+        'line-width': airspaceVfrHaloWidthExpression(),
+        'line-opacity': 0.42
       }
     },
     beforeLayerId
@@ -281,9 +258,10 @@ function addAirspaceEdgeLayers(
       source: MAP_SOURCE.AIRSPACE_EDGES,
       layout: { 'line-join': 'round', 'line-cap': 'round' },
       paint: {
-        'line-color': airspaceEdgeColor,
-        'line-width': AIRSPACE_EDGE_WIDTH,
-        'line-opacity': 0.95
+        'line-color': ['get', 'vfrStroke'],
+        'line-width': airspaceVfrLineWidthExpression(),
+        'line-opacity': 0.95,
+        'line-dasharray': airspaceVfrLineDashExpression()
       }
     },
     beforeLayerId
@@ -333,8 +311,9 @@ export async function applyAirspaceLayersToMap(
     return;
   }
 
-  fullAirspaceByMap.set(map, geojson);
-  const visible = viewportAirspaceCollection(map, geojson);
+  const styled = enrichAirspaceCollectionVfrStyles(geojson);
+  fullAirspaceByMap.set(map, styled);
+  const visible = viewportAirspaceCollection(map, styled);
 
   map.addSource(MAP_SOURCE.AIRSPACE, {
     type: 'geojson',
@@ -356,17 +335,10 @@ export async function applyAirspaceLayersToMap(
       },
       options.beforeLayerId
     );
-    await applyAirspaceWireframeLayer(map, geojson, options.beforeLayerId);
-    const flatFeatures = visible.features.filter(f => f.properties?.hasVolume !== true);
-    if (flatFeatures.length > 0) {
-      addAirspaceEdgeLayers(
-        map,
-        buildAirspaceBoundaryLineCollection({
-          type: 'FeatureCollection',
-          features: flatFeatures
-        }),
-        options.beforeLayerId
-      );
+    await applyAirspaceWireframeLayer(map, styled, options.beforeLayerId);
+    const visibleEdges = buildVisibleEdgeCollection(visible);
+    if (visibleEdges.features.length > 0) {
+      addAirspaceEdgeLayers(map, visibleEdges, options.beforeLayerId);
     }
   } else {
     map.addLayer(
@@ -375,19 +347,13 @@ export async function applyAirspaceLayersToMap(
         type: 'fill',
         source: MAP_SOURCE.AIRSPACE,
         paint: {
-          'fill-color': ['coalesce', ['get', 'fill'], '#f0abfc'],
-          'fill-opacity': [
-            'min',
-            ['*', ['coalesce', ['get', 'fill-opacity'], 0.45], 0.55],
-            0.45
-          ],
-          'fill-outline-color': airspaceEdgeColor,
-          'fill-antialias': true
+          'fill-color': '#000000',
+          'fill-opacity': 0
         }
       },
       options.beforeLayerId
     );
-    const visibleEdges = buildAirspaceBoundaryLineCollection(visible);
+    const visibleEdges = buildVisibleEdgeCollection(visible);
     if (visibleEdges.features.length > 0) {
       addAirspaceEdgeLayers(map, visibleEdges, options.beforeLayerId);
     }

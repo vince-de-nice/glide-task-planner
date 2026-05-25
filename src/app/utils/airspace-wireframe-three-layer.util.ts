@@ -17,8 +17,10 @@ import {
 
 export { AIRSPACE_WIREFRAME_LAYER_ID };
 
-/** Opacité des parois verticales (pas de toit ni de fond). */
+/** Parois verticales semi-transparentes (carte 2D : pas de remplissage). */
 const WALL_FILL_OPACITY = 0.22;
+/** Arêtes verticales / horizontales du volume, au-dessus des parois. */
+const WIREFRAME_LINE_OPACITY = 1;
 
 export function createAirspaceWireframeCustomLayer(): AirspaceWireframeThreeCustomLayer {
   return new AirspaceWireframeThreeCustomLayer();
@@ -184,9 +186,10 @@ export class AirspaceWireframeThreeCustomLayer implements CustomLayerInterface {
       const lineMat = new THREE.LineBasicMaterial({
         color: new THREE.Color(color),
         transparent: true,
-        opacity: 0.95,
+        opacity: WIREFRAME_LINE_OPACITY,
         depthTest: true,
-        depthWrite: false
+        depthWrite: false,
+        linewidth: 2
       });
 
       const walls = new THREE.Mesh(wallGeom, wallMat);
