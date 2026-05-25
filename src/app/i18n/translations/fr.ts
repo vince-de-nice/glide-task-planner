@@ -929,6 +929,8 @@ export const fr = {
       previewFrameTitle: 'Aperçu du PDF généré',
       generatePreview: 'Générer l’aperçu',
       scaleHint: 'Échelle fixe 1:250 000 — nord en haut — format A4',
+      scaleNote:
+        'Echelle nominale 1:250 000 au centre de la feuille (projection Web Mercator).',
       layoutMode: 'Mise en page',
       modeFullCircuit: 'Circuit entier (carte seule)',
       modePerBranch: 'Une page par branche',

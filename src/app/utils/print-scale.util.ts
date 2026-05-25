@@ -179,9 +179,53 @@ export function mapViewportPixelSize(
   dpi: number = PRINT_DPI
 ): { widthPx: number; heightPx: number } {
   const { widthMm, heightMm } = printableMapSizeMm(orientation, includeHeader);
+  return mapViewportPixelSizeFromMm(widthMm, heightMm, dpi);
+}
+
+/** Raster @ dpi pour une zone carte de dimensions connues (mm). */
+export function mapViewportPixelSizeFromMm(
+  widthMm: number,
+  heightMm: number,
+  dpi: number = PRINT_DPI
+): { widthPx: number; heightPx: number } {
   return {
-    widthPx: Math.round((widthMm / 25.4) * dpi),
-    heightPx: Math.round((heightMm / 25.4) * dpi)
+    widthPx: Math.max(64, Math.round((widthMm / 25.4) * dpi)),
+    heightPx: Math.max(64, Math.round((heightMm / 25.4) * dpi))
+  };
+}
+
+export type PrintMapSlotLayout = 'fullPage' | 'withProfileChart';
+
+/** Taille physique de la zone carte sur la feuille PDF (mm). */
+export function mapSlotSizeMmOnPage(params: {
+  pageOrientation: PrintPageOrientation;
+  includeHeader: boolean;
+  layout: PrintMapSlotLayout;
+  profileChartHeightPercent?: number;
+}): { widthMm: number; heightMm: number } {
+  const { widthMm: fullW, heightMm: fullH } = printableMapSizeMm(
+    params.pageOrientation,
+    params.includeHeader
+  );
+  if (params.layout === 'fullPage') {
+    return { widthMm: fullW, heightMm: fullH };
+  }
+  const chartFrac =
+    clampProfileChartHeightPercent(params.profileChartHeightPercent) / 100;
+  const gapMm = 1.5;
+  const mapH = fullH * (1 - chartFrac) - gapMm;
+  return { widthMm: fullW, heightMm: Math.max(24, mapH) };
+}
+
+/** Emprise au sol correspondant à la zone carte imprimée (échelle nominale). */
+export function groundSpanMetersForMapSlot(
+  widthMm: number,
+  heightMm: number,
+  scaleDenominator: number = PRINT_SCALE_DENOMINATOR
+): { widthM: number; heightM: number } {
+  return {
+    widthM: (widthMm / 1000) * scaleDenominator,
+    heightM: (heightMm / 1000) * scaleDenominator
   };
 }
 

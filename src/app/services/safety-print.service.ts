@@ -29,7 +29,10 @@ import {
 import { drawProfileSvgInBox } from '../utils/profile-chart-pdf-svg.util';
 import {
   clampProfileChartHeightPercent,
+  groundSpanMetersForMapSlot,
+  mapSlotSizeMmOnPage,
   pickScaleBarMeters,
+  PRINT_DPI,
   PRINT_MARGIN_MM,
   PRINT_HEADER_MM,
   PRINT_SCALE_DENOMINATOR,
@@ -212,7 +215,11 @@ export class SafetyPrintService {
             pageLabel
           });
           ctx.focusLegIndex = jobPage.focusLegIndex;
-          const png = await this.mapRenderer.renderPage(jobPage.pageSpec, ctx);
+          const png = await this.mapRenderer.renderPage(
+            jobPage.pageSpec,
+            ctx,
+            'fullPage'
+          );
           await pauseMs(80);
           advance({
             phase: 'layout',
@@ -317,7 +324,11 @@ export class SafetyPrintService {
               pageLabel: branchLabel
             });
             ctx.focusLegIndex = jobPage.legIndex;
-            mapPng = await this.mapRenderer.renderPage(jobPage.mapPageSpec, ctx);
+            mapPng = await this.mapRenderer.renderPage(
+              jobPage.mapPageSpec,
+              ctx,
+              'withProfileChart'
+            );
             await pauseMs(80);
             orientation = jobPage.mapPageSpec.orientation;
           }
@@ -431,18 +442,28 @@ export class SafetyPrintService {
     const mapTop = headerBottom - gap;
     const mapH = Math.max(0, mapTop - mapBottom);
 
+    const mapSlot = mapSlotSizeMmOnPage({
+      pageOrientation: params.orientation,
+      includeHeader: params.options.includeMetadata,
+      layout: 'fullPage'
+    });
+    const { widthM: scaleGroundW } = groundSpanMetersForMapSlot(
+      mapSlot.widthMm,
+      mapSlot.heightMm
+    );
+
     await this.drawPngInBox(page, params.mapPng, {
       x: margin,
       y: mapBottom,
       width: mapW,
       height: mapH,
-      fit: 'fill'
+      fit: 'printScale'
     });
 
     this.drawScaleBar(page, {
       x: margin + mapW - 80 * MM_TO_PT,
       y: mapBottom + 6 * MM_TO_PT,
-      groundWidthM: params.pageSpec.groundWidthM
+      groundWidthM: scaleGroundW
     });
   }
 
@@ -509,21 +530,30 @@ export class SafetyPrintService {
       });
     }
 
-    if (hasMap && params.mapPng) {
+    if (hasMap && params.mapPng && params.pageSpec) {
+      const mapSlot = mapSlotSizeMmOnPage({
+        pageOrientation: params.orientation,
+        includeHeader: params.options.includeMetadata,
+        layout: 'withProfileChart',
+        profileChartHeightPercent: params.options.profileChartHeightPercent
+      });
+      const { widthM: scaleGroundW } = groundSpanMetersForMapSlot(
+        mapSlot.widthMm,
+        mapSlot.heightMm
+      );
+
       await this.drawPngInBox(page, params.mapPng, {
         x: margin,
         y: mapY,
         width: innerW,
         height: mapH,
-        fit: 'fill'
+        fit: 'printScale'
       });
-      if (params.pageSpec) {
-        this.drawScaleBar(page, {
-          x: margin + innerW - 80 * MM_TO_PT,
-          y: mapY + 4 * MM_TO_PT,
-          groundWidthM: params.pageSpec.groundWidthM
-        });
-      }
+      this.drawScaleBar(page, {
+        x: margin + innerW - 80 * MM_TO_PT,
+        y: mapY + 4 * MM_TO_PT,
+        groundWidthM: scaleGroundW
+      });
     }
   }
 
@@ -590,7 +620,7 @@ export class SafetyPrintService {
       y: number;
       width: number;
       height: number;
-      fit: 'fill' | 'contain';
+      fit: 'fill' | 'contain' | 'printScale';
       background?: string;
     }
   ): Promise<void> {
@@ -598,7 +628,8 @@ export class SafetyPrintService {
     const img = await page.doc.embedPng(pngBytes);
     if (box.width <= 0 || box.height <= 0) return;
 
-    if (box.background) {
+    const bg = box.background ?? (box.fit === 'printScale' ? '#ffffff' : undefined);
+    if (bg) {
       page.drawRectangle({
         x: box.x,
         y: box.y,
@@ -615,6 +646,35 @@ export class SafetyPrintService {
         y: box.y,
         width: box.width,
         height: box.height
+      });
+      return;
+    }
+
+    if (box.fit === 'printScale') {
+      const ptPerPx = 72 / PRINT_DPI;
+      const drawW = img.width * ptPerPx;
+      const drawH = img.height * ptPerPx;
+      const tol = 1.5;
+      if (
+        Math.abs(drawW - box.width) <= tol &&
+        Math.abs(drawH - box.height) <= tol
+      ) {
+        page.drawImage(img, {
+          x: box.x,
+          y: box.y,
+          width: drawW,
+          height: drawH
+        });
+        return;
+      }
+      const scale = Math.min(box.width / drawW, box.height / drawH);
+      const scaledW = drawW * scale;
+      const scaledH = drawH * scale;
+      page.drawImage(img, {
+        x: box.x + (box.width - scaledW) / 2,
+        y: box.y + (box.height - scaledH) / 2,
+        width: scaledW,
+        height: scaledH
       });
       return;
     }
@@ -654,7 +714,8 @@ export class SafetyPrintService {
               'Espace aérien 2D : POAFF (non certifié pour navigation)'
             )
           ]
-        : [])
+        : []),
+      sanitizePdfText(this.i18n.t('safetyProfile.print.scaleNote'))
     ];
 
     page.drawRectangle({

@@ -229,6 +229,39 @@ function terrainDemSourceSpec(): {
   };
 }
 
+/** Fond plat pour impression (pas de DEM / terrain 3D). */
+export function buildPrintBaseMapStyle(
+  basemapId: BasemapId = DEFAULT_BASEMAP_ID
+): StyleSpecification {
+  const preset = getBasemapPreset(basemapId);
+  const sources: StyleSpecification['sources'] = {
+    [MAP_SOURCE.BASE_IMAGERY]: rasterSourceSpec(preset.imagery)
+  };
+  const layers: StyleSpecification['layers'] = [
+    {
+      id: MAP_LAYER.BASE_IMAGERY,
+      type: 'raster',
+      source: MAP_SOURCE.BASE_IMAGERY
+    }
+  ];
+
+  if (preset.labels) {
+    sources[MAP_SOURCE.BASE_LABELS] = rasterSourceSpec(preset.labels);
+    layers.push({
+      id: MAP_LAYER.BASE_LABELS,
+      type: 'raster',
+      source: MAP_SOURCE.BASE_LABELS,
+      paint: { 'raster-opacity': preset.labels.opacity ?? 0.85 }
+    });
+  }
+
+  return {
+    version: 8,
+    sources,
+    layers
+  };
+}
+
 export function buildBaseMapStyle(
   basemapId: BasemapId = DEFAULT_BASEMAP_ID
 ): StyleSpecification {

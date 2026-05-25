@@ -1,9 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Map as MaplibreMap, type GeoJSONSource, type StyleSpecification } from 'maplibre-gl';
 import {
-  applyBasemapToMap,
-  buildBaseMapStyle,
-  MAP_SOURCE,
+  buildPrintBaseMapStyle,
   type BasemapId
 } from '../components/map-view/map-style.constants';
 import { configureMapFreeCamera } from '../utils/map-free-camera.util';
@@ -29,11 +27,14 @@ import {
   buildSafetyMinAltitudePath
 } from '../utils/safety-profile-map-render.util';
 import {
-  mapViewportPixelSize,
+  mapSlotSizeMmOnPage,
+  mapViewportPixelSizeFromMm,
+  type PrintMapSlotLayout,
   type PrintPageSpec
 } from '../utils/print-scale.util';
 import { projectMap3dLabelsToScreen, type Map3dLabelSpec } from '../utils/map-3d-labels.util';
 import { AirspaceMapDisplayService } from './airspace-map-display.service';
+
 export interface PrintMapRenderContext {
   options: SafetyPrintOptions;
   legRenders: SafetyLegRender[];
@@ -71,7 +72,7 @@ export class SafetyPrintMapRendererService {
     }
 
     if (!this.map) {
-      const style = buildBaseMapStyle(basemapId) as StyleSpecification;
+      const style = buildPrintBaseMapStyle(basemapId) as StyleSpecification;
       this.map = new MaplibreMap({
         container: this.container,
         style,
@@ -81,13 +82,12 @@ export class SafetyPrintMapRendererService {
         pitch: 0,
         interactive: false,
         fadeDuration: 0,
-        attributionControl: false
+        attributionControl: false,
+        pixelRatio: 1
       });
       await this.waitForLoad(this.map);
       configureMapFreeCamera(this.map);
-      if (!this.map.getTerrain()) {
-        this.map.setTerrain({ source: MAP_SOURCE.TERRAIN_DEM, exaggeration: 1 });
-      }
+      this.map.setTerrain(null);
       this.layers = installSafetyProfileMapLayers(this.map);
       this.basemapId = basemapId;
     }
@@ -115,17 +115,34 @@ export class SafetyPrintMapRendererService {
 
   async renderPage(
     page: PrintPageSpec,
-    ctx: PrintMapRenderContext
+    ctx: PrintMapRenderContext,
+    slotLayout: PrintMapSlotLayout = 'fullPage'
   ): Promise<string> {
     const map = await this.ensureMap(ctx.options.basemapId);
-    const { widthPx, heightPx } = mapViewportPixelSize(
-      page.orientation,
-      ctx.options.includeMetadata
+    const slotMm =
+      slotLayout === 'fullPage'
+        ? mapSlotSizeMmOnPage({
+            pageOrientation: page.orientation,
+            includeHeader: ctx.options.includeMetadata,
+            layout: 'fullPage'
+          })
+        : mapSlotSizeMmOnPage({
+            pageOrientation: page.orientation,
+            includeHeader: ctx.options.includeMetadata,
+            layout: 'withProfileChart',
+            profileChartHeightPercent: ctx.options.profileChartHeightPercent
+          });
+    const { widthPx, heightPx } = mapViewportPixelSizeFromMm(
+      slotMm.widthMm,
+      slotMm.heightMm
     );
     this.container!.style.width = `${widthPx}px`;
     this.container!.style.height = `${heightPx}px`;
     map.resize();
 
+    map.setTerrain(null);
+    map.setPitch(0);
+    map.setBearing(0);
     map.jumpTo({
       center: page.center,
       zoom: page.zoom,

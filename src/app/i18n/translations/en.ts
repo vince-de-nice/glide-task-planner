@@ -978,6 +978,8 @@ export const en = {
       previewFrameTitle: 'Generated PDF preview',
       generatePreview: 'Generate preview',
       scaleHint: 'Fixed scale 1:250,000 — north up — A4',
+      scaleNote:
+        'Nominal scale 1:250,000 at sheet center (Web Mercator projection).',
       layoutMode: 'Layout',
       modeFullCircuit: 'Full circuit (map only)',
       modePerBranch: 'One page per leg',

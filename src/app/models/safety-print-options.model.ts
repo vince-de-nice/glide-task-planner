@@ -36,7 +36,8 @@ export const SAFETY_PRINT_OPTIONS_STORAGE_KEY = 'gc-safety-print-options';
 
 export const DEFAULT_SAFETY_PRINT_OPTIONS: SafetyPrintOptions = {
   layoutMode: 'fullCircuit',
-  basemapId: 'esri-satellite',
+  /** Fond topo sobre (pas de satellite / relief DEM à l’impression). */
+  basemapId: 'carto-light',
   coneVolumes3d: false,
   coneDistanceRings: true,
   safetyMinAltitudeRibbon: true,

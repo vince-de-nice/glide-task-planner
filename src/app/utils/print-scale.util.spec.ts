@@ -2,9 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   buildPrintPageLayout,
   clampProfileChartHeightPercent,
+  groundSpanMetersForMapSlot,
   groundSpanMetersPerPage,
+  mapSlotSizeMmOnPage,
+  mapViewportPixelSizeFromMm,
   orientationForBounds,
   pickScaleBarMeters,
+  PRINT_DPI,
   PRINT_SCALE_DENOMINATOR,
   profileChartExportPixelSize,
   zoomForFixedScale
@@ -58,6 +62,30 @@ describe('print-scale.util', () => {
   it('ground span matches scale on A4 landscape', () => {
     const { widthM } = groundSpanMetersPerPage('landscape', 45, true);
     expect(widthM).toBeCloseTo(((297 - 16) / 1000) * PRINT_SCALE_DENOMINATOR, -2);
+  });
+
+  it('map slot shrinks when profile chart shares the page', () => {
+    const full = mapSlotSizeMmOnPage({
+      pageOrientation: 'portrait',
+      includeHeader: true,
+      layout: 'fullPage'
+    });
+    const split = mapSlotSizeMmOnPage({
+      pageOrientation: 'portrait',
+      includeHeader: true,
+      layout: 'withProfileChart',
+      profileChartHeightPercent: 30
+    });
+    expect(split.heightMm).toBeLessThan(full.heightMm);
+    expect(split.widthMm).toBe(full.widthMm);
+  });
+
+  it('viewport pixels match slot mm at print dpi', () => {
+    const slot = { widthMm: 194, heightMm: 120 };
+    const px = mapViewportPixelSizeFromMm(slot.widthMm, slot.heightMm, PRINT_DPI);
+    expect(px.widthPx).toBe(Math.round((194 / 25.4) * PRINT_DPI));
+    const { widthM } = groundSpanMetersForMapSlot(slot.widthMm, slot.heightMm);
+    expect(widthM).toBeCloseTo((194 / 1000) * PRINT_SCALE_DENOMINATOR, 0);
   });
 
   it('picks a round scale bar length', () => {
