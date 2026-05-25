@@ -74,13 +74,18 @@
       </label>
     </div>
     <label class="wp-edit-dialog__field">
-      <span class="gc-label">{{ 'waypoints.elevation' | translate }}</span>
+      <span class="gc-label">
+        {{ 'waypoints.elevation' | translate }}
+        @if (showTerrainElevationHint()) {
+          <span class="wp-edit-dialog__elev-hint">{{ elevationFromTerrain() }}</span>
+        }
+      </span>
       <input
         pInputText
         fluid
         type="number"
         [ngModel]="form().elevation ?? ''"
-        (ngModelChange)="patchForm({ elevation: $event === '' ? undefined : +$event })"
+        (ngModelChange)="onElevationChange($event)"
         name="elevation"
       />
     </label>

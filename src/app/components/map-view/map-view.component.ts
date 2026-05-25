@@ -69,6 +69,10 @@ const SHOW_FULL_CATALOG_KEY = 'gc-map-show-full-catalog';
 import type { StyleSpecification } from 'maplibre-gl';
 import { formatElevationDisplay } from '../../utils/elevation.util';
 import {
+  lookupTerrainElevationM,
+  queryTerrainElevationM
+} from '../../utils/map-terrain-elevation.util';
+import {
   applyBasemapToMap,
   BASEMAP_PRESETS,
   buildBaseMapStyle,
@@ -580,17 +584,27 @@ export class MapViewComponent implements OnInit {
     });
   }
 
+  /** Remplissage altitude terrain dans le dialogue waypoint (point personnalisé). */
+  readonly lookupTerrainElevationForDialog = (
+    lat: number,
+    lng: number,
+    onResult: (elevationM: number | undefined) => void
+  ): (() => void) => lookupTerrainElevationM(this.map, lng, lat, onResult);
+
   onMapDblClick(event: MapMouseEvent): void {
     event.preventDefault();
     const { lng, lat } = event.lngLat;
     this.closeContextMenu();
     this.pendingCreateCoords = { lat, lng };
+    const elevation =
+      this.cursorTerrainElevM() ?? queryTerrainElevationM(this.map, lng, lat);
     this.editingWaypoint.set({
       id: '',
       name: '',
       latitude: lat,
       longitude: lng,
-      type: 'custom'
+      type: 'custom',
+      elevation
     });
     this.editIsCreate.set(true);
     this.editDialogOpen.set(true);

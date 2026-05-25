@@ -677,7 +677,8 @@ export const fr = {
   },
   waypointEdit: {
     createTitle: 'Nouveau point',
-    editTitle: 'Modifier le point'
+    editTitle: 'Modifier le point',
+    elevationTerrainHint: '(terrain)'
   },
   waypointsExtra: {
     emptyPage: 'Aucun waypoint sur cette page.',

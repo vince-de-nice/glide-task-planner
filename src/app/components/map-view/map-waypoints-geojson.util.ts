@@ -38,8 +38,17 @@ export function formatMapRoleSuffix(labels: string[]): string {
   return `(${parts.join(', ')})`;
 }
 
-function buildLabel(name: string, suffix: string | null): string {
-  return suffix ? `${name} ${suffix}` : name;
+function buildLabel(
+  name: string,
+  suffix: string | null,
+  elevationM?: number
+): string {
+  const parts = [name];
+  if (suffix) parts.push(suffix);
+  if (elevationM != null && Number.isFinite(elevationM)) {
+    parts.push(`${Math.round(elevationM)} m`);
+  }
+  return parts.join(' ');
 }
 
 export function buildWaypointFeature(
@@ -61,7 +70,11 @@ export function buildWaypointFeature(
       type: wp.type,
       color: waypointTypeColor(wp.type),
       suffix: suffixStr,
-      label: buildLabel(wp.name, suffix),
+      label: buildLabel(
+        wp.name,
+        suffix,
+        wp.type === 'custom' ? wp.elevation : undefined
+      ),
       badge: input.getBadge(wp),
       inCircuit: input.isInCircuit(wp),
       inTask: input.isInTask(wp) ? 1 : 0,

@@ -727,7 +727,8 @@ export const en = {
   },
   waypointEdit: {
     createTitle: 'New waypoint',
-    editTitle: 'Edit waypoint'
+    editTitle: 'Edit waypoint',
+    elevationTerrainHint: '(terrain)'
   },
   waypointsExtra: {
     emptyPage: 'No waypoints on this page.',

@@ -251,6 +251,7 @@
   [open]="editDialogOpen()"
   [waypoint]="editingWaypoint()"
   [isCreate]="editIsCreate()"
+  [lookupTerrainElevationM]="lookupTerrainElevationForDialog"
   (save)="onEditDialogSave($event)"
   (dismissed)="onEditDialogCancel()"
 />
